@@ -67,6 +67,8 @@ class ImuDriver:
     def read_data(self) -> dict:
         data = {}
         # acceleration
+
+        ## TODO: This needs to publish linear acceleration and angular velocity
         self.accel_x, self.accel_y, self.accel_z = self.bno.linear_acceleration  # pylint:disable=no-member
         data["acceleration"] = utils.make_xyz_dict(self.accel_x, self.accel_y, self.accel_z)
 

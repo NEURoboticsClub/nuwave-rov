@@ -47,6 +47,18 @@ class IMUPublisher(Node):
         quaternion = values['game_quaternion']
         imu_msg = Imu()
         # TODO: Write stuff to IMU message
+        # imu_msg.angular_velocity.x = velocity['vel_x']
+        # imu_msg.angular_velocity.y = velocity['vel_y']
+        # imu_msg.angular_velocity.z = velocity['vel_z']
+
+        imu_msg.linear_acceleration.x = acceleration['accel_x']
+        imu_msg.linear_acceleration.y = acceleration['accel_y']
+        imu_msg.linear_acceleration.z = acceleration['accel_z']
+
+        imu_msg.orientation.x = quaternion['i']
+        imu_msg.orientation.y = quaternion['j']
+        imu_msg.orientation.z = quaternion['k']
+        imu_msg.orientation.w = quaternion['real']
 
         self.publisher_.publish(imu_msg)
 
