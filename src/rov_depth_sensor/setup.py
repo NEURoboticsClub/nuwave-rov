@@ -21,6 +21,7 @@ setup(
     entry_points={
         'console_scripts': [
             'depth_sensor_node = rov_depth_sensor.depth_sensor:main',
+            'ms5837 = rov_depth_senspr.ms5937:main'
         ],
     },
 )
