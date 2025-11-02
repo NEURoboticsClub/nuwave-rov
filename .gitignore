@@ -4,3 +4,12 @@ __pycache__/
 venvs/
 venv/
 .venv/
+
+**/build/
+**/devel/
+**/install/
+**/log/
+**/include/
+
+*.py[cod]
+*$py.class

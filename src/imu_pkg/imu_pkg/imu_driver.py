@@ -24,7 +24,7 @@ class ImuDriver:
     def __init__(self,addr,control_loop_freq):
         self.addr = addr
         self.control_loop_freq = control_loop_freq
-        self.init_IMU()    
+        self.init_IMU()
 
         # velocities
         self.vel_x = 0
@@ -53,7 +53,6 @@ class ImuDriver:
         #     raise RuntimeError("Could not initialize IMU")
 
 
-
     """
     Reads data from the IMU sensor and returns as a dictionary.
 
@@ -62,7 +61,7 @@ class ImuDriver:
             (accelerometer, gyroscope, magnetometer, or quaternion)
 
     TODO: Make it return linear acceleration and angular vel
-          Like this: https://docs.ros2.org/foxy/api/sensor_msgs/msg/Imu.html    
+          Like this: https://docs.ros2.org/foxy/api/sensor_msgs/msg/Imu.html
     """
     def read_data(self) -> dict:
         data = {}
@@ -70,17 +69,17 @@ class ImuDriver:
 
         ## TODO: This needs to publish linear acceleration and angular velocity
         self.accel_x, self.accel_y, self.accel_z = self.bno.linear_acceleration  # pylint:disable=no-member
-        data["acceleration"] = {'accel_x':self.accel_x, 'accel_y':self.accel_y, 'accel_z':self.accel_z}
+        data["linear_acceleration"] = {'accel_x':self.accel_x, 'accel_y':self.accel_y, 'accel_z':self.accel_z}
 
         # velocity
         self.vel_x = self.vel_x + self.accel_x / self.control_loop_freq
         self.vel_y = self.vel_y + self.accel_y / self.control_loop_freq
         self.vel_z = self.vel_z + self.accel_z / self.control_loop_freq
-        data["velocity"] = {'vel_x':self.vel_x, 'vel_y':self.vel_y, 'vel_z':self.vel_z}
+        data["linear_velocity"] = {'vel_x':self.vel_x, 'vel_y':self.vel_y, 'vel_z':self.vel_z}
 
-        # gyro
-        # gyro_x, gyro_y, gyro_z = bno.gyro  # pylint:disable=no-member
-        # data["gyroscope"] = utils.make_xyz_dict(gyro_x, gyro_y, gyro_z)
+        # gyroscope
+        self.gyro_x, self.gyro_y, self.gyro_z = self.bno.gyro  # pylint:disable=no-member
+        data["angular_velocity"] = {'gyro_x': self.gyro_x, 'gyro_y': self.gyro_y, 'gyro_z': self.gyro_z}
 
         # magnetometer
         mag_x, mag_y, mag_z = self.bno.magnetic  # pylint:disable=no-member
