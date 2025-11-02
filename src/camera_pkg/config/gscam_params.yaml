@@ -1,0 +1,6 @@
+gscam_publisher:
+  ros__parameters:
+    gscam_config: "v4l2src device=/dev/video0 ! video/x-raw,framerate=30/1,width=640,height=480 ! videoconvert"
+    camera_name: "usb_cam"
+    frame_id: "camera_link"
+    use_gst_timestamps: true
