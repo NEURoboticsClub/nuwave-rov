@@ -1,6 +1,6 @@
 from setuptools import find_packages, setup
 
-package_name = 'depth_sensor'
+package_name = 'rov_depth_sensor'
 
 setup(
     name=package_name,
@@ -13,13 +13,14 @@ setup(
     ],
     install_requires=['setuptools'],
     zip_safe=True,
-    maintainer='Mallika',
-    maintainer_email='sirdeshpande.m@northeastern.edu',
-    description='Package to publish messages from depth sensor',
-    license='Apache-2.0',
+    maintainer='xingyue',
+    maintainer_email='yun.xi@northeastern.edu',
+    description='TODO: Package description',
+    license='TODO: License declaration',
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
+            'depth_sensor_node = rov_depth_sensor.depth_sensor:main',
         ],
     },
 )
