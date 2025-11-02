@@ -18,13 +18,13 @@ from adafruit_bno08x import (
 from adafruit_bno08x.i2c import BNO08X_I2C
 # from adafruit_bno08x.uart import BNO08X_UART
 
-from common import utils
+# from common import utils
 
 class ImuDriver:
     def __init__(self,addr,control_loop_freq):
         self.addr = addr
         self.control_loop_freq = control_loop_freq
-        self.init_IMU(self)    
+        self.init_IMU()    
 
         # velocities
         self.vel_x = 0
@@ -37,20 +37,20 @@ class ImuDriver:
         self.acc_z = 0
 
     def init_IMU(self):
-        try:
-            i2c = I2C(self.addr) # The argument here was 8, if it doesnt work
-            bno = BNO08X_I2C(i2c)
+        # try:
+            self.i2c = I2C(self.addr) # The argument here was 8, if it doesnt work
+            self.bno = BNO08X_I2C(self.i2c)
 
             # uart = busio.UART(board.TX, board.RX, baudrate=3000000, receiver_buffer_size=2048)
             # uart = serial.Serial("/dev/serial0", 115200)
             # bno = BNO08X_UART(uart)
 
-            bno.enable_feature(BNO_REPORT_LINEAR_ACCELERATION)
-            bno.enable_feature(BNO_REPORT_GYROSCOPE)
-            bno.enable_feature(BNO_REPORT_MAGNETOMETER)
-            bno.enable_feature(BNO_REPORT_GAME_ROTATION_VECTOR)
-        except Exception as e:
-            raise RuntimeError("Could not initialize IMU")
+            self.bno.enable_feature(BNO_REPORT_LINEAR_ACCELERATION)
+            self.bno.enable_feature(BNO_REPORT_GYROSCOPE)
+            self.bno.enable_feature(BNO_REPORT_MAGNETOMETER)
+            self.bno.enable_feature(BNO_REPORT_GAME_ROTATION_VECTOR)
+        # except Exception as e:
+        #     raise RuntimeError("Could not initialize IMU")
 
 
 
@@ -70,13 +70,13 @@ class ImuDriver:
 
         ## TODO: This needs to publish linear acceleration and angular velocity
         self.accel_x, self.accel_y, self.accel_z = self.bno.linear_acceleration  # pylint:disable=no-member
-        data["acceleration"] = utils.make_xyz_dict(self.accel_x, self.accel_y, self.accel_z)
+        data["acceleration"] = {'accel_x':self.accel_x, 'accel_y':self.accel_y, 'accel_z':self.accel_z}
 
         # velocity
         self.vel_x = self.vel_x + self.accel_x / self.control_loop_freq
         self.vel_y = self.vel_y + self.accel_y / self.control_loop_freq
         self.vel_z = self.vel_z + self.accel_z / self.control_loop_freq
-        data["velocity"] = utils.make_xyz_dict(self.vel_x, self.vel_y, self.vel_z)
+        data["velocity"] = {'vel_x':self.vel_x, 'vel_y':self.vel_y, 'vel_z':self.vel_z}
 
         # gyro
         # gyro_x, gyro_y, gyro_z = bno.gyro  # pylint:disable=no-member
@@ -84,7 +84,7 @@ class ImuDriver:
 
         # magnetometer
         mag_x, mag_y, mag_z = self.bno.magnetic  # pylint:disable=no-member
-        self.magnetometer = utils.make_xyz_dict(mag_x, mag_y, mag_z)
+        self.magnetometer = {'mag_x':mag_x, 'mag_y':mag_y, 'mag_z':mag_z}
         data["magnetometer"] = self.magnetometer
 
         # quaternion
@@ -97,3 +97,7 @@ class ImuDriver:
         data["game_quaternion"] = self.quaternion
 
         return data
+
+if __name__ == '__main__':
+    imu = ImuDriver(7,10)
+    print(imu.read_data())

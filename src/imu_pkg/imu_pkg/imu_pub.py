@@ -12,14 +12,14 @@ import rclpy
 from rclpy.node import Node
 from builtin_interfaces.msg import Time
 from sensor_msgs.msg import Imu
-from imu_driver import ImuDriver
+from imu_pkg.imu_driver import ImuDriver
 
 class IMUPublisher(Node):
     def __init__(self):
         super().__init__('ImuPublisher')
 
         # TODO: Parameters to interface IMU
-        addr = self.declare_parameter('addr', 8,).value
+        addr = self.declare_parameter('addr', 7).value
         loop_freq = self.declare_parameter('control_loop_freq',4800).value
         
         # Setup
@@ -27,8 +27,8 @@ class IMUPublisher(Node):
             self.imu = ImuDriver(addr,loop_freq)
         except:
             self.get_logger().error('Failed to initialize IMU')
-        finally:
-            self.get_logger().info(f"IMU initialized")
+        
+        self.get_logger().info(f"IMU initialized")
         
         self.publisher_ = self.create_publisher(Imu,'imu',10)
 
@@ -46,6 +46,7 @@ class IMUPublisher(Node):
         magnetometer = values['magnetometer']
         quaternion = values['game_quaternion']
         imu_msg = Imu()
+        imu_msg.header.frame_id = 'IMU_Frame'
         # TODO: Write stuff to IMU message
         # imu_msg.angular_velocity.x = velocity['vel_x']
         # imu_msg.angular_velocity.y = velocity['vel_y']
