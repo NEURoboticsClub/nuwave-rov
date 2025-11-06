@@ -1,0 +1,25 @@
+[0.481s] Invoking command in '/home/xingyue/nuwave-rov/src/rov_depth_sensor': DEBUGINFOD_URLS=https://debuginfod.ubuntu.com PYTHONPATH=/home/xingyue/nuwave-rov/src/build/rov_depth_sensor/prefix_override:/usr/lib/python3/dist-packages/colcon_core/task/python/colcon_distutils_commands:/home/xingyue/nuwave-rov/src/install/rov_depth_sensor/lib/python3.12/site-packages:${PYTHONPATH} /usr/bin/python3 -W ignore:setup.py install is deprecated -W ignore:easy_install command is deprecated setup.py egg_info --egg-base ../build/rov_depth_sensor build --build-base /home/xingyue/nuwave-rov/src/build/rov_depth_sensor/build install --record /home/xingyue/nuwave-rov/src/build/rov_depth_sensor/install.log --single-version-externally-managed install_data
+[0.630s] running egg_info
+[0.640s] writing ../build/rov_depth_sensor/rov_depth_sensor.egg-info/PKG-INFO
+[0.640s] writing dependency_links to ../build/rov_depth_sensor/rov_depth_sensor.egg-info/dependency_links.txt
+[0.640s] writing entry points to ../build/rov_depth_sensor/rov_depth_sensor.egg-info/entry_points.txt
+[0.641s] writing requirements to ../build/rov_depth_sensor/rov_depth_sensor.egg-info/requires.txt
+[0.641s] writing top-level names to ../build/rov_depth_sensor/rov_depth_sensor.egg-info/top_level.txt
+[0.662s] reading manifest file '../build/rov_depth_sensor/rov_depth_sensor.egg-info/SOURCES.txt'
+[0.662s] writing manifest file '../build/rov_depth_sensor/rov_depth_sensor.egg-info/SOURCES.txt'
+[0.662s] running build
+[0.662s] running build_py
+[0.663s] copying rov_depth_sensor/mock_ms5837.py -> /home/xingyue/nuwave-rov/src/build/rov_depth_sensor/build/lib/rov_depth_sensor
+[0.663s] running install
+[0.666s] running install_lib
+[0.677s] copying /home/xingyue/nuwave-rov/src/build/rov_depth_sensor/build/lib/rov_depth_sensor/mock_ms5837.py -> /home/xingyue/nuwave-rov/src/install/rov_depth_sensor/lib/python3.12/site-packages/rov_depth_sensor
+[0.677s] byte-compiling /home/xingyue/nuwave-rov/src/install/rov_depth_sensor/lib/python3.12/site-packages/rov_depth_sensor/mock_ms5837.py to mock_ms5837.cpython-312.pyc
+[0.677s] running install_data
+[0.677s] running install_egg_info
+[0.688s] removing '/home/xingyue/nuwave-rov/src/install/rov_depth_sensor/lib/python3.12/site-packages/rov_depth_sensor-0.0.0-py3.12.egg-info' (and everything under it)
+[0.689s] Copying ../build/rov_depth_sensor/rov_depth_sensor.egg-info to /home/xingyue/nuwave-rov/src/install/rov_depth_sensor/lib/python3.12/site-packages/rov_depth_sensor-0.0.0-py3.12.egg-info
+[0.689s] running install_scripts
+[0.762s] Installing depth_sensor_node script to /home/xingyue/nuwave-rov/src/install/rov_depth_sensor/lib/rov_depth_sensor
+[0.762s] Installing ms5837 script to /home/xingyue/nuwave-rov/src/install/rov_depth_sensor/lib/rov_depth_sensor
+[0.762s] writing list of installed files to '/home/xingyue/nuwave-rov/src/build/rov_depth_sensor/install.log'
+[0.778s] Invoked command in '/home/xingyue/nuwave-rov/src/rov_depth_sensor' returned '0': DEBUGINFOD_URLS=https://debuginfod.ubuntu.com PYTHONPATH=/home/xingyue/nuwave-rov/src/build/rov_depth_sensor/prefix_override:/usr/lib/python3/dist-packages/colcon_core/task/python/colcon_distutils_commands:/home/xingyue/nuwave-rov/src/install/rov_depth_sensor/lib/python3.12/site-packages:${PYTHONPATH} /usr/bin/python3 -W ignore:setup.py install is deprecated -W ignore:easy_install command is deprecated setup.py egg_info --egg-base ../build/rov_depth_sensor build --build-base /home/xingyue/nuwave-rov/src/build/rov_depth_sensor/build install --record /home/xingyue/nuwave-rov/src/build/rov_depth_sensor/install.log --single-version-externally-managed install_data

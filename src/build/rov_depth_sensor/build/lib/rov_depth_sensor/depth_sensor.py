@@ -4,7 +4,7 @@ from rclpy.node import Node
 from sensor_msgs.msg import FluidPressure, Temperature
 from std_msgs.msg import Float32, Float32MultiArray
 import time
-from . ms5837  
+from . import mock_ms5837 as ms5837  # Force mock
 
 
 class DepthSensorNode(Node):
@@ -102,7 +102,7 @@ class DepthSensorNode(Node):
             pressure_msg = FluidPressure()
             pressure_msg.header.stamp = self.get_clock().now().to_msg()
             pressure_msg.header.frame_id = 'depth_sensor'
-            pressure_msg.fluid_pressure = float(self.sensor.pressure() * 100.0)  # mbar to Pa
+            pressure_msg.fluid_pressure = self.sensor.pressure() * 100.0  # mbar to Pa
             pressure_msg.variance = 0.0
             self.pressure_pub.publish(pressure_msg)
             
