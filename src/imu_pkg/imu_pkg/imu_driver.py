@@ -26,12 +26,12 @@ class ImuDriver:
         self.control_loop_freq = control_loop_freq
         self.init_IMU()
 
-        # velocities
+        # initial velocities
         self.vel_x = 0
         self.vel_y = 0
         self.vel_z = 0
 
-        # accelerations
+        # initial accelerations
         self.acc_x = 0
         self.acc_y = 0
         self.acc_z = 0
@@ -53,17 +53,15 @@ class ImuDriver:
         #     raise RuntimeError("Could not initialize IMU")
 
 
-    """
-    Reads data from the IMU sensor and returns as a dictionary.
-
-    Returns:
-        dict: a dictionary of dictionaries, each one containing a set of data from the IMU
-            (accelerometer, gyroscope, magnetometer, or quaternion)
-
-    TODO: Make it return linear acceleration and angular vel
-          Like this: https://docs.ros2.org/foxy/api/sensor_msgs/msg/Imu.html
-    """
     def read_data(self) -> dict:
+        """
+        Reads data from the IMU sensor and returns as a dictionary.
+
+        Returns:
+            dict: a dictionary of dictionaries, each one containing a set of data from the IMU
+                (accelerometer, gyroscope, magnetometer, or quaternion)
+
+        """
         data = {}
         # acceleration
 

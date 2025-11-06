@@ -19,13 +19,13 @@ class IMUPublisher(Node):
     def __init__(self):
         super().__init__('ImuPublisher')
 
-        # TODO: Parameters to interface IMU
-        addr = self.declare_parameter('addr', 7).value
-        loop_freq = self.declare_parameter('control_loop_freq',4800).value
+        # Declare parameter to ros so we can use it as argument 
+        addr = self.declare_parameter('addr', 7).value # change this when change i2c pin (pin 3,4 -> 7, pin 27,28 -> 1)
+        sampling_rate = self.declare_parameter('sampling_rate',4800).value # why sampling rate 4800 lol, this is not baudrate
 
         # Setup
         try:
-            self.imu = ImuDriver(addr,loop_freq)
+            self.imu = ImuDriver(addr,sampling_rate)
         except:
             self.get_logger().error('Failed to initialize IMU')
 
@@ -33,7 +33,7 @@ class IMUPublisher(Node):
 
         self.publisher_ = self.create_publisher(Imu,'imu',10)
 
-        timer_period = 1/loop_freq
+        timer_period = 1/sampling_rate
         self.timer = self.create_timer(timer_period,self.timer_callback)
 
     def timer_callback(self):
