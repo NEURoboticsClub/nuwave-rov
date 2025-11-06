@@ -1,41 +1,57 @@
-FROM ubuntu:24.04
+FROM ubuntu:22.04
 
-RUN apt update && apt install locales
-RUN locale-gen en_US en_US.UTF-8
-RUN update-locale LC_ALL=en_US.UTF-8 LANG=en_US.UTF-8
-RUN export LANG=en_US.UTF-8
+ENV DEBIAN_FRONTEND=noninteractive
+SHELL ["/bin/bash", "-lc"]
 
-# Install Git
-RUN apt-get update && apt-get install git -y
+# Basics and locales
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    locales curl gnupg2 lsb-release ca-certificates \
+    software-properties-common build-essential git \
+    python3-pip python3-venv \
+ && locale-gen en_US en_US.UTF-8 \
+ && update-locale LC_ALL=en_US.UTF-8 LANG=en_US.UTF-8 \
+ && rm -rf /var/lib/apt/lists/*
 
-# ensure that the Ubuntu Universe repository is enabled
-RUN apt install -y software-properties-common
-RUN add-apt-repository universe
+ENV LANG=en_US.UTF-8
+ENV LC_ALL=en_US.UTF-8
 
-RUN apt update && apt install -y curl
+# ROS 2 apt repo 
+RUN apt-get update && apt-get install -y --no-install-recommends curl gnupg2 lsb-release \
+ && curl -sSL https://raw.githubusercontent.com/ros/rosdistro/master/ros.key \
+    -o /usr/share/keyrings/ros-archive-keyring.gpg \
+ && echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/ros-archive-keyring.gpg] \
+    http://packages.ros.org/ros2/ubuntu $(. /etc/os-release && echo $UBUNTU_CODENAME) main" \
+    | tee /etc/apt/sources.list.d/ros2.list > /dev/null
 
-# The ros-apt-source packages provide keys and apt source configuration for the various ROS repositories
-RUN export ROS_APT_SOURCE_VERSION=$(curl -s https://api.github.com/repos/ros-infrastructure/ros-apt-source/releases/latest | grep -F "tag_name" | awk -F\" '{print $4}') && \
-    curl -L -o /tmp/ros2-apt-source.deb "https://github.com/ros-infrastructure/ros-apt-source/releases/download/${ROS_APT_SOURCE_VERSION}/ros2-apt-source_${ROS_APT_SOURCE_VERSION}.$(. /etc/os-release && echo $VERSION_CODENAME)_all.deb" && \
-    dpkg -i /tmp/ros2-apt-source.deb
+# Install ROS 2 Humble 
+ARG ROS_META=ros-humble-desktop
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ${ROS_META} \
+    python3-colcon-common-extensions \
+    python3-rosdep \
+    python3-vcstool \
+ && rm -rf /var/lib/apt/lists/*
 
-# Install ROS2
-RUN apt update
-RUN apt upgrade -y
-RUN apt install -y ros-jazzy-desktop
+# Initialize rosdep 
+RUN rosdep init && rosdep update
+
 WORKDIR /workspace
 
-# The worskpace to the docker container
+# Copy the workspace to the docker container
 COPY . /workspace
+
+# --- ADD THIS BLOCK ---
+# Provide the entrypoint script
+COPY ros_entrypoint.sh /ros_entrypoint.sh
+RUN sed -i 's/\r$//' /ros_entrypoint.sh && chmod +x /ros_entrypoint.sh
+# --- END BLOCK ---
 
 # Install deps
 RUN apt-get update && \
     rosdep update && \
     rosdep install --from-paths /workspace --ignore-src -y --skip-keys=ament_python && \
-    apt-get install -y --no-install-recommends ros-jazzy-rosbridge-server && \
+    apt-get install -y --no-install-recommends ros-humble-rosbridge-server && \
     rm -rf /var/lib/apt/lists/*
-
-RUN sed -i 's/\r$//' /ros_entrypoint.sh && chmod +x /ros_entrypoint.sh
 
 ENTRYPOINT ["/ros_entrypoint.sh"]
 CMD ["bash"]
