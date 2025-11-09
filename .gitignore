@@ -7,5 +7,17 @@
 
 # Ignore pycache
 __pycache__/
+.idea/
+.vscode/
+venvs/
+venv/
+.venv/
+
+**/build/
+**/devel/
+**/install/
+**/log/
+**/include/
+
 *.py[cod]
 *$py.class
