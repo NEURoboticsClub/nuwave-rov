@@ -17,10 +17,10 @@ setup(
     maintainer_email='charlotteolivia930@gmail.com',
     description='ExploreHD cameras',
     license='TODO: License declaration',
-    tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-            'gscam_launch = gscam_launch:generate_launch_description',
+            'camera_publisher = camera_pkg.openCVStreaming:main',
+            'camera_subscriber = camera_pkg.testCVStreaming:main',
         ],
     },
 )
