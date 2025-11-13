@@ -72,21 +72,55 @@ class ThrusterController(Node):
         return axis_values
 
     def compute_thruster_allocation_matrix(self):
-        pass
-        # TODO
+        """
+        Builds the transformation matrix A that maps thruster outputs -> vehicle forces:
+        [surge, sway, heave, yaw]^T = A @ [T1..T8]^T
+        """
+        thrusters = self.thruster_map.get("thrusters", [])
+        A = np.zeros((4, len(thrusters)))  # 4 DOFs × N thrusters
+
+        for i, thruster in enumerate(thrusters):
+            angle_deg = thruster.get("angle_deg", 0.0)
+            angle_rad = np.deg2rad(angle_deg)
+            lever_arm = thruster.get("lever_arm_distance", 0.0)
+            pos = thruster.get("position", "").lower()
+
+            # Horizontal thrusters: contribute to surge, sway, and yaw
+            if pos in ["front", "rear"]:
+                A[0, i] = np.cos(angle_rad)      # Surge
+                A[1, i] = np.sin(angle_rad)      # Sway
+
+                # Yaw contribution (direction depends on front/rear and rotation sense)
+                if pos == "front":
+                    A[3, i] = np.sign(angle_deg) * lever_arm
+                elif pos == "rear":
+                    A[3, i] = -np.sign(angle_deg) * lever_arm
+
+            # Vertical thrusters: contribute only to heave
+            elif pos in ["up", "down"]:
+                A[2, i] = np.sign(angle_deg)  # +1 for up, -1 for down
+
+        self.get_logger().info(f"Thruster allocation matrix:\n{A}")
+        return A
 
 
     def compute_thrusters(self, axis_values):
         """
-        Compute the duty cycle (-1 to 1) for each thruster.
-        Fill this with your own math later.
+        Map joystick input (surge, sway, heave, yaw) to 8 thruster commands.
         """
-        thruster_outputs = []
-        for thruster in self.thruster_map.get("thrusters", []):
-            # Placeholder — replace with your own math
-            duty = 0.0
-            thruster_outputs.append(duty)
-        return thruster_outputs
+        U = np.array([
+            axis_values.get("surge", 0.0),
+            axis_values.get("sway", 0.0),
+            axis_values.get("heave", 0.0),
+            axis_values.get("yaw", 0.0)
+        ])
+
+        T = self.A_pinv @ U  # Thruster outputs
+
+        # Clamp to [-1, 1]
+        T = np.clip(T, -1.0, 1.0)
+
+        return T.tolist()
 
     def publish_thrusters(self, thruster_outputs):
         """Publish the computed thruster duty cycles."""
