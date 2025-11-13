@@ -6,8 +6,8 @@ from std_msgs.msg import Float32
 
 class ThrustTester(Node):
     def __init__(self):
-        super().__init__('thrust_tester')
-        self.pub = self.create_publisher(Float32, '/cmd_thrust', 10)
+        super().__init__('thruster_test')
+        self.pub = self.create_publisher(Float32, '/test_thrust', 10)
 
         # publish every 0.05 s ≈ 20 Hz
         self.timer = self.create_timer(0.05, self.timer_callback)

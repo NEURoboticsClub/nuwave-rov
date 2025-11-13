@@ -55,7 +55,7 @@ class TD7ThrusterNode(Node):
     def __init__(self):
         super().__init__('td7_thruster_node')
 
-        self.declare_parameter('topic', 'cmd_thrust')
+        self.declare_parameter('topic', 'test_thrust')
         self.declare_parameter('i2c_bus', 7)                  
         self.declare_parameter('i2c_address', 0x40)           # PCA9685 default
         self.declare_parameter('channel', 0)                  # PCA9685 output channel
