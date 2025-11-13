@@ -25,7 +25,8 @@ setup(
     entry_points={
         'console_scripts': [
             'thruster_node = '+package_name+'.thruster_driver:main',
-            'thruster_pub = '+package_name+'.thruster_pub:main'
+            'thruster_sub = '+package_name+'.thruster_sub:main',
+            'thrust_tester = '+package_name+'.thruster_test:main'
         ],
     },
 )

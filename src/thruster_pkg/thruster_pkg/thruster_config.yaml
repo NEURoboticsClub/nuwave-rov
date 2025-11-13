@@ -1,0 +1,15 @@
+thruster_node:
+  ros__parameters:
+    topic: /cmd_thrust
+    i2c_bus: 7
+    i2c_address: 64
+    channel: 0
+    pwm_freq_hz: 50
+    neutral_us: 1500.0
+    min_us: 1000.0
+    max_us: 2000.0
+    invert_direction: false
+    max_abs_cmd: 0.5
+    deadband_us: 20.0
+    slew_us_per_s: 4000.0
+    watchdog_timeout_s: 0.5
