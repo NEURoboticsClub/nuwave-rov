@@ -1,0 +1,21 @@
+joystick:
+- axis: roll
+  input: 3
+  invert: false
+  scale: linear
+  sensitivity: 1.0
+- axis: pitch
+  input: 4
+  invert: true
+  scale: linear
+  sensitivity: 1.0
+- axis: yaw
+  input: 0
+  invert: false
+  scale: linear
+  sensitivity: 1.0
+- axis: up
+  input: 8
+  invert: false
+  scale: linear
+  sensitivity: 1.0
