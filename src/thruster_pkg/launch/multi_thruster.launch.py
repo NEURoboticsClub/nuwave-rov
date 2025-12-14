@@ -37,7 +37,7 @@ def _create_nodes(context, *args, **kwargs):
 
 def generate_launch_description():
     return LaunchDescription([
-        DeclareLaunchArgument('count', default_value='4', description='Number of thruster nodes to launch'),
+        DeclareLaunchArgument('count', default_value='8', description='Number of thruster nodes to launch'),
         DeclareLaunchArgument('base_name', default_value='thruster', description='Base name for thruster nodes'),
         DeclareLaunchArgument('i2c_bus', default_value='7', description='I2C bus number for PCA9685'),
         DeclareLaunchArgument('i2c_address', default_value='64', description='I2C address (decimal) for PCA9685'),
