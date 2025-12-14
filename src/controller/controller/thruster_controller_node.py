@@ -12,7 +12,7 @@ class ThrusterController(Node):
 
         # === Parameters ===
         self.declare_parameter('joy_config', 'joystick_config.yaml')
-        self.declare_parameter('thruster_config', 'thruster_config.yaml')
+        self.declare_parameter('thruster_config', '/home/nuwave-rov/nuwave-rov/src/controller/config/thruster_config.yaml')
         self.declare_parameter('joy_topic', '/joy')
         self.declare_parameter('thruster_topic', '/thruster')
 
@@ -27,7 +27,7 @@ class ThrusterController(Node):
 
         # === Subscribers / Publishers ===
         self.joy_sub = self.create_subscription(Joy, joy_topic, self.joy_callback, 10)
-        self.thruster_pubs = [self.create_publisher(Float32, thruster_topic+'/'+str(i), 10) for i in range(len(self.thruster_map))]
+        self.thruster_pubs = [self.create_publisher(Float32, thruster_topic+'_'+str(i), 10) for i in range(len(self.thruster_map))]
         
         # === Internal state ===
         self.last_joy_msg = None

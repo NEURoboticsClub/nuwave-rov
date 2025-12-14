@@ -1,6 +1,6 @@
 thruster_node:
   ros__parameters:
-    topic: /thruster_test
+    topic: /thruster_0
     i2c_bus: 7
     i2c_address: 64
     channel: 0
