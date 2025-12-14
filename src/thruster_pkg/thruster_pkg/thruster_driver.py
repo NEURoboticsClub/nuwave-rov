@@ -53,9 +53,9 @@ class ThrusterNode(Node):
             import re
             m = re.search(r'(.+?)_(\d+)$', node_name)
             if m:
-                topic = f'/{m.group(1)}_{m.group(2)}'
+                topic = f'thruster/{m.group(1)}_{m.group(2)}'
             else:
-                topic = '/thruster_0'
+                topic = 'thruster/thruster_0'
         elif not topic.startswith('/'):
             topic = '/' + topic
 
@@ -145,7 +145,7 @@ class ThrusterNode(Node):
         span = (self.max_us - self.min_us) if (self.max_us - self.min_us) != 0 else 1.0
         ratio = (us - self.min_us) / span
         angle = ratio * 180.0
-        # Clip to typical servo angle bounds
+        # Clip to typical angle bounds
         return max(0.0, min(180.0, angle))
 
     def apply_slew_limit(self, target_us: float, dt: float) -> float:
