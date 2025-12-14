@@ -6,7 +6,7 @@ import rclpy
 from rclpy.node import Node
 from std_msgs.msg import Float32
 
-from PCA9685 import PCA9685
+from .PCA9685 import PCA9685
 
 # ---- CONFIG ----
 LOW_ANGLE = 0
@@ -124,15 +124,15 @@ class SimpleThrusterNode(Node):
 
 
 def main(argv=None):
-	if argv is None:
-		argv = sys.argv[1:]
+	# if argv is None:
+	# 	argv = sys.argv[1:]
 
-	if len(argv) < 1:
-		print("Usage: python3 thruster_driver_simple.py <channel> [topic]")
-		sys.exit(1)
+	# if len(argv) < 1:
+	# 	print("Usage: python3 thruster_driver_simple.py <channel> [topic]")
+	# 	sys.exit(1)
 
-	channel = int(argv[0])
-	topic = argv[1] if len(argv) > 1 else f'thruster/thruster_{channel}'
+	channel = int(7)
+	topic = f'thruster/thruster_{channel}'
 
 	rclpy.init()
 	node = SimpleThrusterNode(channel, topic)

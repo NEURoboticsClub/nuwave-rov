@@ -11,7 +11,7 @@ from rclpy.duration import Duration
 # Use the external PCA9685 implementation (the user's working script uses
 # `from PCA9685 import PCA9685` with methods setPWMFreq, setRotationAngle,
 # and exit_PCA9685).
-from PCA9685 import PCA9685
+from .PCA9685 import PCA9685
 
 class ThrusterNode(Node):
     """
