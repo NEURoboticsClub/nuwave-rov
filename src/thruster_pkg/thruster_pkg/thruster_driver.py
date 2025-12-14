@@ -7,46 +7,11 @@ import rclpy
 from rclpy.node import Node
 from std_msgs.msg import Float32
 from rclpy.duration import Duration
-import smbus
 
-class PCA9685:
-    _MODE1 = 0x00
-    _MODE2 = 0x01
-    _PRESCALE = 0xFE
-    _LED0_ON_L = 0x06
-
-    def __init__(self, bus_num=7, address=0x40, freq_hz=50):
-        self.bus = smbus.SMBus(bus_num)
-        self.address = address
-        # Reset MODE1
-        self.bus.write_byte_data(self.address, self._MODE1, 0x00)
-        time.sleep(0.005)
-        self.set_pwm_freq(freq_hz)
-
-    def set_pwm_freq(self, freq_hz):
-        osc_clock = 25_000_000.0  # 25 MHz
-        prescaleval = osc_clock / (4096.0 * float(freq_hz)) - 1.0
-        prescale = int(math.floor(prescaleval + 0.5))
-        oldmode = self.bus.read_byte_data(self.address, self._MODE1)
-        newmode = (oldmode & 0x7F) | 0x10  # sleep
-        self.bus.write_byte_data(self.address, self._MODE1, newmode)
-        self.bus.write_byte_data(self.address, self._PRESCALE, prescale)
-        self.bus.write_byte_data(self.address, self._MODE1, oldmode)
-        time.sleep(0.005)
-        self.bus.write_byte_data(self.address, self._MODE1, oldmode | 0x80)  # restart
-
-    def set_pwm_us(self, channel: int, pulse_us: float, period_us: int = 20000):
-        # Bound to 1250-1750 us for safety
-        pulse_us = max(1250, min(1750, int(pulse_us)))
-        ticks = int(pulse_us * 4096.0 / period_us)  # 0..4095
-        on = 0
-        off = ticks
-        reg = self._LED0_ON_L + 4 * channel
-        self.bus.write_i2c_block_data(
-            self.address,
-            reg,
-            [on & 0xFF, on >> 8, off & 0xFF, off >> 8]
-        )
+# Use the external PCA9685 implementation (the user's working script uses
+# `from PCA9685 import PCA9685` with methods setPWMFreq, setRotationAngle,
+# and exit_PCA9685).
+from PCA9685 import PCA9685
 
 class ThrusterNode(Node):
     """
@@ -114,18 +79,30 @@ class ThrusterNode(Node):
         self.last_msg_time = self.get_clock().now()
         self.current_cmd = 0.0
         self.current_us = self.neutral_us  # track last output for slew limiting
-
-        # Init hardware
-        self.pca = PCA9685(bus_num=bus, address=addr, freq_hz=int(pwm_freq))
-        self.get_logger().info(f'PCA9685 on bus {bus}, addr 0x{addr:02X}, freq {pwm_freq} Hz')
-
-        # Send neutral signal immediately on startup to initialize ESCs
+        # Init hardware using the external PCA9685 class.
+        # The external class from the user's script expects `bus=` and then
+        # calling `setPWMFreq(freq)`; it exposes `setRotationAngle(channel, angle)`
+        # for servo-like output and `exit_PCA9685()` for cleanup.
         try:
-            self.pca.set_pwm_us(self.channel, self.neutral_us, period_us=self.period_us)
-            self.get_logger().info(f'Sent neutral ({self.neutral_us}us) to channel {self.channel} on init')
+            self.pwm = PCA9685(bus=bus)
+            # configure frequency like the user's working script
+            try:
+                self.pwm.setPWMFreq(int(pwm_freq))
+            except Exception:
+                # Some PCA implementations use set_pwm_freq style; ignore if not present
+                try:
+                    self.pwm.set_pwm_freq(int(pwm_freq))
+                except Exception:
+                    pass
+            self.get_logger().info(f'PCA9685 on bus {bus}, addr 0x{addr:02X}, freq {pwm_freq} Hz')
+
+            # Send neutral signal immediately on startup to initialize ESCs.
+            neutral_angle = int(self.us_to_angle(self.neutral_us))
+            self.pwm.setRotationAngle(self.channel, neutral_angle)
+            self.get_logger().info(f'Sent neutral ({neutral_angle} deg) to channel {self.channel} on init')
         except Exception as e:
-            # Log and continue; node will keep trying during periodic updates
-            self.get_logger().warn(f'Failed to send neutral on init: {e}')
+            # Log and continue; periodic updates will keep trying
+            self.get_logger().warning(f'Failed to initialize PCA9685: {e}')
 
         # ROS wiring: subscribe to controller outputs (Float32 per-thruster)
         self.sub = self.create_subscription(Float32, topic, self.cmd_cb, 10)
@@ -159,6 +136,18 @@ class ThrusterNode(Node):
                 us = self.neutral_us
         return us
 
+    def us_to_angle(self, us: float) -> float:
+        """
+        Convert a microsecond pulse width in [min_us, max_us] to a 0..180
+        rotation angle usable by the user's PCA9685.setRotationAngle.
+        """
+        # Avoid division by zero
+        span = (self.max_us - self.min_us) if (self.max_us - self.min_us) != 0 else 1.0
+        ratio = (us - self.min_us) / span
+        angle = ratio * 180.0
+        # Clip to typical servo angle bounds
+        return max(0.0, min(180.0, angle))
+
     def apply_slew_limit(self, target_us: float, dt: float) -> float:
         if self.slew_us_per_s <= 0.0:
             return target_us
@@ -183,21 +172,43 @@ class ThrusterNode(Node):
         target_us = self.apply_slew_limit(target_us, dt if dt > 0 else 0.0)
 
         try:
-            self.pca_holder.set_pwm_us(self.channel, target_us, period_us=self.period_us)
+            # Convert microseconds to rotation angle (0..180) and send via the
+            # working PCA9685 API.
+            angle = int(self.us_to_angle(target_us))
+            try:
+                self.pwm.setRotationAngle(self.channel, angle)
+            except Exception:
+                # fallback: some APIs may expose set_rotation_angle or set_angle
+                try:
+                    self.pwm.set_rotation_angle(self.channel, angle)
+                except Exception:
+                    # last resort: try set_pwm_us-like method if present
+                    try:
+                        self.pwm.set_pwm_us(self.channel, int(target_us), period_us=self.period_us)
+                    except Exception as e:
+                        raise
             self.current_us = target_us
         except Exception as e:
             self.get_logger().error(f'PWM write error: {e}')
-
+    
     def destroy_node(self):
         # Fail-safe: neutral on shutdown
         try:
             # send neutral and release shared PCA holder
             try:
-                self.pca_holder.set_pwm_us(self.channel, self.neutral_us, period_us=self.period_us)
+                # send neutral using rotation angle mapping
+                try:
+                    self.pwm.setRotationAngle(self.channel, int(self.us_to_angle(self.neutral_us)))
+                except Exception:
+                    try:
+                        self.pwm.set_pwm_us(self.channel, int(self.neutral_us), period_us=self.period_us)
+                    except Exception:
+                        pass
             except Exception:
                 pass
+            # try to gracefully close the PCA9685 instance if available
             try:
-                release_pca_holder(self._pca_bus, self._pca_addr, self._pca_freq)
+                self.pwm.exit_PCA9685()
             except Exception:
                 pass
         except Exception:
