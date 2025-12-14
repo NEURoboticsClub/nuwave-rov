@@ -48,7 +48,7 @@ class PCA9685:
             [on & 0xFF, on >> 8, off & 0xFF, off >> 8]
         )
 
-class TD7ThrusterNode(Node):
+class ThrusterNode(Node):
     """
     Subscribes: std_msgs/Float32 on <topic> (default: /cmd_thrust), range [-1, 1].
     Maps to PWM us around neutral and writes to PCA9685 channel.
@@ -59,7 +59,7 @@ class TD7ThrusterNode(Node):
         # Allow creating multiple instances by giving each a distinct name.
         # If none provided, generate a short unique name suffix.
         if node_name is None:
-            node_name = f'td7_thruster_node_{uuid.uuid4().hex[:8]}'
+            node_name = f'thruster_node_{uuid.uuid4().hex[:8]}'
         super().__init__(node_name)
 
         # If empty, derive topic from node name
@@ -119,6 +119,14 @@ class TD7ThrusterNode(Node):
         self.pca = PCA9685(bus_num=bus, address=addr, freq_hz=int(pwm_freq))
         self.get_logger().info(f'PCA9685 on bus {bus}, addr 0x{addr:02X}, freq {pwm_freq} Hz')
 
+        # Send neutral signal immediately on startup to initialize ESCs
+        try:
+            self.pca.set_pwm_us(self.channel, self.neutral_us, period_us=self.period_us)
+            self.get_logger().info(f'Sent neutral ({self.neutral_us}us) to channel {self.channel} on init')
+        except Exception as e:
+            # Log and continue; node will keep trying during periodic updates
+            self.get_logger().warn(f'Failed to send neutral on init: {e}')
+
         # ROS wiring: subscribe to controller outputs (Float32 per-thruster)
         self.sub = self.create_subscription(Float32, topic, self.cmd_cb, 10)
         self.timer = self.create_timer(1.0 / self.update_rate_hz, self.update_output)
@@ -175,7 +183,7 @@ class TD7ThrusterNode(Node):
         target_us = self.apply_slew_limit(target_us, dt if dt > 0 else 0.0)
 
         try:
-            self.pca.set_pwm_us(self.channel, target_us, period_us=self.period_us)
+            self.pca_holder.set_pwm_us(self.channel, target_us, period_us=self.period_us)
             self.current_us = target_us
         except Exception as e:
             self.get_logger().error(f'PWM write error: {e}')
@@ -183,7 +191,15 @@ class TD7ThrusterNode(Node):
     def destroy_node(self):
         # Fail-safe: neutral on shutdown
         try:
-            self.pca.set_pwm_us(self.channel, self.neutral_us, period_us=self.period_us)
+            # send neutral and release shared PCA holder
+            try:
+                self.pca_holder.set_pwm_us(self.channel, self.neutral_us, period_us=self.period_us)
+            except Exception:
+                pass
+            try:
+                release_pca_holder(self._pca_bus, self._pca_addr, self._pca_freq)
+            except Exception:
+                pass
         except Exception:
             pass
         super().destroy_node()
@@ -217,7 +233,7 @@ def main(args=None):
     rclpy.init(args=args)
     try:
         if len(names) <= 1:
-            node = TD7ThrusterNode(node_name=(names[0] if names else None))
+            node = ThrusterNode(node_name=(names[0] if names else None))
             try:
                 rclpy.spin(node)
             except KeyboardInterrupt:
@@ -227,7 +243,7 @@ def main(args=None):
                 node.destroy_node()
         else:
             from rclpy.executors import MultiThreadedExecutor
-            nodes = [TD7ThrusterNode(node_name=n) for n in names]
+            nodes = [ThrusterNode(node_name=n) for n in names]
             executor = MultiThreadedExecutor()
             for n in nodes:
                 executor.add_node(n)
