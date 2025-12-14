@@ -4,7 +4,7 @@ from rclpy.node import Node
 from sensor_msgs.msg import FluidPressure, Temperature
 from std_msgs.msg import Float32, Float32MultiArray
 import time
-from . ms5837  
+from . import ms5837  
 
 
 class DepthSensorNode(Node):
