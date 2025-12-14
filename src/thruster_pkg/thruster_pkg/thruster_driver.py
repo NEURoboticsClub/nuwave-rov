@@ -1,10 +1,13 @@
 import time
 import math
+import os
+import sys
+import uuid
 import rclpy
 from rclpy.node import Node
 from std_msgs.msg import Float32
 from rclpy.duration import Duration
-import smbus  
+import smbus
 
 class PCA9685:
     _MODE1 = 0x00
@@ -52,11 +55,16 @@ class TD7ThrusterNode(Node):
     Safety: clamp, watchdog timeout -> neutral, optional slew limiting.
     """
 
-    def __init__(self):
-        super().__init__('td7_thruster_node')
+    def __init__(self, node_name: str = None):
+        # Allow creating multiple instances by giving each a distinct name.
+        # If none provided, generate a short unique name suffix.
+        if node_name is None:
+            node_name = f'td7_thruster_node_{uuid.uuid4().hex[:8]}'
+        super().__init__(node_name)
 
-        self.declare_parameter('topic', 'thruster_0')
-        self.declare_parameter('i2c_bus', 7)                  
+        # If empty, derive topic from node name
+        self.declare_parameter('topic', '')
+        self.declare_parameter('i2c_bus', 7)
         self.declare_parameter('i2c_address', 0x40)           # PCA9685 default
         self.declare_parameter('channel', 0)                  # PCA9685 output channel
         self.declare_parameter('pwm_freq_hz', 50)             # ESC expects ~50 Hz
@@ -71,6 +79,21 @@ class TD7ThrusterNode(Node):
         self.declare_parameter('slew_us_per_s', 4000.0)       # 0 to disable rate limit; else max change per sec
 
         topic = self.get_parameter('topic').get_parameter_value().string_value
+
+        # Derive topic from node_name when topic param not provided. Expect
+        # node_name like 'thruster_0' or base 'thruster_<n>'. If derivation
+        # fails, fall back to '/thruster_0'. Ensure topic starts with '/'.
+        if not topic:
+            # try to extract trailing _<number>
+            import re
+            m = re.search(r'(.+?)_(\d+)$', node_name)
+            if m:
+                topic = f'/{m.group(1)}_{m.group(2)}'
+            else:
+                topic = '/thruster_0'
+        elif not topic.startswith('/'):
+            topic = '/' + topic
+
         bus = int(self.get_parameter('i2c_bus').value)
         addr = int(self.get_parameter('i2c_address').value)
         self.channel = int(self.get_parameter('channel').value)
@@ -96,7 +119,7 @@ class TD7ThrusterNode(Node):
         self.pca = PCA9685(bus_num=bus, address=addr, freq_hz=int(pwm_freq))
         self.get_logger().info(f'PCA9685 on bus {bus}, addr 0x{addr:02X}, freq {pwm_freq} Hz')
 
-        # ROS wiring
+        # ROS wiring: subscribe to controller outputs (Float32 per-thruster)
         self.sub = self.create_subscription(Float32, topic, self.cmd_cb, 10)
         self.timer = self.create_timer(1.0 / self.update_rate_hz, self.update_output)
 
@@ -122,7 +145,7 @@ class TD7ThrusterNode(Node):
         else:
             us = self.neutral_us + cmd * (self.neutral_us - self.min_us)
 
-        # optional deadband: snap very small commands to neutral
+        # deadband: snap very small commands to neutral
         if self.deadband_us > 0.0:
             if abs(us - self.neutral_us) <= self.deadband_us:
                 us = self.neutral_us
@@ -166,15 +189,61 @@ class TD7ThrusterNode(Node):
         super().destroy_node()
 
 def main(args=None):
+    # Support running multiple instances in one process via repeated
+    # --node-name=NAME arguments. If none provided, single instance with
+    # a unique anonymous name will be created.
+    names = []
+    count = None
+    base_name = 'thruster'
+    if args is None:
+        argv = sys.argv[1:]
+    else:
+        argv = list(args)
+    for a in argv:
+        if a.startswith('--node-name='):
+            names.append(a.split('=', 1)[1])
+        elif a.startswith('--count='):
+            try:
+                count = int(a.split('=', 1)[1])
+            except Exception:
+                count = None
+        elif a.startswith('--base-name='):
+            base_name = a.split('=', 1)[1]
+
+    # If explicit names weren't provided but a count was, generate numbered names
+    if not names and count is not None and count > 0:
+        names = [f"{base_name}_{i}" for i in range(count)]
+
     rclpy.init(args=args)
-    node = TD7ThrusterNode()
     try:
-        rclpy.spin(node)
-    except KeyboardInterrupt:
-        pass
+        if len(names) <= 1:
+            node = TD7ThrusterNode(node_name=(names[0] if names else None))
+            try:
+                rclpy.spin(node)
+            except KeyboardInterrupt:
+                pass
+            finally:
+                node.get_logger().info('Shutting down thruster node...')
+                node.destroy_node()
+        else:
+            from rclpy.executors import MultiThreadedExecutor
+            nodes = [TD7ThrusterNode(node_name=n) for n in names]
+            executor = MultiThreadedExecutor()
+            for n in nodes:
+                executor.add_node(n)
+            try:
+                executor.spin()
+            except KeyboardInterrupt:
+                pass
+            finally:
+                for n in nodes:
+                    try:
+                        n.get_logger().info('Shutting down thruster node...')
+                        n.destroy_node()
+                    except Exception:
+                        pass
+                executor.shutdown()
     finally:
-        node.get_logger().info('Shutting down thruster node...')
-        node.destroy_node()
         rclpy.shutdown()
 
 if __name__ == '__main__':
