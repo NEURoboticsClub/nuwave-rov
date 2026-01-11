@@ -11,8 +11,8 @@ class ThrusterController(Node):
         super().__init__('thruster_controller')
 
         # === Parameters ===
-        self.declare_parameter('joy_config', '/home/nuwave-rov/nuwave-rov/install/controller/share/controller/config/please_work.yaml')
-        self.declare_parameter('thruster_config', '/home/nuwave-rov/nuwave-rov/install/controller/share/controller/config/thruster_config.yaml')
+        self.declare_parameter('joy_config', '/home/nuwave/nuwave-rov/install/controller/share/controller/config/please_work.yaml')
+        self.declare_parameter('thruster_config', '/home/nuwave/nuwave-rov/install/controller/share/controller/config/thruster_config.yaml')
         self.declare_parameter('joy_topic', '/joy')
         self.declare_parameter('thruster_topic', '/thruster')
 

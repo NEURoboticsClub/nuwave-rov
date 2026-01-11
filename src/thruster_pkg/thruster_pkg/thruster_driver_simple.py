@@ -54,19 +54,19 @@ class SimpleThrusterNode(Node):
 
 		# Initialize PCA9685
 		print("Initializing PCA9685...")
-		self.pwm = PCA9685(bus=7)
-		# prefer setPWMFreq API from your working script, fall back gracefully
-		try:
-			self.pwm.setPWMFreq(50)
-		except Exception:
-			try:
-				self.pwm.set_pwm_freq(50)
-			except Exception:
-				pass
+		# self.pwm = PCA9685(bus=7)
+		# # prefer setPWMFreq API from your working script, fall back gracefully
+		# try:
+		# 	self.pwm.setPWMFreq(50)
+		# except Exception:
+		# 	try:
+		# 		self.pwm.set_pwm_freq(50)
+		# 	except Exception:
+		# 		pass
 		print("PCA9685 initialized at ~50 Hz")
 
 		# Arm thruster (send neutral)
-		arm_thruster(self.pwm, self.channel)
+		# arm_thruster(self.pwm, self.channel)
 
 		# Subscribe to topic
 		self.sub = self.create_subscription(Float32, self.topic, self.cmd_cb, 10)
@@ -88,14 +88,15 @@ class SimpleThrusterNode(Node):
 				angle = STOP_ANGLE + cmd * (STOP_ANGLE - LOW_ANGLE)
 
 		angle = int(max(LOW_ANGLE, min(HIGH_ANGLE, angle)))
+		self.get_logger().info(angle)
 
-		try:
-			self.pwm.setRotationAngle(self.channel, angle)
-		except Exception:
-			try:
-				self.pwm.set_rotation_angle(self.channel, angle)
-			except Exception as e:
-				self.get_logger().error(f'Failed to send angle: {e}')
+		# try:
+		# 	self.pwm.setRotationAngle(self.channel, angle)
+		# except Exception:
+		# 	try:
+		# 		self.pwm.set_rotation_angle(self.channel, angle)
+		# 	except Exception as e:
+		# 		self.get_logger().error(f'Failed to send angle: {e}')
 
 	def destroy_node(self):
 		# send neutral and cleanup
@@ -143,10 +144,10 @@ def main(argv=None):
 		print("KeyboardInterrupt — shutting down thruster node.")
 	finally:
 		node.get_logger().info('Shutting down thruster node...')
-		try:
-			node.destroy_node()
-		except Exception:
-			pass
+		# try:
+		# 	node.destroy_node()
+		# except Exception:
+		# 	pass
 		rclpy.shutdown()
 
 

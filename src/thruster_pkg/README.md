@@ -36,8 +36,12 @@ ros2 run joy joy_node
 2. Run the thruster controller that maps joystick -> `/thruster_N` topics:
 
 ```bash
-python3 src/controller/controller/thruster_controller_node.py
+ros2 run controller thruster_controller_node
 ```
+
+export JETSON_MODEL_NAME=JETSON_ORIN_NANO
+
+ ros2 run thruster_pkg thruster_node
 
 3. Launch thruster drivers (multi):
 
