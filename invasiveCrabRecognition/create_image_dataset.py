@@ -31,7 +31,15 @@ def random_scale(img, bg_size):
     target_w = int(bg_w * scale)
     aspect = img.height / img.width
     target_h = int(target_w * aspect)
-    return img.resize((target_w, target_h, Image.LANCZOS))
+    return img.resize((target_w, target_h))
+
+
+def overlaps(box, boxes):
+    x1, y1, x2, y2 = box
+    for bx1, by1, bx2, by2 in boxes:
+        if not (x2 <= bx1 or x1 >= bx2 or y2 <= by1 or y1 >= by2):
+            return True
+    return False
 
 
 for i in range(NUM_OUTPUT_IMAGES):
@@ -39,31 +47,54 @@ for i in range(NUM_OUTPUT_IMAGES):
     if i % 20 == 0:
         print(f"Generating image {i}")
 
-    num_green_crabs = random.randint(MIN_GREEN_CRABS, MAX_TOTAL_CRABS - MIN_OTHER_CRABS)
+    num_green_crabs = random.randint(
+        MIN_GREEN_CRABS,
+        MAX_TOTAL_CRABS - MIN_OTHER_CRABS
+    )
     num_other_crabs = MAX_TOTAL_CRABS - num_green_crabs
-    bg = Image.new("RGB", BACKGROUND_SIZE, (255, 255, 255))
 
+    bg = Image.new("RGB", BACKGROUND_SIZE, (255, 255, 255))
+    boxes = []  # store placed bounding boxes
+
+    # ---- GREEN CRABS ----
     for _ in range(num_green_crabs):
         obj_path = random.choice(class_images["greenCrab"])
         obj = Image.open(obj_path).convert("RGBA")
         obj = random_scale(obj, BACKGROUND_SIZE)
 
-        x = random.randint(0, BACKGROUND_SIZE[0])
-        y = random.randint(0, BACKGROUND_SIZE[1])
+        ow, oh = obj.size
 
-        bg.paste(obj, (x, y), obj)
+        for _ in range(50):  # placement attempts
+            x = random.randint(0, BACKGROUND_SIZE[0] - ow)
+            y = random.randint(0, BACKGROUND_SIZE[1] - oh)
 
-    
+            box = (x, y, x + ow, y + oh)
+
+            if not overlaps(box, boxes):
+                bg.paste(obj, (x, y), obj)
+                boxes.append(box)
+                break
+
+    # ---- OTHER CRABS ----
     for _ in range(num_other_crabs):
-        obj_path = random.choice(class_images["jonahCrab"] + class_images["rockCrab"])
+        obj_path = random.choice(
+            class_images["jonahCrab"] + class_images["rockCrab"]
+        )
         obj = Image.open(obj_path).convert("RGBA")
         obj = random_scale(obj, BACKGROUND_SIZE)
 
-        x = random.randint(0, BACKGROUND_SIZE[0])
-        y = random.randint(0, BACKGROUND_SIZE[1])
+        ow, oh = obj.size
 
-        bg.paste(obj, (x, y), obj)
+        for _ in range(50):
+            x = random.randint(0, BACKGROUND_SIZE[0] - ow)
+            y = random.randint(0, BACKGROUND_SIZE[1] - oh)
 
-    
+            box = (x, y, x + ow, y + oh)
+
+            if not overlaps(box, boxes):
+                bg.paste(obj, (x, y), obj)
+                boxes.append(box)
+                break
+
     out_path = os.path.join(OUTPUT_DIR, f"{i}.jpg")
     bg.save(out_path)
