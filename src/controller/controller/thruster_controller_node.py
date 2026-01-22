@@ -112,7 +112,7 @@ class ThrusterController(Node):
     def compute_thruster_allocation_matrix(self):
         """
         Builds the transformation matrix A that maps thruster outputs -> vehicle forces:
-        [surge, sway, heave, yaw]^T = A @ [T1..T8]^T
+        [pitch, roll, up, yaw]^T = A @ [T1..T8]^T
         """
         thrusters = self.thruster_map.get("thrusters", [])
         A = np.zeros((4, len(thrusters)))  # 4 DOFs × N thrusters
@@ -123,10 +123,10 @@ class ThrusterController(Node):
             lever_arm = thruster.get("lever_arm_distance", 0.0)
             pos = thruster.get("position", "").lower()
 
-            # Horizontal thrusters: contribute to surge, sway, and yaw
+            # Horizontal thrusters: contribute to pitch, roll, and yaw
             if pos in ["front", "rear"]:
-                A[0, i] = np.cos(angle_rad)      # Surge
-                A[1, i] = np.sin(angle_rad)      # Sway
+                A[0, i] = np.cos(angle_rad)      # pitch
+                A[1, i] = np.sin(angle_rad)      # roll
 
                 # Yaw contribution (direction depends on front/rear and rotation sense)
                 if pos == "front":
@@ -134,7 +134,7 @@ class ThrusterController(Node):
                 elif pos == "rear":
                     A[3, i] = -np.sign(angle_deg) * lever_arm
 
-            # Vertical thrusters: contribute only to heave
+            # Vertical thrusters: contribute only to up
             elif pos in ["up", "down"]:
                 A[2, i] = np.sign(angle_deg)  # +1 for up, -1 for down
 
@@ -144,12 +144,12 @@ class ThrusterController(Node):
 
     def compute_thrusters(self, axis_values):
         """
-        Map joystick input (surge, sway, heave, yaw) to 8 thruster commands.
+        Map joystick input (pitch, roll, up, yaw) to 8 thruster commands.
         """
         U = np.array([
-            axis_values.get("surge", 0.0),
-            axis_values.get("sway", 0.0),
-            axis_values.get("heave", 0.0),
+            axis_values.get("pitch", 0.0),
+            axis_values.get("roll", 0.0),
+            axis_values.get("up", 0.0),
             axis_values.get("yaw", 0.0)
         ])
 

@@ -2,13 +2,13 @@
 # Use joystick_identify node to figure out which axis does what
 
 joystick:
-  - axis: "sway"
+  - axis: "roll"
     input: 1            # num# of analog input. Find out from tuner node
     invert: true        # to invert the axis
     sensitivity: 10     # more = more sensitive. keep it > 0
     scale: "linear"     # one of linear, logarithmic
   
-  - axis: "surge"
+  - axis: "pitch"
     input: 2
     invert: false
     sensitivity: 1
@@ -20,7 +20,7 @@ joystick:
     sensitivity: 1
     scale: "linear"
   
-  - axis: "heave"
+  - axis: "up"
     input: 4
     invert: false
     sensitivity: 1
