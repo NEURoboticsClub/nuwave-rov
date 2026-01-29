@@ -22,7 +22,10 @@ class CameraPublisher(Node):
         self.publisher_ = self.create_publisher(Image, topic_name , 10)
         self.timer = self.create_timer(0.1, self.timer_callback)
 
+        
         self.cap = cv2.VideoCapture(camera_source)
+        self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 640)
+        self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, 480)
         self.br = CvBridge()
 
     def timer_callback(self):
