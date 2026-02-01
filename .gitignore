@@ -1,6 +1,23 @@
+# Ignore ROS artifacts in any workspace
+**/build/
+**/devel/
+**/install/
+**/log/
+**/include/
+
+# Ignore pycache
 __pycache__/
 .idea/
 .vscode/
 venvs/
 venv/
 .venv/
+
+**/build/
+**/devel/
+**/install/
+**/log/
+**/include/
+
+*.py[cod]
+*$py.class
