@@ -21,7 +21,8 @@ class JoystickIdentify(Node):
         self.last_msg = None
 
         self.config = {"joystick": []}
-        self.axis_names = ["roll", "pitch", "yaw", "up"]
+        # strafe, drive_forward, yaw, pitch, up, down
+        self.axis_names = ["strafe", "drive_forward", "yaw", "pitch", "up", "down"]
 
         self.get_logger().info("🎮 Joystick Identify Node Started")
         self.get_logger().info("Move your joystick and press buttons to identify controls.")

@@ -52,9 +52,9 @@ class ThrusterController(Node):
     def joy_callback(self, msg: Joy):
         """Handle joystick input."""
         self.last_joy_msg = msg
-        axis_values = self.parse_joystick(msg)
+        axis_values, button_values = self.parse_joystick(msg)
         self.get_logger().info(str(axis_values))
-        thruster_outputs = self.compute_thrusters(axis_values)
+        thruster_outputs = self.compute_thrusters(axis_values, button_values)
 
         # Publish the result
         self.publish_thrusters(thruster_outputs)
@@ -65,7 +65,7 @@ class ThrusterController(Node):
 
         cfg_list = self.joy_map.get("joystick", [])
         if not isinstance(cfg_list, list):
-            return axis_values  # config malformed
+            return {}, {}  # config malformed
 
         for cfg in cfg_list:
             # --- Axis entry ---
@@ -107,15 +107,18 @@ class ThrusterController(Node):
         # For now, just store on self so you can use it later:
         self.last_buttons = button_values
 
-        return axis_values
+        return axis_values, button_values
 
     def compute_thruster_allocation_matrix(self):
         """
         Builds the transformation matrix A that maps thruster outputs -> vehicle forces:
-        [pitch, roll, up, yaw]^T = A @ [T1..T8]^T
+        [strafe, drive_forward, yaw, pitch, roll, up]^T = A @ [T1..T8]^T
         """
+        
         thrusters = self.thruster_map.get("thrusters", [])
-        A = np.zeros((4, len(thrusters)))  # 4 DOFs × N thrusters
+        A = np.zeros((6, len(thrusters)))  # 6 DOFs × N thrusters
+        
+        # strafe, drive_forward, yaw, pitch, roll, up
 
         for i, thruster in enumerate(thrusters):
             angle_deg = thruster.get("angle_deg", 0.0)
@@ -125,8 +128,8 @@ class ThrusterController(Node):
 
             # Horizontal thrusters: contribute to pitch, roll, and yaw
             if pos in ["front", "rear"]:
-                A[0, i] = np.cos(angle_rad)      # pitch
-                A[1, i] = np.sin(angle_rad)      # roll
+                A[0, i] = np.cos(angle_rad)      # pitch - forward ?
+                A[1, i] = np.sin(angle_rad)      # roll - strafe ?
 
                 # Yaw contribution (direction depends on front/rear and rotation sense)
                 if pos == "front":
@@ -142,15 +145,20 @@ class ThrusterController(Node):
         return A
 
 
-    def compute_thrusters(self, axis_values):
+    def compute_thrusters(self, axis_values, button_values):
         """
         Map joystick input (pitch, roll, up, yaw) to 8 thruster commands.
         """
+        
+        # strafe, drive_forward, yaw, pitch, roll, up
+
         U = np.array([
+            axis_values.get("strafe", 0.0),
+            axis_values.get("drive_forward", 0.0),
+            axis_values.get("yaw", 0.0),
             axis_values.get("pitch", 0.0),
-            axis_values.get("roll", 0.0),
-            axis_values.get("up", 0.0),
-            axis_values.get("yaw", 0.0)
+            button_values.get("roll_left", 0.0) - button_values.get("roll_right", 0.0),
+            0.5 * (axis_values.get("up", 0.0) - axis_values.get("down", 0.0))
         ])
 
         T = self.A_pinv @ U  # Thruster outputs
