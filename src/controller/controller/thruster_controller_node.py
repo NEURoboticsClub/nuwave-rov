@@ -127,19 +127,21 @@ class ThrusterController(Node):
             pos = thruster.get("position", "").lower()
 
             # Horizontal thrusters: contribute to pitch, roll, and yaw
-            if pos in ["front", "rear"]:
-                A[0, i] = np.cos(angle_rad)      # pitch - forward ?
-                A[1, i] = np.sin(angle_rad)      # roll - strafe ?
+            if pos == "lateral":
+                A[1, i] = np.cos(angle_rad) # linear y
+                A[0, i] = np.sin(angle_rad) # linear x
 
                 # Yaw contribution (direction depends on front/rear and rotation sense)
-                if pos == "front":
-                    A[3, i] = np.sign(angle_deg) * lever_arm
-                elif pos == "rear":
-                    A[3, i] = -np.sign(angle_deg) * lever_arm
+                if angle_deg == -45 or angle_deg == 135:
+                    A[2, i] = -1
+                else:
+                    A[2, i] = 1
 
             # Vertical thrusters: contribute only to up
-            elif pos in ["up", "down"]:
-                A[2, i] = np.sign(angle_deg)  # +1 for up, -1 for down
+            else:
+                A[5, i] = 1  # +1 for up, -1 for down
+                A[4, i] = -np.sign(angle_deg)
+                A[3, i] = -1 if (np.abs(angle_deg) < 90) else 1
 
         self.get_logger().info(f"Thruster allocation matrix:\n{A}")
         return A
