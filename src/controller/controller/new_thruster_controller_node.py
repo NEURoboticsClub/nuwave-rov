@@ -16,6 +16,19 @@ def compute_thruster_allocation_matrix(config : str) -> np.ndarray:
 class ThrusterController(Node):
     def __init__(self):
         # ROS2 stuff
+        super().__init__('thruster_controller')
+
+        # Parameters
+        self.declare_parameter('thruster_config', 'path/to/file')
+        self.declare_parameter('thruster_topic', '/thruster')
+
+        thruster_config_path = self.get_parameter('thruster_config').value
+        thruster_topic = self.get_parameter('thruster_topic').value
+
+        self.get_logger().info(f"Loading thruster config from: {thruster_config_path}")
+        # Configure Thrusters and Allocation
+
+        # Subscribers / Publishers
         # Initialize Allocation Matrix
         # Listen to state
         # Scream to thrusters
