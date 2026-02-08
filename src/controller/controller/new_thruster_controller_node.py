@@ -23,7 +23,7 @@ class ThrusterController(Node):
         self.declare_parameter('publish_rate_hz', 50.0)
         self.declare_parameter(
                 'thruster_config', 
-                os.path.join(os.path.dirname(__file__), 'new_thruster_config.yaml')
+                '/workspace/nuwave-rov/src/controller/config/new_thruster_config.yaml'
                 )
         self.declare_parameter('thruster_topic', '/thruster')
 
@@ -107,7 +107,7 @@ class ThrusterController(Node):
         """
         Turns a twist msg -> a torque map for each thruster
         """
-        tau = np.concatenate(linear, angular)
+        tau = np.concatenate([linear, angular])
         forces = self.allocMatrix_inverse @ tau # nx1 thruster forces
         return forces
     def map_torque_to_PWM(self, forces : np.ndarray) -> np.ndarray:
@@ -120,7 +120,7 @@ class ThrusterController(Node):
         pwm = np.where(
                 normalized >= 0,
                 self.neutral_us + normalized * (self.max_us - self.neutral_us),
-                self.neutral_us + normalized * (self.neutral_us + self.min_us)
+                self.neutral_us + normalized * (self.neutral_us - self.min_us)
                 )
         return pwm
 

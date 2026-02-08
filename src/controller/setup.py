@@ -12,7 +12,8 @@ setup(
         ('share/' + package_name, ['package.xml']),
         ('share/' + package_name + '/config', [
             'config/joystick_config.yaml',
-            'config/thruster_config.yaml'
+            'config/thruster_config.yaml',
+            'config/new_thruster_config.yaml',
         ]),
     ],
     install_requires=['setuptools'],
