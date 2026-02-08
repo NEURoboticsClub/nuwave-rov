@@ -7,9 +7,6 @@ import yaml
 import os
 import numpy as np
 
-# Helper Functions
-
-
 class ThrusterController(Node):
     def __init__(self):
         # ROS2 stuff
