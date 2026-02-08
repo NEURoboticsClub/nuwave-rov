@@ -111,3 +111,90 @@ class ThrusterNode(Node):
         dt = (now - getattr(self, "_prev_time", now)).nanoseconds / 1e9
         self._prev_time = now
 
+        # Watchdog: go neutral if stale
+        if (now - self.last_msg_time) > self.watchdog_timeout:
+            target_us = self.neutral_us
+        else:
+            target_us = self.map_cmd_to_us(self.current_cmd)
+
+        # Skew Limiting
+        if self.slew_us_per_s > 0.0 and dt > 0.0
+            max_delta = self.slew_us_per_s * dt
+            delta = target_us - self.current_us
+            if abs(delta) > max_delta:
+                target = self.current_us + math.copysign(max_delta, delta)
+        # Write 
+        if self.pwm is not None:
+            try:
+                self._write_us(target)
+            except Exception as e:
+                self.get_logger().error(f'PWM write error: {e}')
+
+    def destroy_node(self):
+        if self.pwm is not None:
+            try:
+                self._write_us(self.neutral_us)
+            except Exception:
+                pass
+            try:
+                self.pwm.exit_PCA9685()
+            except Exception:
+                pass
+        super().destroy_node()
+
+
+def main(args=None):
+    names = []
+    count = None
+    base_name = 'thruster_driver'
+
+    argv = sys.argv[1:] if args is None else list(args)
+    for a in argv:
+        if a.startswith('--node-name='):
+            names.append(a.split('=', 1)[1])
+        elif a.startswith('--count='):
+            try:
+                count = int(a.split('=', 1)[1])
+            except ValueError:
+                count = None
+        elif a.startswith('--base-name='):
+            base_name = a.split('=', 1)[1]
+
+    if not names and count is not None and count > 0:
+        names = [f'{base_name}_{i}' for i in range(count)]
+
+    rclpy.init(args=args)
+    try:
+        if len(names) <= 1:
+            node = ThrusterNode(node_name=(names[0] if names else None))
+            try:
+                rclpy.spin(node)
+            except KeyboardInterrupt:
+                pass
+            finally:
+                node.get_logger().info('Shutting down.')
+                node.destroy_node()
+        else:
+            from rclpy.executors import MultiThreadedExecutor
+            nodes = [ThrusterNode(node_name=n) for n in names]
+            executor = MultiThreadedExecutor()
+            for n in nodes:
+                executor.add_node(n)
+            try:
+                executor.spin()
+            except KeyboardInterrupt:
+                pass
+            finally:
+                for n in nodes:
+                    try:
+                        n.get_logger().info('Shutting down.')
+                        n.destroy_node()
+                    except Exception:
+                        pass
+                executor.shutdown()
+    finally:
+        rclpy.shutdown()
+
+
+if __name__ == '__main__':
+    main()
