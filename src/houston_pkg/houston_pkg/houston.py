@@ -1,14 +1,16 @@
 import rclpy
 from rclpy.node import Node
 from sensor_msgs.msg import Joy
-from std_msgs.msg import Float32
+from geometry_msgs.msg import Twist
 import yaml
 import os
 import numpy as np
 
 class Houston(Node):
+    """Status node to map joytick inputs to Twist commands."""
+
     def __init__(self):
-        super().__init__('thruster_controller')
+        super().__init__('houston')
 
         # === Parameters ===
         self.declare_parameter('joy_config', '/home/nuwave/nuwave-rov/install/controller/share/controller/config/joystick_config.yaml')
@@ -23,16 +25,12 @@ class Houston(Node):
         
         # === Subscribers / Publishers ===
         self.joy_sub = self.create_subscription(Joy, joy_topic, self.joy_callback, 10)
-        self.thruster_pubs = [self.create_publisher(Float32, thruster_topic+'/thruster_'+str(i), 10) for i in range(len(self.thruster_map['thrusters']))]
+        self.twist_pub = self.create_publisher(Twist, "velocity_commands", 10)
         
         # === Internal state ===
         self.last_joy_msg = None
-        
-        # === Compute Thruster Allocation Matrix ===
-        self.A = self.compute_thruster_allocation_matrix()
-        self.A_pinv = np.linalg.pinv(self.A)  # Compute the pseudoinverse of A
 
-        self.get_logger().info("Thruster Controller Initialized")
+        self.get_logger().info("Houston Initialized")
 
     def load_yaml(self, path):
         """Load a YAML file from a relative or absolute path."""
@@ -47,10 +45,10 @@ class Houston(Node):
         self.last_joy_msg = msg
         axis_values, button_values = self.parse_joystick(msg)
         self.get_logger().info(str(axis_values))
-        thruster_outputs = self.compute_thrusters(axis_values, button_values)
 
         # Publish the result
-        self.publish_thrusters(thruster_outputs)
+        self.publish_twist(axis_values, button_values)
+
 
     def parse_joystick(self, msg: Joy):
         axis_values = {}
@@ -102,13 +100,18 @@ class Houston(Node):
 
         return axis_values, button_values
 
-    def publish_twist(self, twist):
-        """Publish the computed thruster duty cycles."""
-        # self.get_logger().info(str(thruster_outputs))
-        for i in range(len(self.thruster_pubs)):
-            msg = Float32()
-            msg.data = twist[i]
-            self.thruster_pubs[i].publish(msg)
+    def publish_twist(self, axis_values, button_values):
+        """Publish the twist velocity command."""
+        msg = Twist()
+        msg.angular.y = axis_values['pitch']
+        msg.angular.z = axis_values['yaw']
+        msg.angular.x = button_values['roll_right'] - button_values['roll_left']
+
+        msg.linear.x = axis_values['drive_forward']
+        msg.linear.y = axis_values['strafe']
+        msg.linear.z = axis_values['up'] - axis_values['down']
+
+        self.twist_pub.publish(msg)
 
 
 def main(args=None):
