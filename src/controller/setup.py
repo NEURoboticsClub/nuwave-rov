@@ -11,7 +11,6 @@ setup(
             ['resource/' + package_name]),
         ('share/' + package_name, ['package.xml']),
         ('share/' + package_name + '/config', [
-            'config/joystick_config.yaml',
             'config/thruster_config.yaml',
             'config/new_thruster_config.yaml',
         ]),
