@@ -9,3 +9,4 @@ pyserial>=3.5
 pytest>=8.3.4
 python-dotenv>=1.0.1
 pyYAML
+setuptools==58.2.0
