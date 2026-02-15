@@ -3,7 +3,7 @@
 <package format="3">
   <name>adc_pkg</name>
   <version>0.0.0</version>
-  <description>TODO: Package description</description>
+  <description>Reads adc data from an AD7991YRJZ-1500RL7 and publishes it as ROS2 messages.</description>
   <maintainer email="definitely@not.com">nuwave-rov</maintainer>
   <license>MIT</license>
 
@@ -11,6 +11,10 @@
   <test_depend>ament_flake8</test_depend>
   <test_depend>ament_pep257</test_depend>
   <test_depend>python3-pytest</test_depend>
+  
+  <exec_depend>python3-smbus2</exec_depend>
+  <exec_depend>rclpy</exec_depend>
+  <exec_depend>std_msgs</exec_depend>
 
   <export>
     <build_type>ament_python</build_type>

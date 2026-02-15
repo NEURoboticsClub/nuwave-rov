@@ -15,7 +15,7 @@ setup(
     zip_safe=True,
     maintainer='nuwave-rov',
     maintainer_email='definitely@not.com',
-    description='TODO: Package description',
+    description='Reads adc data from an AD7991YRJZ-1500RL7 and publishes it as ROS2 messages.',
     license='MIT',
     extras_require={
         'test': [
@@ -24,6 +24,7 @@ setup(
     },
     entry_points={
         'console_scripts': [
+            'adc_reader = '+package_name+'.adc_reader:main'
         ],
     },
 )
