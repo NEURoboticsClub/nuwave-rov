@@ -10,3 +10,5 @@ pytest>=8.3.4
 python-dotenv>=1.0.1
 pyYAML
 setuptools==58.2.0
+gpiod>=2.4.0
+Jetson.GPIO>=2.1.12
