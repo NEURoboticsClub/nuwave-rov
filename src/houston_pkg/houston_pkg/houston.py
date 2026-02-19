@@ -44,7 +44,6 @@ class Houston(Node):
         """Handle joystick input."""
         self.last_joy_msg = msg
         axis_values, button_values = self.parse_joystick(msg)
-        self.get_logger().info(str(axis_values))
 
         # Publish the result
         self.publish_twist(axis_values, button_values)

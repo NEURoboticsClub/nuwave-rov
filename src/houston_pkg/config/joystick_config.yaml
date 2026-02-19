@@ -43,13 +43,13 @@ joystick:
     scale: "linear"
   
   - button: "A"       # Enter function of the button here
-    input: 1          # input number
+    input: 0          # input number
     invert: false
 
   - button: "roll_left"
-    input: 9
+    input: 4
     invert: false
 
   - button: "roll_right"
-    input: 10
+    input: 5
     invert: false
