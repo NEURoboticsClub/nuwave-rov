@@ -1,0 +1,72 @@
+thrusters:
+  # Forward left lateral thruster
+  - id: 1
+    name: "front_left_lateral"
+    max_duty: 1.0             # max output from -1 to 1
+    angle_deg: -45             # thruster mounted 45° from forward axis
+    position: "lateral"
+    notes: "Used for forward-left and yaw control"
+    lever_arm_distance: 0.2   # metres
+
+  # Forward right lateral thruster
+  - id: 2
+    name: "front_right_lateral"
+    max_duty: 1.0
+    angle_deg: 45
+    position: "lateral"
+    notes: "Used for forward-right and yaw control"
+    lever_arm_distance: 0.2   # metres
+
+  # Rear left lateral thruster
+  - id: 3
+    name: "rear_left_lateral"
+    max_duty: 1.0
+    angle_deg: -135
+    position: "lateral"
+    notes: "Used for backward-left and yaw control"
+    lever_arm_distance: 0.2   # metres
+
+  # Rear right lateral thruster
+  - id: 4
+    name: "rear_right_lateral"
+    max_duty: 1.0
+    angle_deg: 135
+    position: "lateral"
+    notes: "Used for backward-right and yaw control"
+    lever_arm_distance: 0.2   # metres
+
+  # Forward left vertical thruster
+  - id: 5
+    name: "forward_left_vertical"
+    max_duty: 1.0          
+    angle_deg: 45         
+    position: "vertical"      
+    notes: "Used for heave up"
+    lever_arm_distance: 0.2   # metres
+
+  # Forward right vertical thruster
+  - id: 6
+    name: "forward_right_vertical"
+    max_duty: 1.0
+    angle_deg: -45
+    position: "vertical"
+    notes: "Used for heave up"
+    lever_arm_distance: 0.2   # metres
+
+  # Rear left vertical thruster
+  - id: 7
+    name: "rear_left_vertical"
+    max_duty: 1.0
+    angle_deg: 135
+    position: "vertical"
+    notes: "Used for heave down"
+    lever_arm_distance: 0.2   # metres
+
+  # Rear right vertical thruster
+  - id: 8
+    name: "rear_right_vertical"
+    max_duty: 1.0
+    angle_deg: -135
+    position: "vertical"
+    notes: "Used for heave down"
+    lever_arm_distance: 0.2   # metres
