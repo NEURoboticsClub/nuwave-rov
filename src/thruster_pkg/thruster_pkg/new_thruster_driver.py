@@ -50,7 +50,7 @@ class ThrusterNode(Node):
         self.watchdog_timeout = Duration(
                 seconds=self.get_parameter('watchdog_timeout_s').value
                 )
-        self.slew_us_per_s = self.get_parameter('slew_us_per_s').value)
+        self.slew_us_per_s = self.get_parameter('slew_us_per_s').value
         # Derived Vals
         self.period_us = 1_000_000.0 / self.pwm_freq
         if not topic: 
@@ -118,7 +118,7 @@ class ThrusterNode(Node):
             target_us = self.map_cmd_to_us(self.current_cmd)
 
         # Skew Limiting
-        if self.slew_us_per_s > 0.0 and dt > 0.0
+        if self.slew_us_per_s > 0.0 and dt > 0.0:
             max_delta = self.slew_us_per_s * dt
             delta = target_us - self.current_us
             if abs(delta) > max_delta:
