@@ -1,0 +1,40 @@
+thrusters:
+  - id: 1
+    name: front_left_lateral
+    position_m: [-0.2, 0.2, 0.0]
+    direction: [-0.7071, 0.7071, 0.0]
+
+  - id: 2
+    name: front_right_lateral
+    position_m: [0.2, 0.2, 0.0]
+    direction: [0.7071, 0.7071, 0.0]
+
+  - id: 3
+    name: rear_left_lateral
+    position_m: [-0.2, -0.2, 0.0]
+    direction: [-0.7071, -0.7071, 0.0]
+
+  - id: 4
+    name: rear_right_lateral
+    position_m: [0.2, -0.2, 0.0]
+    direction: [0.7071, -0.7071, 0.0]
+
+  - id: 5
+    name: forward_left_vertical
+    position_m: [-0.2, 0.2, 0.0]
+    direction: [0.0, 0.0, 1.0]
+
+  - id: 6
+    name: forward_right_vertical
+    position_m: [0.2, 0.2, 0.0]
+    direction: [0.0, 0.0, 1.0]
+
+  - id: 7
+    name: rear_left_vertical
+    position_m: [-0.2, -0.2, 0.0]
+    direction: [0.0, 0.0, 1.0]
+
+  - id: 8
+    name: rear_right_vertical
+    position_m: [0.2, -0.2, 0.0]
+    direction: [0.0, 0.0, 1.0]
