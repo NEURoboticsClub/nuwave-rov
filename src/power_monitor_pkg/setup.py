@@ -1,6 +1,6 @@
 from setuptools import find_packages, setup
 
-package_name = 'power-monitor_pkg'
+package_name = 'power_monitor_pkg'
 
 setup(
     name=package_name,
