@@ -1,8 +1,8 @@
 # Ignore ROS artifacts in any workspace
 **/build/
 **/devel/
-**/install
-**/log
+**/install/
+**/log/
 **/include/
 
 # Ignore pycache
