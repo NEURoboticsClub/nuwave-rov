@@ -1,7 +1,7 @@
 import rclpy
 from rclpy.node import Node
 from std_msgs.msg import Float32
-from power_monitor_driver import INA226
+from power_monitor_pkg.power_monitor_driver import INA226
 
 class PowerMonitorPublisher(Node):
     def __init__(self):
@@ -15,7 +15,7 @@ class PowerMonitorPublisher(Node):
         
         # Initialize the INA226
         try:
-            self.ina226 = INA226(i2c_address=0x40, bus_number=1)  # Adjust address if needed
+            self.ina226 = INA226(i2c_address=0x4F, bus_number=1)  # Adjust address if needed
             self.ina226.configure()
             self.ina226.calibrate(max_expected_current=17.0)  # Adjust for your system
             self.get_logger().info('INA226 initialized successfully')
