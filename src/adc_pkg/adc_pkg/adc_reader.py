@@ -32,7 +32,7 @@ import smbus2
 
 # Hardware constants for AD7991YRJZ-1500RL7
 I2C_BUS = 7              # Jetson Orin Nano 40-pin header pins 3/5
-I2C_ADDR = 0x29          # -1 version address
+I2C_ADDR = 0x28          # -1 version address
 VREF = 3.3               # External reference on VIN3/VREF
 ADC_COUNTS = 4096        # 12-bit: 2^12
 NUM_CHANNELS = 3         # VIN0, VIN1, VIN2
@@ -41,7 +41,7 @@ READ_HZ = 10.0           # Publishing rate
 # Config register: enable CH0-CH2, external ref, filtering & delays on
 # D7=0 D6=1 D5=1 D4=1 D3=1 D2=0 D1=0 D0=0
 #  CH3  CH2  CH1  CH0  REF  FLTR BTD   SD
-CONFIG_BYTE = 0x78
+CONFIG_BYTE = 0x70
 
 
 class AD7991Reader(Node):
