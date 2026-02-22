@@ -16,11 +16,11 @@ class ThrusterController(Node):
         self.declare_parameter('neutral_us', 1500.0)
         self.declare_parameter('min_us', 1100.0)
         self.declare_parameter('max_us', 1900.0)
-        self.declare_parameter('max_force_n', 50.0)     # force at max PWM per thruster
+        self.declare_parameter('max_force_n', 1.0)     # force at max PWM per thruster
         self.declare_parameter('publish_rate_hz', 50.0)
         self.declare_parameter(
                 'thruster_config', 
-                '/workspace/nuwave-rov/src/controller/config/new_thruster_config.yaml'
+                '/home/nuwave/nuwave-rov/src/controller/config/new_thruster_config.yaml'
                 )
         self.declare_parameter('thruster_topic', '/thruster')
 
@@ -42,7 +42,7 @@ class ThrusterController(Node):
         self.allocMatrix_inverse = np.linalg.pinv(self.allocMatrix)
 
         # Subscribers / Publishers
-        self.status_sub = self.create_subscription(Twist, "status_topic", self.Status_Callback, 10)
+        self.status_sub = self.create_subscription(Twist, "velocity_commands", self.Status_Callback, 10)
         self.thruster_pubs = [] 
         for indx in range(self.n_thrusters):
             pub = self.create_publisher(Float32, f'thruster/thruster_{indx}', 10)
