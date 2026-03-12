@@ -5,7 +5,7 @@
 
 # https://docs.ros.org/en/humble/p/joy/
 
-joystick:
+thruster_control:
   - axis: "strafe"
     input: 0
     invert: false
@@ -42,8 +42,8 @@ joystick:
     sensitivity: 1
     scale: "linear"
   
-  - button: "A"       # Enter function of the button here
-    input: 1          # input number
+  - button: "A"
+    input: 1
     invert: false
 
   - button: "roll_left"
@@ -53,3 +53,41 @@ joystick:
   - button: "roll_right"
     input: 10
     invert: false
+
+
+arm_control:
+  - axis: "arm_axis_1"
+    input: 0
+    invert: false
+    sensitivity: 1
+    scale: "linear"
+
+  - axis: "arm_axis_2"
+    input: 1
+    invert: false
+    sensitivity: 1
+    scale: "linear"
+
+  - axis: "arm_axis_3"
+    input: 2
+    invert: false
+    sensitivity: 1
+    scale: "linear"
+
+  - axis: "arm_axis_4"
+    input: 3
+    invert: false
+    sensitivity: 1
+    scale: "linear"
+
+  - axis: "arm_axis_5"
+    input: 4
+    invert: false
+    sensitivity: 1
+    scale: "linear"
+
+  - axis: "arm_axis_6"
+    input: 5
+    invert: false
+    sensitivity: 1
+    scale: "linear"

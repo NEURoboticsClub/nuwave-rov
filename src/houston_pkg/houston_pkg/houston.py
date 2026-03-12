@@ -2,6 +2,7 @@ import rclpy
 from rclpy.node import Node
 from sensor_msgs.msg import Joy
 from geometry_msgs.msg import Twist
+from std_msgs.msg import Float32MultiArray
 import yaml
 import os
 import numpy as np
@@ -26,6 +27,7 @@ class Houston(Node):
         # === Subscribers / Publishers ===
         self.joy_sub = self.create_subscription(Joy, joy_topic, self.joy_callback, 10)
         self.twist_pub = self.create_publisher(Twist, "velocity_commands", 10)
+        self.arm_pub = self.create_publisher(Float32MultiArray, "arm_commands", 10)
         
         # === Internal state ===
         self.last_joy_msg = None
@@ -43,62 +45,61 @@ class Houston(Node):
     def joy_callback(self, msg: Joy):
         """Handle joystick input."""
         self.last_joy_msg = msg
-        axis_values, button_values = self.parse_joystick(msg)
-        self.get_logger().info(str(axis_values))
+        return_map = self.parse_joystick(msg)
+        self.get_logger().info(str(return_map))
 
         # Publish the result
-        self.publish_twist(axis_values, button_values)
+        self.publish_twist(return_map["thruster_control"]["axis"], return_map["thruster_control"]["button"])
+        self.publish_arm_commands(return_map["arm_control"]["axis"], return_map["arm_control"]["button"])
 
 
-    def parse_joystick(self, msg: Joy):
-        axis_values = {}
-        button_values = {}
-
-        cfg_list = self.joy_map.get("joystick", [])
-        if not isinstance(cfg_list, list):
-            return {}, {}  # config malformed
-
-        for cfg in cfg_list:
-            # --- Axis entry ---
-            if "axis" in cfg:
-                axis_name = cfg["axis"]
-                axis_index = int(cfg.get("input", 0))
-                invert = bool(cfg.get("invert", False))
-                sensitivity = float(cfg.get("sensitivity", 1.0))
-                scale = cfg.get("scale", "linear")
-
-                raw = msg.axes[axis_index] if axis_index < len(msg.axes) else 0.0
-                if invert:
-                    raw *= -1.0
-
-                val = raw * sensitivity
-
-                # Optional: support your "scale" field (keep simple)
-                if scale == "logarithmic":
-                    # compress near 0, preserve sign
-                    val = np.sign(val) * np.log1p(abs(val))
-
-                axis_values[axis_name] = float(val)
+    def parse_joystick(self, msg: Joy) -> dict:
+        return_map = {}  #  {cfg_type: {axis/button: {name: value}}}
+        for cfg_type in ["thruster_control", "arm_control"]:
+            cfg_list = self.joy_map.get(cfg_type, [])
+            if not isinstance(cfg_list, list):
+                return_map[cfg_type] = {"axis": {}, "button": {}}  # config malformed
                 continue
 
-            # --- Button entry ---
-            if "button" in cfg:
-                btn_name = cfg["button"]
-                btn_index = int(cfg.get("input", 0))
-                invert = bool(cfg.get("invert", False))
+            axis_values = {}
+            button_values = {}
+            for cfg in cfg_list:
+                # --- Axis entry ---
+                if "axis" in cfg:
+                    axis_name = cfg["axis"]
+                    axis_index = int(cfg.get("input", 0))
+                    invert = bool(cfg.get("invert", False))
+                    sensitivity = float(cfg.get("sensitivity", 1.0))
+                    scale = cfg.get("scale", "linear")
 
-                raw = msg.buttons[btn_index] if btn_index < len(msg.buttons) else 0
-                pressed = (1 - raw) if invert else raw
-                button_values[btn_name] = int(pressed)
-                continue
+                    raw = msg.axes[axis_index] if axis_index < len(msg.axes) else 0.0
+                    if invert:
+                        raw *= -1.0
 
-            # Otherwise: ignore unknown entry types
+                    val = raw * sensitivity
 
-        # If you want buttons too, return both (or store button_values on self)
-        # For now, just store on self so you can use it later:
-        self.last_buttons = button_values
+                    # Optional: support your "scale" field (keep simple)
+                    if scale == "logarithmic":
+                        # compress near 0, preserve sign
+                        val = np.sign(val) * np.log1p(abs(val))
 
-        return axis_values, button_values
+                    axis_values[axis_name] = float(val)
+                    continue
+
+                # --- Button entry ---
+                if "button" in cfg:
+                    btn_name = cfg["button"]
+                    btn_index = int(cfg.get("input", 0))
+                    invert = bool(cfg.get("invert", False))
+
+                    raw = msg.buttons[btn_index] if btn_index < len(msg.buttons) else 0
+                    pressed = (1 - raw) if invert else raw
+                    button_values[btn_name] = int(pressed)
+                    continue
+
+            return_map[cfg_type] = {"axis": axis_values, "button": button_values}
+        
+        return return_map
 
     def publish_twist(self, axis_values, button_values):
         """Publish the twist velocity command."""
@@ -112,6 +113,24 @@ class Houston(Node):
         msg.linear.z = float(axis_values['up']) - float(axis_values['down'])
 
         self.twist_pub.publish(msg)
+
+
+    def publish_arm_commands(self, axis_values, button_values):
+        """Publish arm control commands."""
+        # 6 element array: [axis1 - axis6]
+        # Create and publish arm commands as a 6-element array
+        
+        msg = Float32MultiArray()
+        msg.data = [
+            float(axis_values.get('arm_axis_1', 0.0)),
+            float(axis_values.get('arm_axis_2', 0.0)),
+            float(axis_values.get('arm_axis_3', 0.0)),
+            float(axis_values.get('arm_axis_4', 0.0)),
+            float(axis_values.get('arm_axis_5', 0.0)),
+            float(axis_values.get('arm_axis_6', 0.0)),
+        ]
+        self.arm_pub.publish(msg)
+
 
 
 def main(args=None):
