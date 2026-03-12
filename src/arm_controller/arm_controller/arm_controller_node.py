@@ -2,7 +2,7 @@ import rclpy
 from rclpy.node import Node
 from geometry_msgs.msg import Twist
 from std_msgs import msg
-from std_msgs.msg import Float32
+from std_msgs.msg import Float32, Float32MultiArray
 import yaml
 import os
 import numpy as np
@@ -22,7 +22,7 @@ class ArmController(Node):
                 'arm_config', 
                 '/workspace/nuwave-rov/src/arm_controller/config/arm_config.yaml'
                 )
-        self.declare_parameter('arm_topic', '/arm')
+        self.declare_parameter('arm_topic', 'arm_commands')
 
         self.neutral_us = float(self.get_parameter('neutral_us').value or 1500.0)
         self.min_us = float(self.get_parameter('min_us').value or 1100.0)
@@ -42,17 +42,13 @@ class ArmController(Node):
         self.allocMatrix_inverse = np.linalg.pinv(self.allocMatrix)
 
         # Subscribers / Publishers
-        self.status_sub = self.create_subscription(Twist, arm_topic, self.Status_Callback, 10)
+        self.status_sub = self.create_subscription(Float32MultiArray, arm_topic, self.Status_Callback, 10)
         self.arm_motor_pubs = [] 
         for indx in range(self.n_arm_motors):
             pub = self.create_publisher(Float32, f'arm/arm_motor_{indx}', 10)
             self.arm_motor_pubs.append(pub)
 
-        # State
-        self.lastest_twist = Twist()
         self.pwm_commands = np.full(self.n_arm_motors, self.neutral_us)
-        # Listen to state
-        # Scream to arm motors
 
         self.create_timer(1.0 / rate, self.publish_arm_motors)
         self.get_logger().info("Arm Controller Initialized")
@@ -84,7 +80,7 @@ class ArmController(Node):
         self.get_logger().info(f"Arm Motor Allocation Matrix:\n {AllocMatrix}")
         return AllocMatrix
 
-    def Status_Callback(self, msg: Twist):
+    def Status_Callback(self, msg: Float32MultiArray):
         """
         Process a new velocity vector and turns them into PWM signals for the Arm Motors.
         """
@@ -92,12 +88,10 @@ class ArmController(Node):
         # Get twist msg
         # Twist -> msg -> force -> PWM
         # Convert to Numpy vectors, so easier to work with
-        linearVel = np.array([msg.linear.x, msg.linear.y, msg.linear.z])
-        angularVel = np.array([msg.angular.x, msg.angular.y, msg.angular.z])
+        arm_velocities = np.array([msg.data[0], msg.data[1], msg.data[2], msg.data[3], msg.data[4], msg.data[5]])
         
-        torqueList = self.map_twist_to_toque(linearVel, angularVel)
         # Publish PWM data
-        self.pwm_commands = self.map_torque_to_PWM(torqueList)
+        self.pwm_commands = self.map_torque_to_PWM(arm_velocities)
 
     def map_twist_to_toque(self, linear : np.ndarray, angular : np.ndarray) -> np.ndarray:
         """
