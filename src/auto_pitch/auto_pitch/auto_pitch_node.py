@@ -18,11 +18,11 @@ class AutoPitchNode(Node):
         super().__init__("auto_pitch_node")
         self.get_logger().info("Created auto pitch node")
 
-        self.create_subscription(Imu, 'imu', self.imu_callback)
+        self.create_subscription(Imu, 'imu', self.imu_callback, 10)
         self.pitch_control_pub = self.create_publisher(Twist, "/pitch_command", 10)  ## to status node
 
     
-    def pitch_callback(self, msg):
+    def imu_callback(self, msg):
         """Handles received imu measurement by extracting pitch"""
         self.pitch_history.append(msg.angular_velocity.y)
 
@@ -31,6 +31,7 @@ class AutoPitchNode(Node):
         pitch_command = Twist()
         pitch_command.angular.y = y_velocity
         self.pitch_control_pub.publish(pitch_command)
+        self.get_logger().info(f"Published y velocity = {y_velocity}")
 
 
     def pure_bang_bang(self) -> float:
