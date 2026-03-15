@@ -16,9 +16,9 @@ def _create_nodes(context, *args, **kwargs):
 
     nodes = []
     for i in range(count):
-        name = f"thruster/{base_name}_{i}"
+        name = f"{base_name}_{i}"
         params = {
-            'topic': f'thruster/{base_name}_{i}',
+            'topic': f'/thruster/{base_name}_{i}',
             'i2c_bus': i2c_bus,
             'i2c_address': i2c_address,
             'channel': i,
