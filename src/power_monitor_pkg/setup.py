@@ -10,6 +10,8 @@ setup(
         ('share/ament_index/resource_index/packages',
             ['resource/' + package_name]),
         ('share/' + package_name, ['package.xml']),
+        ('share/power_monitor_pkg/config', ['config/power_monitor_run_config.yaml']),
+        ('share/power_monitor_pkg/launch', ['launch/multi_power_monitor.launch.py']),
     ],
     install_requires=['setuptools'],
     zip_safe=True,

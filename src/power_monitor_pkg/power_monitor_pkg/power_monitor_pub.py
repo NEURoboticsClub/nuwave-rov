@@ -6,16 +6,32 @@ from power_monitor_pkg.power_monitor_driver import INA226
 class PowerMonitorPublisher(Node):
     def __init__(self):
         super().__init__('power_monitor_publisher')
-        
-        # Create publishers for each measurement
-        self.pub_voltage = self.create_publisher(Float32, 'power_monitor/bus_voltage', 10)
-        self.pub_current = self.create_publisher(Float32, 'power_monitor/current', 10)
-        self.pub_power = self.create_publisher(Float32, 'power_monitor/power', 10)
-        self.pub_shunt = self.create_publisher(Float32, 'power_monitor/shunt_voltage', 10)
+
+        #Deafualts
+        self.declare_parameter('i2c_address', 0x4F)
+        self.declare_parameter('i2c_bus', 1)
+        self.declare_parameter('shunt_resistor', 0.004)
+        self.declare_parameter('max_expected_current', 17.0)
+        self.declare_parameter('publish_rate_hz', 10.0)
+        self.declare_parameter('topic_prefix', 'power_monitor')
+
+        # Read parameters
+        i2c_address = self.get_parameter('i2c_address').get_parameter_value().integer_value
+        i2c_bus = self.get_parameter('i2c_bus').get_parameter_value().integer_value
+        shunt_resistor = self.get_parameter('shunt_resistor').get_parameter_value().double_value
+        max_current = self.get_parameter('max_expected_current').get_parameter_value().double_value
+        publish_rate = self.get_parameter('publish_rate_hz').get_parameter_value().double_value
+        topic_prefix = self.get_parameter('topic_prefix').get_parameter_value().string_value
+
+        # Create publishers
+        self.pub_voltage = self.create_publisher(Float32, f'{topic_prefix}/bus_voltage', 10)
+        self.pub_current = self.create_publisher(Float32, f'{topic_prefix}/current', 10)
+        self.pub_power = self.create_publisher(Float32, f'{topic_prefix}/power', 10)
+        self.pub_shunt = self.create_publisher(Float32, f'{topic_prefix}/shunt_voltage', 10)
         
         # Initialize the INA226
         try:
-            self.ina226 = INA226(i2c_address=0x4F, bus_number=1)  # Adjust address if needed
+            self.ina226 = INA226(i2c_address=i2c_address, bus_number=i2c_bus)  # Adjust address if needed
             self.ina226.configure()
             self.ina226.calibrate(max_expected_current=17.0)  # Adjust for your system
             self.get_logger().info('INA226 initialized successfully')
