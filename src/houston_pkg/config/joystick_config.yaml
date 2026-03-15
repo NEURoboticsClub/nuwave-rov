@@ -56,37 +56,47 @@ thruster_control:
 
 
 arm_control:
-  - axis: "arm_axis_1"
-    input: 0
-    invert: false
-    sensitivity: 1
-    scale: "linear"
-
-  - axis: "arm_axis_2"
-    input: 1
-    invert: false
-    sensitivity: 1
-    scale: "linear"
-
-  - axis: "arm_axis_3"
-    input: 2
-    invert: false
-    sensitivity: 1
-    scale: "linear"
-
-  - axis: "arm_axis_4"
+  - axis: "arm_axis_1" # Base rotate left right
     input: 3
     invert: false
     sensitivity: 1
     scale: "linear"
 
-  - axis: "arm_axis_5"
+  - axis: "arm_axis_2" # Base up and down
     input: 4
     invert: false
     sensitivity: 1
     scale: "linear"
 
-  - axis: "arm_axis_6"
+  - axis: "arm_axis_3" # Elbow
+    input: 1
+    invert: false
+    sensitivity: 1
+    scale: "linear"
+
+  - axis: "arm_axis_4" # Wrist Rotation
+    input: 0
+    invert: false
+    sensitivity: 1
+    scale: "linear"
+
+  - button: "wrist_up" # Wrist up
+    input: 4
+    invert: false
+    sensitivity: 1
+
+  - button: "wrist_down" # Wrist down
+    input: 5
+    invert: false
+    sensitivity: 1
+
+  - axis: "arm_axis_5" # Claw open
+    input: 2
+    invert: false
+    sensitivity: 1
+    scale: "linear"
+
+  - axis: "arm_axis_6" # Claw close
     input: 5
     invert: false
     sensitivity: 1
