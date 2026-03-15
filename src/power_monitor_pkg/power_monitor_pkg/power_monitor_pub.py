@@ -14,6 +14,7 @@ class PowerMonitorPublisher(Node):
         self.declare_parameter('max_expected_current', 17.0)
         self.declare_parameter('publish_rate_hz', 10.0)
         self.declare_parameter('topic_prefix', 'power_monitor')
+        self.declare_parameter('topic', 'power_monitor')
 
         # Read parameters
         i2c_address = self.get_parameter('i2c_address').get_parameter_value().integer_value
@@ -22,12 +23,13 @@ class PowerMonitorPublisher(Node):
         max_current = self.get_parameter('max_expected_current').get_parameter_value().double_value
         publish_rate = self.get_parameter('publish_rate_hz').get_parameter_value().double_value
         topic_prefix = self.get_parameter('topic_prefix').get_parameter_value().string_value
+        topic = self.get_parameter('topic').get_parameter_value().string_value
 
         # Create publishers
-        self.pub_voltage = self.create_publisher(Float32, f'{topic_prefix}/bus_voltage', 10)
-        self.pub_current = self.create_publisher(Float32, f'{topic_prefix}/current', 10)
-        self.pub_power = self.create_publisher(Float32, f'{topic_prefix}/power', 10)
-        self.pub_shunt = self.create_publisher(Float32, f'{topic_prefix}/shunt_voltage', 10)
+        self.pub_voltage = self.create_publisher(Float32, f'{topic}/bus_voltage', 10)
+        self.pub_current = self.create_publisher(Float32, f'{topic}/current', 10)
+        self.pub_power = self.create_publisher(Float32, f'{topic}/power', 10)
+        self.pub_shunt = self.create_publisher(Float32, f'{topic}/shunt_voltage', 10)
         
         # Initialize the INA226
         try:
