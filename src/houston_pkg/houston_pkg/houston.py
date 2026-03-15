@@ -25,12 +25,14 @@ class Houston(Node):
         self.joy_map = self.load_yaml(joy_config_path)
         
         # === Subscribers / Publishers ===
-        self.joy_sub = self.create_subscription(Joy, joy_topic, self.joy_callback, 10)
+        self.joy_sub = self.create_subscription(Joy, joy_thruster, self.joy_thruster_callback, 10)
+        self.joy_sub = self.create_subscription(Joy, joy_arm, self.joy_arm_callback, 10)
         self.twist_pub = self.create_publisher(Twist, "velocity_commands", 10)
         self.arm_pub = self.create_publisher(Float32MultiArray, "arm_commands", 10)
         
         # === Internal state ===
-        self.last_joy_msg = None
+        self.last_joy_thruster_msg = None
+        self.last_joy_arm_msg = None
 
         self.get_logger().info("Houston Initialized")
 
@@ -50,8 +52,24 @@ class Houston(Node):
 
         # Publish the result
         self.publish_twist(return_map["thruster_control"]["axis"], return_map["thruster_control"]["button"])
+
+    def joy_arm_callback(self, msg: Joy):
+        """Handle arm joystick input"""
+        self.last_joy_arm_msg = msg
+        return_map = self.parse_joystick(msg)
+        self.get_logger().info(str(return_map))
+
         self.publish_arm_commands(return_map["arm_control"]["axis"], return_map["arm_control"]["button"])
 
+
+    def joy_thruster_callback(self, msg: Joy):
+        """Handle thruster joystick input"""
+        self.last_joy_thruster_msg = msg
+        return_map = self.parse_joystick(msg)
+        self.get_logger().info(str(return_map))
+
+        # Publish the result
+        self.publish_twist(return_map["thruster_control"]["axis"], return_map["thruster_control"]["button"])
 
     def parse_joystick(self, msg: Joy) -> dict:
         return_map = {}  #  {cfg_type: {axis/button: {name: value}}}
