@@ -25,7 +25,7 @@ def _create_nodes(context, *args, **kwargs):
         }
         nodes.append(
             Node(
-                package=pkg,
+                package='thruster_pkg',
                 executable='new_thruster_node',
                 name=name,
                 parameters=[params],
