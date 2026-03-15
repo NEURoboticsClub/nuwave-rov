@@ -19,6 +19,7 @@ class ThrusterNode(Node):
     """
 
     def __init__(self):
+        super().__init__('thruster_node')
         # Params
         self.declare_parameter('topic', '')
         self.declare_parameter('i2c_bus', 7)
@@ -53,9 +54,6 @@ class ThrusterNode(Node):
         self.slew_us_per_s = self.get_parameter('slew_us_per_s').value
         # Derived Vals
         self.period_us = 1_000_000.0 / self.pwm_freq
-
-        node_name = f"thruster_{self.channel}"
-        super().__init__(node_name)
 
         if not topic: 
             topic = f"thruster_{self.channel}"
@@ -191,7 +189,7 @@ class ThrusterNode(Node):
 
 
 def main(args=None):
-    rclpy.init(args)
+    rclpy.init()
     node = ThrusterNode()
 
     try:
