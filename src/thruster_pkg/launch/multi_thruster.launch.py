@@ -12,21 +12,21 @@ def _create_nodes(context, *args, **kwargs):
     base_name = LaunchConfiguration('base_name').perform(context)
     i2c_bus = int(LaunchConfiguration('i2c_bus').perform(context))
     i2c_address = int(LaunchConfiguration('i2c_address').perform(context))
-    pkg = 'thruster_pkg'
+    pkg = get_package_share_directory('thruster_pkg')
 
     nodes = []
     for i in range(count):
-        name = f"thruster/{base_name}_{i}"
+        name = f"{base_name}_{i}"
         params = {
-            'topic': f'thruster/{base_name}_{i}',
+            'topic': f'/thruster/{base_name}_{i}',
             'i2c_bus': i2c_bus,
             'i2c_address': i2c_address,
             'channel': i,
         }
         nodes.append(
             Node(
-                package=pkg,
-                executable='thruster_node',
+                package='thruster_pkg',
+                executable='new_thruster_node',
                 name=name,
                 parameters=[params],
                 output='screen'

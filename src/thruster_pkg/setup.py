@@ -14,7 +14,8 @@ setup(
             'config/thruster_run_config.yaml'
         ]),
         ('share/' + package_name + '/launch', [
-            'launch/thruster.launch.py'
+            'launch/thruster.launch.py',
+            'launch/multi_thruster.launch.py'
         ])
     ],
     install_requires=['setuptools'],
@@ -31,6 +32,7 @@ setup(
     entry_points={
         'console_scripts': [
             'thruster_node = '+package_name+'.thruster_driver_simple:main',
+            'new_thruster_node = '+package_name+'.new_thruster_driver:main',
             'thruster_sub = '+package_name+'.thruster_sub:main',
             'thruster_test = '+package_name+'.thruster_test:main',
             'PCA9685 = '+package_name+'.PCA9685:main'

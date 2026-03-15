@@ -24,7 +24,7 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-            'thruster_controller_node=controller.thruster_controller_node:main',
+            'thruster_controller_node=controller.new_thruster_controller_node:main',
             'joystick_identify=controller.joystick_identify:main',
         ],
     },
