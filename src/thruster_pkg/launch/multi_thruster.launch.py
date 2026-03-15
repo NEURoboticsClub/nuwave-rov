@@ -12,7 +12,7 @@ def _create_nodes(context, *args, **kwargs):
     base_name = LaunchConfiguration('base_name').perform(context)
     i2c_bus = int(LaunchConfiguration('i2c_bus').perform(context))
     i2c_address = int(LaunchConfiguration('i2c_address').perform(context))
-    pkg = 'thruster_pkg'
+    pkg = get_package_share_directory('thruster_pkg')
 
     nodes = []
     for i in range(count):

@@ -14,7 +14,8 @@ setup(
             'config/thruster_run_config.yaml'
         ]),
         ('share/' + package_name + '/launch', [
-            'launch/thruster.launch.py'
+            'launch/thruster.launch.py',
+            'launch/multi_thruster.launch.py'
         ])
     ],
     install_requires=['setuptools'],
