@@ -15,10 +15,12 @@ class Houston(Node):
 
         # === Parameters ===
         self.declare_parameter('joy_config', '/home/nuwave/nuwave-rov/install/houston_pkg/share/houston_pkg/config/joystick_config.yaml')
-        self.declare_parameter('joy_topic', '/joy')
+        self.declare_parameter('joy_thruster', '/joy_thruster')
+        self.declare_parameter('joy_arm', '/joy_arm')
 
         joy_config_path = self.get_parameter('joy_config').value
-        joy_topic = self.get_parameter('joy_topic').value
+        joy_thruster = self.get_parameter('joy_thruster').value
+        joy_arm = self.get_parameter('joy_arm').value
 
         self.get_logger().info(f"Loading joystick config from: {joy_config_path}")
         # === Load configurations ===
@@ -46,7 +48,7 @@ class Houston(Node):
 
     def joy_callback(self, msg: Joy):
         """Handle joystick input."""
-        self.last_joy_msg = msg
+        # self.last_joy_msg = msg
         return_map = self.parse_joystick(msg)
         self.get_logger().info(str(return_map))
 
