@@ -46,80 +46,66 @@ class Houston(Node):
         with open(path, 'r') as f:
             return yaml.safe_load(f)
 
-    def joy_callback(self, msg: Joy):
-        """Handle joystick input."""
-        # self.last_joy_msg = msg
-        return_map = self.parse_joystick(msg)
-        self.get_logger().info(str(return_map))
-
-        # Publish the result
-        self.publish_twist(return_map["thruster_control"]["axis"], return_map["thruster_control"]["button"])
-
     def joy_arm_callback(self, msg: Joy):
         """Handle arm joystick input"""
         self.last_joy_arm_msg = msg
-        return_map = self.parse_joystick(msg)
+        return_map = self.parse_joystick(msg, cfg_type="arm_control")
         self.get_logger().info(str(return_map))
 
-        self.publish_arm_commands(return_map["arm_control"]["axis"], return_map["arm_control"]["button"])
-
+        self.publish_arm_commands(return_map["axis"], return_map["button"])
 
     def joy_thruster_callback(self, msg: Joy):
         """Handle thruster joystick input"""
         self.last_joy_thruster_msg = msg
-        return_map = self.parse_joystick(msg)
+        return_map = self.parse_joystick(msg, cfg_type="thruster_control")
         self.get_logger().info(str(return_map))
 
         # Publish the result
-        self.publish_twist(return_map["thruster_control"]["axis"], return_map["thruster_control"]["button"])
+        self.publish_twist(return_map["axis"], return_map["button"])
 
-    def parse_joystick(self, msg: Joy) -> dict:
-        return_map = {}  #  {cfg_type: {axis/button: {name: value}}}
-        for cfg_type in ["thruster_control", "arm_control"]:
-            cfg_list = self.joy_map.get(cfg_type, [])
-            if not isinstance(cfg_list, list):
-                return_map[cfg_type] = {"axis": {}, "button": {}}  # config malformed
+    def parse_joystick(self, msg: Joy, cfg_type: str) -> dict:
+        cfg_list = self.joy_map.get(cfg_type, [])
+
+        if not isinstance(cfg_list, list):
+            return {} # config malformed
+
+        axis_values = {}
+        button_values = {}
+        for cfg in cfg_list:
+            # --- Axis entry ---
+            if "axis" in cfg:
+                axis_name = cfg["axis"]
+                axis_index = int(cfg.get("input", 0))
+                invert = bool(cfg.get("invert", False))
+                sensitivity = float(cfg.get("sensitivity", 1.0))
+                scale = cfg.get("scale", "linear")
+
+                raw = msg.axes[axis_index] if axis_index < len(msg.axes) else 0.0
+                if invert:
+                    raw *= -1.0
+
+                val = raw * sensitivity
+
+                # Optional: support your "scale" field (keep simple)
+                if scale == "logarithmic":
+                    # compress near 0, preserve sign
+                    val = np.sign(val) * np.log1p(abs(val))
+
+                axis_values[axis_name] = float(val)
                 continue
 
-            axis_values = {}
-            button_values = {}
-            for cfg in cfg_list:
-                # --- Axis entry ---
-                if "axis" in cfg:
-                    axis_name = cfg["axis"]
-                    axis_index = int(cfg.get("input", 0))
-                    invert = bool(cfg.get("invert", False))
-                    sensitivity = float(cfg.get("sensitivity", 1.0))
-                    scale = cfg.get("scale", "linear")
+            # --- Button entry ---
+            if "button" in cfg:
+                btn_name = cfg["button"]
+                btn_index = int(cfg.get("input", 0))
+                invert = bool(cfg.get("invert", False))
 
-                    raw = msg.axes[axis_index] if axis_index < len(msg.axes) else 0.0
-                    if invert:
-                        raw *= -1.0
+                raw = msg.buttons[btn_index] if btn_index < len(msg.buttons) else 0
+                pressed = (1 - raw) if invert else raw
+                button_values[btn_name] = int(pressed)
+                continue
 
-                    val = raw * sensitivity
-
-                    # Optional: support your "scale" field (keep simple)
-                    if scale == "logarithmic":
-                        # compress near 0, preserve sign
-                        val = np.sign(val) * np.log1p(abs(val))
-
-                    axis_values[axis_name] = float(val)
-                    continue
-
-                # --- Button entry ---
-                if "button" in cfg:
-                    btn_name = cfg["button"]
-                    btn_index = int(cfg.get("input", 0))
-                    invert = bool(cfg.get("invert", False))
-
-                    raw = msg.buttons[btn_index] if btn_index < len(msg.buttons) else 0
-                    pressed = (1 - raw) if invert else raw
-                    button_values[btn_name] = int(pressed)
-                    continue
-
-            return_map[cfg_type] = {"axis": axis_values, "button": button_values}
-        
-        return return_map
+        return {"axis": axis_values, "button": button_values}
 
     def publish_twist(self, axis_values, button_values):
         """Publish the twist velocity command."""
