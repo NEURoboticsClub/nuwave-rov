@@ -83,12 +83,10 @@ arm_control:
   - button: "wrist_up" # Wrist up
     input: 4
     invert: false
-    sensitivity: 1
 
   - button: "wrist_down" # Wrist down
     input: 5
     invert: false
-    sensitivity: 1
 
   - axis: "arm_axis_5" # Claw open
     input: 2
