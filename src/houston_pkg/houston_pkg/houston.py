@@ -27,8 +27,8 @@ class Houston(Node):
         self.joy_map = self.load_yaml(joy_config_path)
         
         # === Subscribers / Publishers ===
-        self.joy_sub = self.create_subscription(Joy, joy_thruster, self.joy_thruster_callback, 10)
-        self.joy_sub = self.create_subscription(Joy, joy_arm, self.joy_arm_callback, 10)
+        self.thruster_joy_sub = self.create_subscription(Joy, joy_thruster, self.joy_thruster_callback, 10)
+        self.arm_joy_sub = self.create_subscription(Joy, joy_arm, self.joy_arm_callback, 10)
         self.twist_pub = self.create_publisher(Twist, "velocity_commands", 10)
         self.arm_pub = self.create_publisher(Float32MultiArray, "arm_commands", 10)
         
