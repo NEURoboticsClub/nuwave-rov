@@ -22,7 +22,7 @@ class ArmController(Node):
                 'arm_config', 
                 '/home/nuwave/nuwave-rov/src/arm_controller/config/arm_config.yaml'
                 )
-        self.declare_parameter('arm_topic', 'joy_arm')
+        self.declare_parameter('arm_topic', 'arm_commands')
         self.declare_parameter('n_arm_motors', 6)  
         
         self.neutral_us = float(self.get_parameter('neutral_us').value or 1500.0)
@@ -68,7 +68,7 @@ class ArmController(Node):
      
         arm_velocities = np.array(msg.data, dtype=float)
 
-        self.pwm_commands = self.map_value_to_PWM(arm_velocities)
+        self.pwm_commands = self.map_val_to_PWM(arm_velocities)
 
     
     # takes normalized game controller input (-1 to 1) and maps that to PWM range for each motor

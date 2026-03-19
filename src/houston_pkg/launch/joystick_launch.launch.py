@@ -11,8 +11,8 @@ def generate_launch_description():
                 ('/joy', '/joy_thruster')
             ],
             parameters=[{
-                'dev': '/dev/input/js1',
-                'device_id': 0
+                'dev': '/dev/input/js0',
+                'device_id': 1
             }]
 
         ),
@@ -24,8 +24,8 @@ def generate_launch_description():
                 ('/joy', '/joy_arm')
             ],
             parameters=[{
-                'dev': '/dev/input/js0',
-                'device_id': 1
+                'dev': '/dev/input/js1',
+                'device_id': 0
             }]
         ),
     ])

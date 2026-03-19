@@ -12,7 +12,6 @@ setup(
         ('share/' + package_name, ['package.xml']),
         ('share/' + package_name + '/config', [
             'config/arm_config.yaml',
-            'config/new_thruster_config.yaml',
         ]),
     ],
     install_requires=['setuptools'],
@@ -24,8 +23,7 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-            'arm_controller_node=arm_controller.arm_controller_node:main',
-            'joystick_identify=arm_controller.joystick_identify:main',
+            'arm_controller_node=arm_controller.arm_controller_node:main'
         ],
     },
 )

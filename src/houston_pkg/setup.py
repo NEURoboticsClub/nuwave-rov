@@ -13,6 +13,9 @@ setup(
         ('share/' + package_name + '/config', [
             'config/joystick_config.yaml',
         ]),
+        ('share/' + package_name + '/launch', [
+            'launch/joystick_launch.launch.py'
+        ])
     ],
     
     install_requires=['setuptools'],
@@ -28,7 +31,8 @@ setup(
     },
     entry_points={
         'console_scripts': [
-            'houston = houston_pkg.houston:main'
+            'houston = houston_pkg.houston:main',
+            'joystick_identify=houston_pkg.joystick_identify:main',
         ],
     },
 )
