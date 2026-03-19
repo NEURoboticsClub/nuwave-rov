@@ -23,7 +23,8 @@ class ArmController(Node):
                 '/home/nuwave/nuwave-rov/src/arm_controller/config/arm_config.yaml'
                 )
         self.declare_parameter('arm_topic', 'joy_arm')
-
+        self.declare_parameter('n_arm_motors', 6)  
+        
         self.neutral_us = float(self.get_parameter('neutral_us').value or 1500.0)
         self.min_us = float(self.get_parameter('min_us').value or 1100.0)
         self.max_us = float(self.get_parameter('max_us').value or 1900.0)
@@ -37,8 +38,7 @@ class ArmController(Node):
         self.get_logger().info(f"Loading arm config from: {arm_config_path}")
 
         # Configure arm motors and Allocation
-        config = self.load_yaml(arm_config_path)
-        self.determine_n_arm_motors(config)
+        # config = self.load_yaml(arm_config_path)
 
         # Subscribers / Publishers
         self.status_sub = self.create_subscription(Float32MultiArray, arm_topic, self.Status_Callback, 10)
@@ -60,11 +60,6 @@ class ArmController(Node):
         with open(path, 'r') as f:
             return yaml.safe_load(f)    
         
-    
-    # number of arm motors is determined by the number of arm motors defined in the config file, if not defined defaults to 6
-    def determine_n_arm_motors(self, config):
-        self.n_arm_motors = len(config.get('arm_motors', []))
-
     def Status_Callback(self, msg: Float32MultiArray):
         """
         Process a new velocity vector and turns them into PWM signals for the Arm Motors.
