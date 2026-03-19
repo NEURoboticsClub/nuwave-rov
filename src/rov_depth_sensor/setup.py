@@ -1,6 +1,6 @@
 from setuptools import find_packages, setup
 
-package_name = 'controller'
+package_name = 'rov_depth_sensor'
 
 setup(
     name=package_name,
@@ -10,22 +10,18 @@ setup(
         ('share/ament_index/resource_index/packages',
             ['resource/' + package_name]),
         ('share/' + package_name, ['package.xml']),
-        ('share/' + package_name + '/config', [
-            'config/thruster_config.yaml',
-            'config/new_thruster_config.yaml',
-        ]),
     ],
     install_requires=['setuptools'],
     zip_safe=True,
-    maintainer='gallifrey',
-    maintainer_email='sirdeshpande.m@northeastern.edu',
+    maintainer='xingyue',
+    maintainer_email='yun.xi@northeastern.edu',
     description='TODO: Package description',
-    license='MIT',
+    license='TODO: License declaration',
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-            'thruster_controller_node=controller.new_thruster_controller_node:main',
-            'joystick_identify=controller.joystick_identify:main',
+            'depth_sensor_node = rov_depth_sensor.depth_sensor:main',
+            'ms5837 = rov_depth_senspr.ms5937:main'
         ],
     },
 )
