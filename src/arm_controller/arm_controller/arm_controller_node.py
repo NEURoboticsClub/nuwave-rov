@@ -28,6 +28,7 @@ class ArmController(Node):
         self.min_us = float(self.get_parameter('min_us').value or 1100.0)
         self.max_us = float(self.get_parameter('max_us').value or 1900.0)
         self.max_force = float(self.get_parameter('max_force_n').value or 50.0)
+        self.n_arm_motors = int(self.get_parameter('n_arm_motors').value or 6)
         rate = float(self.get_parameter('publish_rate_hz').value or 50.0)
 
         arm_config_path = self.get_parameter('arm_config').value
@@ -37,6 +38,7 @@ class ArmController(Node):
 
         # Configure arm motors and Allocation
         config = self.load_yaml(arm_config_path)
+        self.determine_n_arm_motors(config)
 
         # Subscribers / Publishers
         self.status_sub = self.create_subscription(Float32MultiArray, arm_topic, self.Status_Callback, 10)
@@ -49,6 +51,19 @@ class ArmController(Node):
 
         self.create_timer(1.0 / rate, self.publish_arm_motors)
         self.get_logger().info("Arm Controller Initialized")
+
+    def load_yaml(self, path):
+        """Load a YAML file from a relative or absolute path."""
+        if not os.path.exists(path):
+            self.get_logger().warn(f"Config file not found: {path}")
+            return {}
+        with open(path, 'r') as f:
+            return yaml.safe_load(f)    
+        
+    
+    # number of arm motors is determined by the number of arm motors defined in the config file, if not defined defaults to 6
+    def determine_n_arm_motors(self, config):
+        self.n_arm_motors = len(config.get('arm_motors', []))
 
     def Status_Callback(self, msg: Float32MultiArray):
         """
