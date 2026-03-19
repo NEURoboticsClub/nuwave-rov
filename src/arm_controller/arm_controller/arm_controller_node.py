@@ -20,9 +20,9 @@ class ArmController(Node):
         self.declare_parameter('publish_rate_hz', 50.0)
         self.declare_parameter(
                 'arm_config', 
-                '/workspace/nuwave-rov/src/arm_controller/config/arm_config.yaml'
+                '/home/nuwave/nuwave-rov/src/arm_controller/config/arm_config.yaml'
                 )
-        self.declare_parameter('arm_topic', 'arm_commands')
+        self.declare_parameter('arm_topic', 'joy_arm')
 
         self.neutral_us = float(self.get_parameter('neutral_us').value or 1500.0)
         self.min_us = float(self.get_parameter('min_us').value or 1100.0)
@@ -37,9 +37,6 @@ class ArmController(Node):
 
         # Configure arm motors and Allocation
         config = self.load_yaml(arm_config_path)
-        self.allocMatrix = self.compute_arm_allocation_matrix(config)
-        self.n_arm_motors = self.allocMatrix.shape[1]
-        self.allocMatrix_inverse = np.linalg.pinv(self.allocMatrix)
 
         # Subscribers / Publishers
         self.status_sub = self.create_subscription(Float32MultiArray, arm_topic, self.Status_Callback, 10)
@@ -53,67 +50,28 @@ class ArmController(Node):
         self.create_timer(1.0 / rate, self.publish_arm_motors)
         self.get_logger().info("Arm Controller Initialized")
 
-
-    def load_yaml(self, config_path) -> dict:
-        """Load a YAML file from a relative or absolute path."""
-        if not os.path.exists(config_path):
-            self.get_logger().warn(f"Config file not found: {config_path}")
-            return {}
-        with open(config_path, 'r') as f:
-            return yaml.safe_load(f)
-
-    def compute_arm_allocation_matrix(self, config : dict) -> np.ndarray:
-        arm_motors = config['arm_motors']
-        AllocMatrix = np.zeros((6, len(arm_motors)))
-
-        for indx, arm_motor in enumerate(arm_motors):
-            pos_m = np.array(arm_motor['position_m'], dtype=float)
-            dir = np.array(arm_motor['direction'], dtype=float)
-
-            dir = dir / np.linalg.norm(dir) # normalize the direction vector
-
-            # Linear Force Contribution
-            AllocMatrix[0:3, indx] = dir
-            AllocMatrix[3:6, indx] = np.cross(pos_m, dir) 
-
-            
-        self.get_logger().info(f"Arm Motor Allocation Matrix:\n {AllocMatrix}")
-        return AllocMatrix
-
     def Status_Callback(self, msg: Float32MultiArray):
         """
         Process a new velocity vector and turns them into PWM signals for the Arm Motors.
         """
         self.last_state_msg = msg
-        # Get twist msg
-        # Twist -> msg -> force -> PWM
-        # Convert to Numpy vectors, so easier to work with
-        arm_velocities = np.array([msg.data[0], msg.data[1], msg.data[2], msg.data[3], msg.data[4], msg.data[5]])
-        
-        # Publish PWM data
-        self.pwm_commands = self.map_torque_to_PWM(arm_velocities)
+     
+        arm_velocities = np.array(msg.data, dtype=float)
 
-    def map_twist_to_toque(self, linear : np.ndarray, angular : np.ndarray) -> np.ndarray:
-        """
-        Turns a twist msg -> a torque map for each arm motor
-        """
-        tau = np.concatenate([linear, angular])
-        forces = self.allocMatrix_inverse @ tau # nx1 arm motor forces
-        return forces
+        self.pwm_commands = self.map_value_to_PWM(arm_velocities)
+
     
-    def map_torque_to_PWM(self, forces : np.ndarray) -> np.ndarray:
-        """
-        Turns a list of torques -> to a list of PWM signals
-        """
-
-        normalized = np.clip(forces / self.max_force, -1, 1)
+    # takes normalized game controller input (-1 to 1) and maps that to PWM range for each motor
+    def map_val_to_PWM(self, arm_velocities) -> np.ndarray:
         
-        pwm = np.where(
-                normalized >= 0,
-                self.neutral_us + normalized * (self.max_us - self.neutral_us),
-                self.neutral_us + normalized * (self.neutral_us - self.min_us)
-                )
-        return pwm
+        pwm_commands = np.zeros(self.n_arm_motors)
+        for i in range(self.n_arm_motors):
+            if arm_velocities[i] > 0:
+                pwm_commands[i] = self.neutral_us + arm_velocities[i] * (self.max_us - self.neutral_us)
+            else:
+                pwm_commands[i] = self.neutral_us + arm_velocities[i] * (self.neutral_us - self.min_us)
+
+        return pwm_commands
 
     def publish_arm_motors(self):
         """
