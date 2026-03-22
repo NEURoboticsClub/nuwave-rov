@@ -74,42 +74,42 @@ thrusters:
 arm_motors:
   # Base motor for left and right movement
   - id: 1
-    name: "base_left_right"
+    name: "base_yaw_motor"
     zero_voltage: 0
     range_of_motion: 0
     max_speed: 0
 
   # Base motor for up and down movement
   - id: 2
-    name: "base_up_down"
+    name: "base_pitch_motor"
     zero-voltage: 0
     range_of_motion: 0
     max_speed: 0
 
   # Elbow motor for up and down movement
   - id: 3
-    name: "elbow_up_down"
+    name: "elbow_pitch_motor"
     zero-voltage: 0
     range_of_motion: 0
     max_speed: 0
 
   # Wrist motor for left and right movement
   - id: 4
-    name: "wrist_left_right"
+    name: "wrist_yaw_motor"
     zero-voltage: 0
     range_of_motion: 0
     max_speed: 0
 
   # Wrist motor for up and down movement
   - id: 5
-    name: "wrist_up_down"
+    name: "wrist_pitch_motor"
     zero-voltage: 0
     range_of_motion: 0
     max_speed: 0
 
   # Claw motor for left and right movement
   - id: 6
-    name: "claw_open_close"
+    name: "claw_open_close_motor"
     zero-voltage: 0
     range_of_motion: 0
     max_speed: 0
