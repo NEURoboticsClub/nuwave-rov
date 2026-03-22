@@ -81,21 +81,21 @@ arm_control:
     scale: "linear"
 
   - button: "wrist_up" # Wrist up
-    input: 4
+    input: 4 # bumper 
     invert: false
 
   - button: "wrist_down" # Wrist down
-    input: 5
+    input: 5 # bumper 
     invert: false
 
   - axis: "arm_axis_5" # Claw open
-    input: 2
+    input: 2 # left trigger
     invert: false
     sensitivity: 1
     scale: "linear"
 
   - axis: "arm_axis_6" # Claw close
-    input: 5
+    input: 5 # right trigger
     invert: false
     sensitivity: 1
     scale: "linear"

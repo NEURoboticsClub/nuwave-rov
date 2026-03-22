@@ -132,8 +132,8 @@ class Houston(Node):
             float(axis_values.get('arm_axis_2', 0.0)),
             float(axis_values.get('arm_axis_3', 0.0)),
             float(axis_values.get('arm_axis_4', 0.0)),
-            float(axis_values.get('arm_axis_5', 0.0)),
-            float(axis_values.get('arm_axis_6', 0.0)),
+            (float(axis_values.get('arm_axis_5', 0.0)) - float(axis_values.get('arm_axis_6', 0.0))) * 0.5, 
+            (float(axis_values.get('wrist_up', 0.0)) - float(axis_values.get('wrist_down', 0.0))),
         ]
         self.arm_pub.publish(msg)
 
