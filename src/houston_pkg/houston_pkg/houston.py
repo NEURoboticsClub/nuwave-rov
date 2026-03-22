@@ -128,12 +128,12 @@ class Houston(Node):
         
         msg = Float32MultiArray()
         msg.data = [
-            float(axis_values.get('arm_axis_1', 0.0)),
-            float(axis_values.get('arm_axis_2', 0.0)),
-            float(axis_values.get('arm_axis_3', 0.0)),
-            float(axis_values.get('arm_axis_4', 0.0)),
-            (float(axis_values.get('arm_axis_5', 0.0)) - float(axis_values.get('arm_axis_6', 0.0))) * 0.5, 
-            (float(axis_values.get('wrist_up', 0.0)) - float(axis_values.get('wrist_down', 0.0))),
+            float(axis_values.get('base_yaw_input', 0.0)),
+            float(axis_values.get('base_pitch_input', 0.0)),
+            float(axis_values.get('elbow_pitch_input', 0.0)),
+            float(axis_values.get('wrist_yaw_input', 0.0)),
+            (float(button_values.get('wrist_up_input', 0.0)) - float(button_values.get('wrist_down_input', 0.0))),
+            (float(axis_values.get('claw_open_input', 0.0)) - float(axis_values.get('claw_close_input', 0.0))) * 0.5, 
         ]
         self.arm_pub.publish(msg)
 
