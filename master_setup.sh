@@ -10,16 +10,20 @@ if [ $? -ne 0 ]; then
     exit 1
 fi
 
-SETUP="cd $WS && source install/setup.bash"
+SETUP="cd $WS && source ~/nuwave-rov/venv/bin/activate && source install/setup.bash"
 
 CMD_TL="$SETUP && ros2 launch houston_pkg joystick_launch.launch.py"
 CMD_TR="$SETUP && ros2 run houston_pkg houston"
 CMD_BL="$SETUP && ros2 run controller thruster_controller_node"
-CMD_BR="$SETUP && echo 'hello'"
+CMD_BR="$SETUP && ros2 run arm_controller arm_controller_node"
 
 LAYOUT_FILE=$(mktemp /tmp/terminator_ros2_XXXX.conf)
 
 cat > "$LAYOUT_FILE" <<EOF
+[global_config]
+[keybindings]
+[profiles]
+  [[default]]
 [layouts]
   [[ros2]]
     [[[window0]]]
@@ -50,6 +54,7 @@ cat > "$LAYOUT_FILE" <<EOF
       type = Terminal
       parent = vpane_right
       command = bash -c '$CMD_BR; exec bash'
+[plugins]
 EOF
 
 terminator -g "$LAYOUT_FILE" -l ros2 -m
