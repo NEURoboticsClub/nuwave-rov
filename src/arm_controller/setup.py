@@ -1,6 +1,6 @@
 from setuptools import find_packages, setup
 
-package_name = 'houston_pkg'
+package_name = 'arm_controller'
 
 setup(
     name=package_name,
@@ -11,28 +11,19 @@ setup(
             ['resource/' + package_name]),
         ('share/' + package_name, ['package.xml']),
         ('share/' + package_name + '/config', [
-            'config/joystick_config.yaml',
+            'config/arm_config.yaml',
         ]),
-        ('share/' + package_name + '/launch', [
-            'launch/joystick_launch.launch.py'
-        ])
     ],
-    
     install_requires=['setuptools'],
     zip_safe=True,
-    maintainer='nuwave',
-    maintainer_email='neumate2022@gmail.com',
+    maintainer='gallifrey',
+    maintainer_email='sirdeshpande.m@northeastern.edu',
     description='TODO: Package description',
-    license='TODO: License declaration',
-    extras_require={
-        'test': [
-            'pytest',
-        ],
-    },
+    license='MIT',
+    tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-            'houston = houston_pkg.houston:main',
-            'joystick_identify=houston_pkg.joystick_identify:main',
+            'arm_controller_node=arm_controller.arm_controller_node:main'
         ],
     },
 )

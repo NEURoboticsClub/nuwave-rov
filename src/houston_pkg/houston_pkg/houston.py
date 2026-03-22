@@ -2,6 +2,7 @@ import rclpy
 from rclpy.node import Node
 from sensor_msgs.msg import Joy
 from geometry_msgs.msg import Twist
+from std_msgs.msg import Float32MultiArray
 import yaml
 import os
 import numpy as np
@@ -14,21 +15,26 @@ class Houston(Node):
 
         # === Parameters ===
         self.declare_parameter('joy_config', '/home/nuwave/nuwave-rov/install/houston_pkg/share/houston_pkg/config/joystick_config.yaml')
-        self.declare_parameter('joy_topic', '/joy')
+        self.declare_parameter('joy_thruster', '/joy_thruster')
+        self.declare_parameter('joy_arm', '/joy_arm')
 
         joy_config_path = self.get_parameter('joy_config').value
-        joy_topic = self.get_parameter('joy_topic').value
+        joy_thruster = self.get_parameter('joy_thruster').value
+        joy_arm = self.get_parameter('joy_arm').value
 
         self.get_logger().info(f"Loading joystick config from: {joy_config_path}")
         # === Load configurations ===
         self.joy_map = self.load_yaml(joy_config_path)
         
         # === Subscribers / Publishers ===
-        self.joy_sub = self.create_subscription(Joy, joy_topic, self.joy_callback, 10)
+        self.thruster_joy_sub = self.create_subscription(Joy, joy_thruster, self.joy_thruster_callback, 10)
+        self.arm_joy_sub = self.create_subscription(Joy, joy_arm, self.joy_arm_callback, 10)
         self.twist_pub = self.create_publisher(Twist, "velocity_commands", 10)
+        self.arm_pub = self.create_publisher(Float32MultiArray, "arm_commands", 10)
         
         # === Internal state ===
-        self.last_joy_msg = None
+        self.last_joy_thruster_msg = None
+        self.last_joy_arm_msg = None
 
         self.get_logger().info("Houston Initialized")
 
@@ -40,23 +46,31 @@ class Houston(Node):
         with open(path, 'r') as f:
             return yaml.safe_load(f)
 
-    def joy_callback(self, msg: Joy):
-        """Handle joystick input."""
-        self.last_joy_msg = msg
-        axis_values, button_values = self.parse_joystick(msg)
+    def joy_arm_callback(self, msg: Joy):
+        """Handle arm joystick input"""
+        self.last_joy_arm_msg = msg
+        return_map = self.parse_joystick(msg, cfg_type="arm_control")
+        self.get_logger().info(str(return_map))
+
+        self.publish_arm_commands(return_map["axis"], return_map["button"])
+
+    def joy_thruster_callback(self, msg: Joy):
+        """Handle thruster joystick input"""
+        self.last_joy_thruster_msg = msg
+        return_map = self.parse_joystick(msg, cfg_type="thruster_control")
+        self.get_logger().info(str(return_map))
 
         # Publish the result
-        self.publish_twist(axis_values, button_values)
+        self.publish_twist(return_map["axis"], return_map["button"])
 
+    def parse_joystick(self, msg: Joy, cfg_type: str) -> dict:
+        cfg_list = self.joy_map.get(cfg_type, [])
 
-    def parse_joystick(self, msg: Joy):
+        if not isinstance(cfg_list, list):
+            return {} # config malformed
+
         axis_values = {}
         button_values = {}
-
-        cfg_list = self.joy_map.get("joystick", [])
-        if not isinstance(cfg_list, list):
-            return {}, {}  # config malformed
-
         for cfg in cfg_list:
             # --- Axis entry ---
             if "axis" in cfg:
@@ -91,13 +105,7 @@ class Houston(Node):
                 button_values[btn_name] = int(pressed)
                 continue
 
-            # Otherwise: ignore unknown entry types
-
-        # If you want buttons too, return both (or store button_values on self)
-        # For now, just store on self so you can use it later:
-        self.last_buttons = button_values
-
-        return axis_values, button_values
+        return {"axis": axis_values, "button": button_values}
 
     def publish_twist(self, axis_values, button_values):
         """Publish the twist velocity command."""
@@ -111,6 +119,24 @@ class Houston(Node):
         msg.linear.z = float(axis_values['up']) - float(axis_values['down'])
 
         self.twist_pub.publish(msg)
+
+
+    def publish_arm_commands(self, axis_values, button_values):
+        """Publish arm control commands."""
+        # 6 element array: [axis1 - axis6]
+        # Create and publish arm commands as a 6-element array
+        
+        msg = Float32MultiArray()
+        msg.data = [
+            float(axis_values.get('base_yaw_input', 0.0)),
+            float(axis_values.get('base_pitch_input', 0.0)),
+            float(axis_values.get('elbow_pitch_input', 0.0)),
+            float(axis_values.get('wrist_yaw_input', 0.0)),
+            (float(button_values.get('wrist_up_input', 0.0)) - float(button_values.get('wrist_down_input', 0.0))),
+            (float(axis_values.get('claw_open_input', 0.0)) - float(axis_values.get('claw_close_input', 0.0))) * 0.5, 
+        ]
+        self.arm_pub.publish(msg)
+
 
 
 def main(args=None):
