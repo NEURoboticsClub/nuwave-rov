@@ -90,12 +90,12 @@ arm_control:
 
   - axis: "claw_open_input" # Claw open
     input: 2 # left trigger
-    invert: false
+    invert: true
     sensitivity: 1
     scale: "linear"
 
   - axis: "claw_close_input" # Claw close
     input: 5 # right trigger
-    invert: false
+    invert: true
     sensitivity: 1
     scale: "linear"
