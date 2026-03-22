@@ -1,0 +1,228 @@
+<?xml version="1.0" encoding="utf-8"?>
+<robot name="dynamic_5DOF">
+
+  <!-- ============================================================
+       BASE LINK
+  ============================================================ -->
+  <link name="base_link">
+    <inertial>
+      <origin xyz="-0.0128225342032761 -0.00517630858122442 0.110764309576391" rpy="0 0 0"/>
+      <mass value="2.74263320444319"/>
+      <inertia ixx="0.00276104996101079" ixy="1.33479659123381E-05" ixz="0.000190304557158781"
+               iyy="0.00264795855349162" iyz="2.63690011097327E-05" izz="0.00251182863792254"/>
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <mesh filename="package://arm_controller/meshfiles/base_link.STL" />
+      </geometry>
+      <material name="light_blue">
+        <color rgba="0.792156862745098 0.819607843137255 0.933333333333333 1"/>
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <mesh filename="package://arm_controller/meshfiles/base_link.STL"  />
+      </geometry>
+    </collision>
+  </link>
+
+  <!-- ============================================================
+       JOINT Ax1 — BASE ROTATION
+       Real origin + axis from SolidWorks export kept exactly
+       Limits set to ±180° (full rotation)
+  ============================================================ -->
+  <joint name="Ax1" type="revolute">
+    <origin xyz="-0.057432 0.009401 0.084997" rpy="0 -1.1899 1.4085"/>
+    <parent link="base_link"/>
+    <child  link="Ax1"/>
+    <axis xyz="-0.92832 0 -0.37179"/>
+    <limit lower="-3.14159" upper="3.14159" effort="10.0" velocity="1.0"/>
+    <dynamics damping="0.1" friction="0.1"/>
+  </joint>
+
+  <link name="Ax1">
+    <inertial>
+      <origin xyz="0.0234204814537993 -0.0418050323940836 0.0193820547534728" rpy="0 0 0"/>
+      <mass value="2.43594386338887"/>
+      <inertia ixx="0.00234868049265603" ixy="-0.000176043485578779" ixz="-8.90381236731919E-05"
+               iyy="0.00247801701653144" iyz="-5.41179711487934E-05" izz="0.00237085010312389"/>
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <mesh filename="package://arm_controller/meshfiles/Ax1.STL" />
+      </geometry>
+      <material name="light_blue">
+        <color rgba="0.792156862745098 0.819607843137255 0.933333333333333 1"/>
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <mesh filename="package://arm_controller/meshfiles/Ax1.STL" />
+      </geometry>
+    </collision>
+  </link>
+
+  <!-- ============================================================
+       JOINT Ax2 — SHOULDER
+       Limits set to ±90°
+  ============================================================ -->
+  <joint name="Ax2" type="revolute">
+    <origin xyz="0 0 0" rpy="0.10623 0 -1.5708"/>
+    <parent link="Ax1"/>
+    <child  link="Ax2"/>
+    <axis xyz="-0.96173 -0.074323 0.26371"/>
+    <limit lower="-1.5708" upper="1.5708" effort="10.0" velocity="1.0"/>
+    <dynamics damping="0.1" friction="0.1"/>
+  </joint>
+
+  <link name="Ax2">
+    <inertial>
+      <origin xyz="0.0533976669637506 0.0540856698092475 0.0323167429742282" rpy="0 0 0"/>
+      <mass value="3.8501850669879"/>
+      <inertia ixx="0.00389306832216135" ixy="-0.000110156201513804" ixz="-0.000222108010035162"
+               iyy="0.00303262573066634" iyz="-0.000245734941912719" izz="0.00335670786967738"/>
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <mesh filename="package://arm_controller/meshfiles/Ax2.STL" />
+      </geometry>
+      <material name="light_blue">
+        <color rgba="0.792156862745098 0.819607843137255 0.933333333333333 1"/>
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <mesh filename="package://arm_controller/meshfiles/Ax2.STL" />
+      </geometry>
+    </collision>
+  </link>
+
+  <!-- ============================================================
+       JOINT Ax3 — ELBOW
+       Limits set to ±120°
+  ============================================================ -->
+  <joint name="Ax3" type="revolute">
+    <origin xyz="0 0.1625 0" rpy="-0.580783423492894 0 0"/>
+    <parent link="Ax2"/>
+    <child  link="Ax3"/>
+    <axis xyz="-0.961733667995447 -0.206830163708702 0.179693169665002"/>
+    <limit lower="-2.0944" upper="2.0944" effort="10.0" velocity="1.0"/>
+    <dynamics damping="0.1" friction="0.1"/>
+  </joint>
+
+  <link name="Ax3">
+    <inertial>
+      <origin xyz="0.0614184550873633 -0.120775254786002 -0.0134736181625309" rpy="0 0 0"/>
+      <mass value="6.197749712595"/>
+      <inertia ixx="0.00633024384770244" ixy="0.000185083199602458" ixz="-0.000333685418075601"
+               iyy="0.00587828600062435" iyz="0.000354054123199352" izz="0.00505339879128603"/>
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <mesh filename="package://arm_controller/meshfiles/Ax3.STL" />
+      </geometry>
+      <material name="light_blue">
+        <color rgba="0.792156862745098 0.819607843137255 0.933333333333333 1"/>
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <mesh filename="package://arm_controller/meshfiles/Ax3.STL" />
+      </geometry>
+    </collision>
+  </link>
+
+  <!-- ============================================================
+       JOINT Ax4 — WRIST PITCH
+       NOTE: mimic tag REMOVED — it was causing NaN transforms
+       Limits set to ±90°
+  ============================================================ -->
+  <joint name="Ax4" type="revolute">
+    <origin xyz="0.058196 -0.3484 -0.34643" rpy="1.0532 0 0"/>
+    <parent link="Ax3"/>
+    <child  link="Ax4"/>
+    <axis xyz="-0.96173 0.053817 0.26865"/>
+    <limit lower="-1.5708" upper="1.5708" effort="5.0" velocity="1.0"/>
+    <dynamics damping="0.05" friction="0.05"/>
+  </joint>
+
+  <link name="Ax4">
+    <inertial>
+      <origin xyz="-0.04501 0.15881 -0.16202" rpy="0 0 0"/>
+      <mass value="2.3079"/>
+      <inertia ixx="0.001802" ixy="1.0242E-05" ixz="-1.2413E-05"
+               iyy="0.0017675" iyz="4.4144E-05" izz="0.0017526"/>
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <mesh filename="package://arm_controller/meshfiles/Ax4.STL"/>
+      </geometry>
+      <material name="grey">
+        <color rgba="0.75294 0.75294 0.75294 1"/>
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <mesh filename="package://arm_controller/meshfiles/Ax4.STL"/>
+      </geometry>
+    </collision>
+  </link>
+
+  <!-- ============================================================
+       JOINT Ax5 — WRIST ROLL / CLAW
+       Limits set to ±180°
+  ============================================================ -->
+  <joint name="Ax5" type="revolute">
+    <origin xyz="0.076919 0.2475 -0.26" rpy="-1.5708 0 -1.7561"/>
+    <parent link="Ax4"/>
+    <child  link="Ax5"/>
+    <axis xyz="-0.59379 0.75112 -0.2885"/>
+    <limit lower="-3.14159" upper="3.14159" effort="5.0" velocity="1.0"/>
+    <dynamics damping="0.05" friction="0.05"/>
+  </joint>
+
+  <link name="Ax5">
+    <inertial>
+      <origin xyz="-0.145729381546586 0.103998853384686 -0.187211141218425" rpy="0 0 0"/>
+      <mass value="0.389395120689192"/>
+      <inertia ixx="0.000192414088698192" ixy="2.56615913593226E-05" ixz="-1.53488788873796E-05"
+               iyy="0.000174462122813861" iyz="4.37583859785836E-06" izz="0.000195478494777158"/>
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <mesh filename="package://arm_controller/meshfiles/Ax5.STL" />
+      </geometry>
+      <material name="light_blue">
+        <color rgba="0.792156862745098 0.819607843137255 0.933333333333333 1"/>
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <mesh filename="package://arm_controller/meshfiles/Ax5.STL" />
+      </geometry>
+    </collision>
+  </link>
+
+  <!-- ============================================================
+       TOOL FRAME — tip of Ax5 (used by motion planners)
+  ============================================================ -->
+  <link name="tool0"/>
+  <joint name="Ax5_to_tool0" type="fixed">
+    <parent link="Ax5"/>
+    <child  link="tool0"/>
+    <origin xyz="0 0 0" rpy="0 0 0"/>
+  </joint>
+
+</robot>

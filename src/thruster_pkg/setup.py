@@ -15,7 +15,8 @@ setup(
         ]),
         ('share/' + package_name + '/launch', [
             'launch/thruster.launch.py',
-            'launch/multi_thruster.launch.py'
+            'launch/multi_thruster.launch.py',
+            'launch/multi_arm_motor.launch.py'
         ])
     ],
     install_requires=['setuptools'],
