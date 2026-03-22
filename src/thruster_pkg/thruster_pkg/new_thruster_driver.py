@@ -137,10 +137,10 @@ class ThrusterNode(Node):
         cmd = float(msg.data)
         if cmd > HIGH_ANGLE:
             self._write_us(cmd)
-            print(f"Wrote {cmd} us to motor channel {self.channel}")
+            # print(f"Wrote {cmd} us to motor channel {self.channel}")
         else:
             self._write_angle(cmd)
-            print(f"Wrote {cmd} deg to motor channel {self.channel}")
+            # print(f"Wrote {cmd} deg to motor channel {self.channel}")
         self.target_us = max(self.min_us, min(self.max_us, msg.data))
         self.last_msg_time = self.get_clock().now()
 
