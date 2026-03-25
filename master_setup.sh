@@ -57,5 +57,6 @@ cat > "$LAYOUT_FILE" <<EOF
 [plugins]
 EOF
 
-terminator -g "$LAYOUT_FILE" -l ros2 -m
+terminator --no-dbus -g "$LAYOUT_FILE" -l ros2 -m
+sleep 1
 rm -f "$LAYOUT_FILE"
