@@ -10,7 +10,7 @@ if [ $? -ne 0 ]; then
     exit 1
 fi
 
-SETUP="cd $WS && source ~/nuwave-rov/venv/bin/activate && source install/setup.bash"
+SETUP="cd $WS && source $WS/venv/bin/activate && source $WS/install/setup.bash"
 
 
 # Runs the following commands in seperate terminals:
