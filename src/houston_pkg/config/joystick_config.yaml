@@ -1,0 +1,101 @@
+# Joystick Configuration
+# Use joystick_identify node to figure out which axis does what
+
+# strafe, drive_forward, yaw, pitch, up, down
+
+# https://docs.ros.org/en/humble/p/joy/
+
+thruster_control:
+  - axis: "strafe"
+    input: 0
+    invert: false
+    sensitivity: 1
+    scale: "linear"
+
+  - axis: "drive_forward"
+    input: 1            # num# of analog input. Find out from tuner node
+    invert: false       # to invert the axis
+    sensitivity: 1      # more = more sensitive. keep it > 0
+    scale: "linear"     # one of linear, logarithmic
+
+  - axis: "yaw"
+    input: 3
+    invert: false
+    sensitivity: 1
+    scale: "linear"
+  
+  - axis: "pitch"
+    input: 4
+    invert: false
+    sensitivity: 1
+    scale: "linear"
+
+  - axis: "up"
+    input: 2
+    invert: false
+    sensitivity: 1
+    scale: "linear"
+
+  - axis: "down"
+    input: 5
+    invert: false
+    sensitivity: 1
+    scale: "linear"
+  
+  - button: "A"
+    input: 1
+    invert: false
+
+  - button: "roll_left"
+    input: 9
+    invert: false
+
+  - button: "roll_right"
+    input: 10
+    invert: false
+
+
+arm_control:
+  - axis: "base_yaw_input" # Base rotate left right
+    input: 3
+    invert: false
+    sensitivity: 1
+    scale: "linear"
+
+  - axis: "base_pitch_input" # Base up and down
+    input: 4
+    invert: false
+    sensitivity: 1
+    scale: "linear"
+
+  - axis: "elbow_pitch_input" # Elbow
+    input: 1
+    invert: false
+    sensitivity: 1
+    scale: "linear"
+
+  - axis: "wrist_yaw_input" # Wrist Rotation
+    input: 0
+    invert: false
+    sensitivity: 1
+    scale: "linear"
+
+  - button: "wrist_up_input" # Wrist up
+    input: 4 # bumper 
+    invert: false
+
+  - button: "wrist_down_input" # Wrist down
+    input: 5 # bumper 
+    invert: false
+
+  - axis: "claw_open_input" # Claw open
+    input: 2 # left trigger
+    invert: true
+    sensitivity: 1
+    scale: "linear"
+
+  - axis: "claw_close_input" # Claw close
+    input: 5 # right trigger
+    invert: true
+    sensitivity: 1
+    scale: "linear"
