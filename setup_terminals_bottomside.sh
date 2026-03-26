@@ -4,7 +4,8 @@ WS="$HOME/nuwave-rov"
 
 # Build first
 echo "Running colcon build..."
-cd "$WS" && colcon build
+echo WS is $WS
+cd "$WS" && source $WS/venv/bin/activate && colcon build
 if [ $? -ne 0 ]; then
     echo "colcon build failed!"
     exit 1
