@@ -12,12 +12,19 @@ fi
 
 SETUP="cd $WS && source ~/nuwave-rov/venv/bin/activate && source install/setup.bash"
 
-CMD_TL="$SETUP && ros2 launch houston_pkg joystick_launch.launch.py"
-CMD_TR="$SETUP && ros2 run houston_pkg houston"
-CMD_BL="$SETUP && ros2 run controller thruster_controller_node"
-CMD_BR="$SETUP && ros2 run arm_controller arm_controller_node"
 
-LAYOUT_FILE=$(mktemp /tmp/terminator_ros2_XXXX.conf)
+# Runs the following commands in seperate terminals:
+# - ros2 launch thruster_pkg multi_thruster.launch.py
+# - ros2 launch thruster_pkg multi_arm_motor.launch.py
+# - ros2 launch power_monitor_pkg multi_power_monitor.launch.py
+
+
+MULTI_THRUSTER_LAUNCH="$SETUP && ros2 launch thruster_pkg multi_thruster.launch.py"
+MULTI_ARM_LAUNCH="$SETUP && ros2 launch thruster_pkg multi_arm_motor.launch.py"
+POWER_MONITOR_LAUNCH="$SETUP && ros2 launch power_monitor_pkg multi_power_monitor.launch.py"
+BONUS_TERMINAL="$SETUP"
+
+LAYOUT_FILE=$(mktemp /tmp/terminator_ros2_setup_bottomside_XXXX.conf)
 
 cat > "$LAYOUT_FILE" <<EOF
 [global_config]
@@ -41,19 +48,22 @@ cat > "$LAYOUT_FILE" <<EOF
     [[[top-left]]]
       type = Terminal
       parent = vpane_left
-      command = bash -c '$CMD_TL; exec bash'
+      title = Multi-Thruster
+      command = bash -c '$MULTI_THRUSTER_LAUNCH; exec bash'
     [[[bottom-left]]]
       type = Terminal
       parent = vpane_left
-      command = bash -c '$CMD_BL; exec bash'
+      title = Power Monitor
+      command = bash -c '$POWER_MONITOR_LAUNCH; exec bash'
     [[[top-right]]]
       type = Terminal
       parent = vpane_right
-      command = bash -c '$CMD_TR; exec bash'
+      title = Multi-Arm
+      command = bash -c '$MULTI_ARM_LAUNCH; exec bash'
     [[[bottom-right]]]
       type = Terminal
       parent = vpane_right
-      command = bash -c '$CMD_BR; exec bash'
+      command = bash -c '$BONUS_TERMINAL; exec bash'
 [plugins]
 EOF
 
