@@ -3,13 +3,27 @@
 WS="$HOME/nuwave-rov"
 
 # Build first
-echo "Running colcon build..."
+echo "Starting bottomside setup..."
 echo WS is $WS
-cd "$WS" && source $WS/venv/bin/activate && colcon build
-if [ $? -ne 0 ]; then
-    echo "colcon build failed!"
-    exit 1
+cd "$WS" && source $WS/venv/bin/activate
+
+# Parse flags
+SKIP_BUILD=false
+while getopts "d" opt; do
+    case $opt in
+        d) SKIP_BUILD=true ;;
+    esac
+done
+
+if [ "$SKIP_BUILD" = false ]; then
+    echo "Running colcon build..."
+    cd "$WS" && colcon build
+    if [ $? -ne 0 ]; then
+        echo "colcon build failed!"
+        exit 1
+    fi
 fi
+
 
 SETUP="cd $WS && source $WS/venv/bin/activate && source $WS/install/setup.bash"
 
