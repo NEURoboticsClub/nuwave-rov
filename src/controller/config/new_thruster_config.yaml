@@ -1,23 +1,27 @@
+# Position and direction of each thruster on the ROV
+# - Direction is a unit vector indicating the force vector applied to the ROV when the motor is active
+# - Position is the location of the thruster relative to the ROV's center of mass, in meters
+
 thrusters:
   - id: 1
     name: front_left_lateral
     position_m: [-0.2, 0.2, 0.0]
-    direction: [-0.7071, 0.7071, 0.0]
+    direction: [0.7071, 0.7071, 0.0]
 
   - id: 2
     name: front_right_lateral
     position_m: [0.2, 0.2, 0.0]
-    direction: [0.7071, 0.7071, 0.0]
+    direction: [-0.7071, 0.7071, 0.0]
 
   - id: 3
     name: rear_left_lateral
     position_m: [-0.2, -0.2, 0.0]
-    direction: [-0.7071, -0.7071, 0.0]
+    direction: [-0.7071, 0.7071, 0.0]
 
   - id: 4
     name: rear_right_lateral
     position_m: [0.2, -0.2, 0.0]
-    direction: [0.7071, -0.7071, 0.0]
+    direction: [0.7071, 0.7071, 0.0]
 
   - id: 5
     name: forward_left_vertical
