@@ -14,7 +14,7 @@ class Houston(Node):
         super().__init__('houston')
 
         # === Parameters ===
-        self.declare_parameter('joy_config', '/home/nuwave/nuwave-rov/install/houston_pkg/share/houston_pkg/config/joystick_config.yaml')
+        self.declare_parameter('joy_config', os.path.expanduser('~/nuwave-rov/install/houston_pkg/share/houston_pkg/config/joystick_config.yaml'))
         self.declare_parameter('joy_thruster', '/joy_thruster')
         self.declare_parameter('joy_arm', '/joy_arm')
 

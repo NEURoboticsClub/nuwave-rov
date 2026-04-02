@@ -20,7 +20,7 @@ class ThrusterController(Node):
         self.declare_parameter('publish_rate_hz', 50.0)
         self.declare_parameter(
                 'thruster_config', 
-                '/home/nuwave/nuwave-rov/src/controller/config/new_thruster_config.yaml'
+                os.path.expanduser('~/nuwave-rov/src/controller/config/new_thruster_config.yaml')
                 )
         self.declare_parameter('thruster_topic', '/thruster')
 

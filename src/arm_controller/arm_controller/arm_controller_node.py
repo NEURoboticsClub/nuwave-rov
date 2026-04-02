@@ -20,7 +20,7 @@ class ArmController(Node):
         self.declare_parameter('publish_rate_hz', 50.0)
         self.declare_parameter(
                 'arm_config', 
-                '/home/nuwave/nuwave-rov/src/arm_controller/config/arm_config.yaml'
+                os.path.expanduser('~/nuwave-rov/src/arm_controller/config/arm_config.yaml')
                 )
         self.declare_parameter('arm_topic', 'arm_commands')
         self.declare_parameter('n_arm_motors', 6)  
