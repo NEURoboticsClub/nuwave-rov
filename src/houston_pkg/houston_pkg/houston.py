@@ -3,6 +3,7 @@ from rclpy.node import Node
 from sensor_msgs.msg import Joy
 from geometry_msgs.msg import Twist
 from std_msgs.msg import Float32MultiArray
+from ament_index_python.packages import get_package_share_directory
 import yaml
 import os
 import numpy as np
@@ -13,8 +14,10 @@ class Houston(Node):
     def __init__(self):
         super().__init__('houston')
 
+        pkg_share = get_package_share_directory('houston_pkg')
+        
         # === Parameters ===
-        self.declare_parameter('joy_config', os.path.expanduser('~/nuwave-rov/install/houston_pkg/share/houston_pkg/config/joystick_config.yaml'))
+        self.declare_parameter('joy_config', os.path.join(pkg_share, 'config', 'joystick_config.yaml'))
         self.declare_parameter('joy_thruster', '/joy_thruster')
         self.declare_parameter('joy_arm', '/joy_arm')
 
