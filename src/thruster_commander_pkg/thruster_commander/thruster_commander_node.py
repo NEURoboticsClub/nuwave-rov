@@ -6,13 +6,13 @@ import yaml
 import os
 import numpy as np
 
-class ThrusterController(Node):
+class ThrusterCommander(Node):
     def __init__(self):
-        super().__init__('thruster_controller')
+        super().__init__('thruster_commander')
 
         # === Parameters ===
-        self.declare_parameter('joy_config', '/home/nuwave/nuwave-rov/install/controller/share/controller/config/joystick_config.yaml')
-        self.declare_parameter('thruster_config', '/home/nuwave/nuwave-rov/install/controller/share/controller/config/thruster_config.yaml')
+        self.declare_parameter('joy_config', '/home/nuwave/nuwave-rov/install/controller/share/controller/config/joystick_config.yaml') #moved to houston
+        self.declare_parameter('thruster_config', '/home/nuwave/nuwave-rov/install/controller/share/thruster_commander_pkg/config/thruster_config.yaml') #probabably not working
         self.declare_parameter('joy_topic', '/joy')
         self.declare_parameter('thruster_topic', '/thruster')
 
@@ -39,7 +39,7 @@ class ThrusterController(Node):
         self.A = self.compute_thruster_allocation_matrix()
         self.A_pinv = np.linalg.pinv(self.A)  # Compute the pseudoinverse of A
 
-        self.get_logger().info("Thruster Controller Initialized")
+        self.get_logger().info("Thruster Commander Initialized")
 
     def load_yaml(self, path):
         """Load a YAML file from a relative or absolute path."""
@@ -181,7 +181,7 @@ class ThrusterController(Node):
 
 def main(args=None):
     rclpy.init(args=args)
-    node = ThrusterController()
+    node = ThrusterCommander()
     try:
         rclpy.spin(node)
     except KeyboardInterrupt:

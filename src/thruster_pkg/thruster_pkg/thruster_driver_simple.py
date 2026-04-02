@@ -40,7 +40,7 @@ class SimpleThrusterNode(Node):
 		# Read channel param 
 		self.channel = int(self.get_parameter('channel').value)
 
-		# Now declare topic param, defaulting to controller naming
+		# Now declare topic param, defaulting to commander naming
 		default_topic = topic_arg if topic_arg is not None else f'thruster/thruster_{self.channel}'
 		self.declare_parameter('topic', default_topic)
 		self.topic = str(self.get_parameter('topic').value)

@@ -21,8 +21,8 @@ To be written...
     - ros2 launch houston_pkg joystick_launch.launch.py
         - Launches 2 joystick nodes
     - ros2 run houston_pkg houston
-    - ros2 run controller thruster_controller_node
-    - ros2 run arm_controller arm_controller_node
+    - ros2 run thruster_commander thruster_commander_node
+    - ros2 run arm_commander arm_commander_node
 - Unique terminals on the nano:
     - ros2 launch thruster_pkg multi_thruster.launch.py
     - ros2 launch thruster_pkg multi_arm_motor.launch.py

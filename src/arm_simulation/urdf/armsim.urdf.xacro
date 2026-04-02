@@ -14,7 +14,7 @@
     <visual>
       <origin xyz="0 0 0" rpy="0 0 0"/>
       <geometry>
-        <mesh filename="package://arm_controller/meshfiles/base_link.STL" />
+        <mesh filename="package://arm_commander/meshfiles/base_link.STL" />
       </geometry>
       <material name="light_blue">
         <color rgba="0.792156862745098 0.819607843137255 0.933333333333333 1"/>
@@ -23,7 +23,7 @@
     <collision>
       <origin xyz="0 0 0" rpy="0 0 0"/>
       <geometry>
-        <mesh filename="package://arm_controller/meshfiles/base_link.STL"  />
+        <mesh filename="package://arm_commander/meshfiles/base_link.STL"  />
       </geometry>
     </collision>
   </link>
@@ -52,7 +52,7 @@
     <visual>
       <origin xyz="0 0 0" rpy="0 0 0"/>
       <geometry>
-        <mesh filename="package://arm_controller/meshfiles/Ax1.STL" />
+        <mesh filename="package://arm_commander/meshfiles/Ax1.STL" />
       </geometry>
       <material name="light_blue">
         <color rgba="0.792156862745098 0.819607843137255 0.933333333333333 1"/>
@@ -61,7 +61,7 @@
     <collision>
       <origin xyz="0 0 0" rpy="0 0 0"/>
       <geometry>
-        <mesh filename="package://arm_controller/meshfiles/Ax1.STL" />
+        <mesh filename="package://arm_commander/meshfiles/Ax1.STL" />
       </geometry>
     </collision>
   </link>
@@ -89,7 +89,7 @@
     <visual>
       <origin xyz="0 0 0" rpy="0 0 0"/>
       <geometry>
-        <mesh filename="package://arm_controller/meshfiles/Ax2.STL" />
+        <mesh filename="package://arm_commander/meshfiles/Ax2.STL" />
       </geometry>
       <material name="light_blue">
         <color rgba="0.792156862745098 0.819607843137255 0.933333333333333 1"/>
@@ -98,7 +98,7 @@
     <collision>
       <origin xyz="0 0 0" rpy="0 0 0"/>
       <geometry>
-        <mesh filename="package://arm_controller/meshfiles/Ax2.STL" />
+        <mesh filename="package://arm_commander/meshfiles/Ax2.STL" />
       </geometry>
     </collision>
   </link>
@@ -126,7 +126,7 @@
     <visual>
       <origin xyz="0 0 0" rpy="0 0 0"/>
       <geometry>
-        <mesh filename="package://arm_controller/meshfiles/Ax3.STL" />
+        <mesh filename="package://arm_commander/meshfiles/Ax3.STL" />
       </geometry>
       <material name="light_blue">
         <color rgba="0.792156862745098 0.819607843137255 0.933333333333333 1"/>
@@ -135,7 +135,7 @@
     <collision>
       <origin xyz="0 0 0" rpy="0 0 0"/>
       <geometry>
-        <mesh filename="package://arm_controller/meshfiles/Ax3.STL" />
+        <mesh filename="package://arm_commander/meshfiles/Ax3.STL" />
       </geometry>
     </collision>
   </link>
@@ -164,7 +164,7 @@
     <visual>
       <origin xyz="0 0 0" rpy="0 0 0"/>
       <geometry>
-        <mesh filename="package://arm_controller/meshfiles/Ax4.STL"/>
+        <mesh filename="package://arm_commander/meshfiles/Ax4.STL"/>
       </geometry>
       <material name="grey">
         <color rgba="0.75294 0.75294 0.75294 1"/>
@@ -173,7 +173,7 @@
     <collision>
       <origin xyz="0 0 0" rpy="0 0 0"/>
       <geometry>
-        <mesh filename="package://arm_controller/meshfiles/Ax4.STL"/>
+        <mesh filename="package://arm_commander/meshfiles/Ax4.STL"/>
       </geometry>
     </collision>
   </link>
@@ -201,7 +201,7 @@
     <visual>
       <origin xyz="0 0 0" rpy="0 0 0"/>
       <geometry>
-        <mesh filename="package://arm_controller/meshfiles/Ax5.STL" />
+        <mesh filename="package://arm_commander/meshfiles/Ax5.STL" />
       </geometry>
       <material name="light_blue">
         <color rgba="0.792156862745098 0.819607843137255 0.933333333333333 1"/>
@@ -210,7 +210,7 @@
     <collision>
       <origin xyz="0 0 0" rpy="0 0 0"/>
       <geometry>
-        <mesh filename="package://arm_controller/meshfiles/Ax5.STL" />
+        <mesh filename="package://arm_commander/meshfiles/Ax5.STL" />
       </geometry>
     </collision>
   </link>

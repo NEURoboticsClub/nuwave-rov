@@ -7,10 +7,10 @@ import yaml
 import os
 import numpy as np
 
-class ArmController(Node):
+class ArmCommander(Node):
     def __init__(self):
         # ROS2 stuff
-        super().__init__('arm_controller')
+        super().__init__('arm_commander')
 
         # Parameters
         self.declare_parameter('neutral_us', 1500.0)
@@ -20,7 +20,7 @@ class ArmController(Node):
         self.declare_parameter('publish_rate_hz', 50.0)
         self.declare_parameter(
                 'arm_config', 
-                '/home/nuwave/nuwave-rov/src/arm_controller/config/arm_config.yaml'
+                '/home/nuwave/nuwave-rov/src/arm_commander/config/arm_config.yaml'
                 )
         self.declare_parameter('arm_topic', 'arm_commands')
         self.declare_parameter('n_arm_motors', 6)  
@@ -50,7 +50,7 @@ class ArmController(Node):
         self.pwm_commands = np.full(self.n_arm_motors, self.neutral_us)
 
         self.create_timer(1.0 / rate, self.publish_arm_motors)
-        self.get_logger().info("Arm Controller Initialized")
+        self.get_logger().info("Arm Commander Initialized")
 
     def load_yaml(self, path):
         """Load a YAML file from a relative or absolute path."""
@@ -94,7 +94,7 @@ class ArmController(Node):
 
 def main(args=None):
     rclpy.init(args=args)
-    node = ArmController()
+    node = ArmCommander()
     try:
         rclpy.spin(node)
     except KeyboardInterrupt:

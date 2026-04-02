@@ -7,10 +7,10 @@ import yaml
 import os
 import numpy as np
 
-class ThrusterController(Node):
+class ThrusterCommander(Node):
     def __init__(self):
         # ROS2 stuff
-        super().__init__('thruster_controller')
+        super().__init__('thruster_commander')
 
         # Parameters
         self.declare_parameter('neutral_us', 1500.0)
@@ -20,7 +20,7 @@ class ThrusterController(Node):
         self.declare_parameter('publish_rate_hz', 50.0)
         self.declare_parameter(
                 'thruster_config', 
-                '/home/nuwave/nuwave-rov/src/controller/config/new_thruster_config.yaml'
+                '/home/nuwave/nuwave-rov/src/thruster_commander_pkg/config/new_thruster_config.yaml'
                 )
         self.declare_parameter('thruster_topic', '/thruster')
 
@@ -55,7 +55,7 @@ class ThrusterController(Node):
         # Scream to thrusters
 
         self.create_timer(1.0 / rate, self.publish_thrusters)
-        self.get_logger().info("Thruster Controller Initialized")
+        self.get_logger().info("Thruster Commander Initialized")
 
 
     def load_yaml(self, config_path) -> dict:
@@ -132,7 +132,7 @@ class ThrusterController(Node):
 
 def main(args=None):
     rclpy.init(args=args)
-    node = ThrusterController()
+    node = ThrusterCommander()
     try:
         rclpy.spin(node)
     except KeyboardInterrupt:

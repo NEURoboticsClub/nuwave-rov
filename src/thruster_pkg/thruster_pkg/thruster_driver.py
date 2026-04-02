@@ -104,7 +104,7 @@ class ThrusterNode(Node):
             # Log and continue; periodic updates will keep trying
             self.get_logger().warning(f'Failed to initialize PCA9685: {e}')
 
-        # ROS wiring: subscribe to controller outputs (Float32 per-thruster)
+        # ROS wiring: subscribe to commander outputs (Float32 per-thruster)
         self.sub = self.create_subscription(Float32, topic, self.cmd_cb, 10)
         self.timer = self.create_timer(1.0 / self.update_rate_hz, self.update_output)
 

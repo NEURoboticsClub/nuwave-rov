@@ -1,5 +1,5 @@
-# Controller
-This package functions as the controller for the ROV - converting joystick inputs to thrusters
+# Commander
+This package functions as the commander for the ROV - converting joystick inputs to thrusters
 
 Ideally, this node also performs some control algorithms, but not currently
 
@@ -9,17 +9,18 @@ This works together with the `controller_msgs` package. (Not currently, but hope
 ## How to run
 ### Running with default configs
 ```
-ros2 run controller thruster_controller_node
+ros2 run thruster_commander_pkg thruster_commander_node
 ```
 
 ### Creating new config
 ```
 ros2 run controller joystick_identify
 ```
+Moved to houston
 
 ### Using a custom config
 ```
-ros2 run controller thruster_controller \
+ros2 run thruster_commander_pkg thruster_commander \
   --ros-args \
   -p joy_config:=/path/to/joystick_config.yaml \
   -p thruster_config:=/path/to/thruster_config.yaml \

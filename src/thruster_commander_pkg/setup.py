@@ -1,6 +1,6 @@
 from setuptools import find_packages, setup
 
-package_name = 'controller'
+package_name = 'thruster_commander'
 
 setup(
     name=package_name,
@@ -24,7 +24,7 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-            'thruster_controller_node=controller.new_thruster_controller_node:main'
+            'thruster_commander_node=thruster_commander.new_thruster_commander_node:main'
         ],
     },
 )

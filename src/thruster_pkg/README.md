@@ -33,10 +33,10 @@ Note: the launch expects the package's node executable to be available as `thrus
 ros2 run joy joy_node
 ```
 
-2. Run the thruster controller that maps joystick -> `/thruster_N` topics:
+2. Run the thruster commander that maps joystick -> `/thruster_N` topics:
 
 ```bash
-ros2 run controller thruster_controller_node
+ros2 run thruster_commander thruster_commander_node
 ```
 
 export JETSON_MODEL_NAME=JETSON_ORIN_NANO
@@ -49,13 +49,13 @@ export JETSON_MODEL_NAME=JETSON_ORIN_NANO
 ros2 launch thruster_pkg multi_thruster.launch.py count:=4
 ```
 
-You should now see `/thruster_0../thruster_3` being published by the controller and consumed by the respective driver nodes.
+You should now see `/thruster_0../thruster_3` being published by the commander and consumed by the respective driver nodes.
 
 ---
 
 ## Testing without hardware
 
-- To inspect controller output without hardware:
+- To inspect commander output without hardware:
 
 ```bash
 ros2 topic echo /thruster_0

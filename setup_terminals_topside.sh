@@ -31,14 +31,14 @@ SETUP="cd $WS && source $WS/venv/bin/activate && source $WS/install/setup.bash"
 # Runs the following commands in seperate terminals:
 # - ros2 launch houston_pkg joystick_launch.launch.py
 # - ros2 run houston_pkg houston
-# - ros2 run controller thruster_controller_node
-# - ros2 run arm_controller arm_controller_node
+# - ros2 run thruster_commander_pkg thruster_commander_node
+# - ros2 run arm_commander arm_commander_node
 
 
 JOYSTICK_LAUNCH="$SETUP && ros2 launch houston_pkg joystick_launch.launch.py"
 START_HOUSTON="$SETUP && ros2 run houston_pkg houston"
-START_THRUSTER_CONTROLLER="$SETUP && ros2 run controller thruster_controller_node"
-START_ARM_CONTROLLER="$SETUP && ros2 run arm_controller arm_controller_node"
+START_THRUSTER_CONTROLLER="$SETUP && ros2 run controller thruster_commander_node"
+START_ARM_CONTROLLER="$SETUP && ros2 run arm_commander arm_commander_node"
 
 LAYOUT_FILE=$(mktemp /tmp/terminator_ros2_setup_topside_XXXX.conf)
 
@@ -69,7 +69,7 @@ cat > "$LAYOUT_FILE" <<EOF
     [[[bottom-left]]]
       type = Terminal
       parent = vpane_left
-      title = Thruster Controller
+      title = Thruster Commander
       command = bash -c '$START_THRUSTER_CONTROLLER; exec bash'
     [[[top-right]]]
       type = Terminal
@@ -79,7 +79,7 @@ cat > "$LAYOUT_FILE" <<EOF
     [[[bottom-right]]]
       type = Terminal
       parent = vpane_right
-      title = Arm Controller
+      title = Arm Commander
       command = bash -c '$START_ARM_CONTROLLER; exec bash'
 [plugins]
 EOF

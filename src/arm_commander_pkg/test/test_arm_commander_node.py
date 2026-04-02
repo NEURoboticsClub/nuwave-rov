@@ -26,30 +26,30 @@ def executor(ros_context):
 
 
 @pytest.fixture
-def controller_node(executor):
+def commander_node(executor):
     """
-    Spin up the real ThrusterController node.
+    Spin up the real ThrusterCommander node.
     Import here so rclpy.init() has already run.
     """
     # Adjust this import path to match your package layout
-    from controller.new_thruster_controller_node import ThrusterController
-    node = ThrusterController()
+    from arm_commander.arm_commander.arm_commander_node import ArmCommander
+    node = ArmCommander()
     executor.add_node(node)
     yield node
     node.destroy_node()
 
 
-class ThrusterListener(Node):
+class ArmMotorListener(Node):
     """
-    Helper node that subscribes to all thruster topics and collects messages.
+    Helper node that subscribes to all arm motor topics and collects messages.
     """
-    def __init__(self, n_thrusters: int = 8):
-        super().__init__('test_thruster_listener')
+    def __init__(self, n_arm_motors: int = 8):
+        super().__init__('test_arm_motor_listener')
         self.received = {}  # {channel_index: [list of Float32 values]}
         self.subs = []
 
-        for i in range(n_thrusters):
-            topic = f'thruster/thruster_{i}'
+        for i in range(n_arm_motors):
+            topic = f'arm/arm_motor_{i}'
             self.received[i] = []
             sub = self.create_subscription(
                 Float32, topic,
@@ -77,7 +77,7 @@ class ThrusterListener(Node):
 
 @pytest.fixture
 def listener(executor):
-    node = ThrusterListener(n_thrusters=8)
+    node = ArmMotorListener(n_arm_motors=8)
     executor.add_node(node)
     yield node
     node.destroy_node()
@@ -113,37 +113,37 @@ def spin_for(executor, seconds: float, step: float = 0.01):
 
 # Tests
 class TestNodeStartup:
-    def test_node_creates_publishers(self, controller_node):
-        """Controller should create one publisher per thruster."""
-        assert len(controller_node.thruster_pubs) == controller_node.n_thrusters
+    def test_node_creates_publishers(self, commander_node):
+        """Commander should create one publisher per arm motor."""
+        assert len(commander_node.arm_motor_pubs) == commander_node.n_arm_motors
 
-    def test_initial_pwm_is_neutral(self, controller_node):
+    def test_initial_pwm_is_neutral(self, commander_node):
         """Before any message, all commands should be neutral."""
-        expected = controller_node.neutral_us
-        np.testing.assert_allclose(controller_node.pwm_commands, expected)
+        expected = commander_node.neutral_us
+        np.testing.assert_allclose(commander_node.pwm_commands, expected)
 
 
 class TestZeroInput:
-    def test_zero_twist_gives_neutral_pwm(self, executor, controller_node, publisher, listener):
+    def test_zero_twist_gives_neutral_pwm(self, executor, commander_node, publisher, listener):
         """Publishing a zero Twist should result in neutral PWM on all channels."""
         publisher.send(linear=(0, 0, 0), angular=(0, 0, 0))
         spin_for(executor, 0.5)  # let timer fire a few times
-
+    
         latest = listener.latest()
         for i, val in latest.items():
-            assert val is not None, f"No message received on thruster {i}"
-            assert abs(val - controller_node.neutral_us) < 1.0, \
-                f"Thruster {i}: expected ~{controller_node.neutral_us}, got {val}"
+            assert val is not None, f"No message received on arm motor {i}"
+            assert abs(val - commander_node.neutral_us) < 1.0, \
+                f"Arm motor {i}: expected ~{commander_node.neutral_us}, got {val}"
 
 
 class TestDirectionalResponse:
-    def test_pure_heave_activates_vertical_only(self, executor, controller_node, publisher, listener):
+    def test_pure_heave_activates_vertical_only(self, executor, commander_node, publisher, listener):
         """A pure Z force should only change vertical thruster PWM values."""
         publisher.send(linear=(0, 0, 20.0), angular=(0, 0, 0))
         spin_for(executor, 0.5)
 
         latest = listener.latest()
-        neutral = controller_node.neutral_us
+        neutral = commander_node.neutral_us
 
         # Lateral thrusters (0-3) should stay at neutral
         for i in range(4):
@@ -157,13 +157,13 @@ class TestDirectionalResponse:
             assert latest[i] > neutral + 1.0, \
                 f"Vertical thruster {i} didn't respond to heave: {latest[i]}"
 
-    def test_pure_surge_activates_lateral_only(self, executor, controller_node, publisher, listener):
+    def test_pure_surge_activates_lateral_only(self, executor, commander_node, publisher, listener):
         """A pure Y force should only change lateral thruster PWM values."""
         publisher.send(linear=(0, 20.0, 0), angular=(0, 0, 0))
         spin_for(executor, 0.5)
 
         latest = listener.latest()
-        neutral = controller_node.neutral_us
+        neutral = commander_node.neutral_us
 
         # Vertical thrusters (4-7) should stay at neutral
         for i in range(4, 8):
@@ -171,7 +171,7 @@ class TestDirectionalResponse:
             assert abs(latest[i] - neutral) < 1.0, \
                 f"Vertical thruster {i} moved during pure surge: {latest[i]}"
 
-    def test_opposite_commands_give_opposite_pwm(self, executor, controller_node, publisher, listener):
+    def test_opposite_commands_give_opposite_pwm(self, executor, commander_node, publisher, listener):
         """Forward and backward commands should produce symmetric PWM offsets."""
         # Forward
         publisher.send(linear=(0, 10.0, 0))
@@ -185,7 +185,7 @@ class TestDirectionalResponse:
         spin_for(executor, 0.3)
         rev = listener.latest()
 
-        neutral = controller_node.neutral_us
+        neutral = commander_node.neutral_us
         for i in range(4):  # lateral thrusters
             if fwd[i] is not None and rev[i] is not None:
                 fwd_offset = fwd[i] - neutral
@@ -195,7 +195,7 @@ class TestDirectionalResponse:
 
 
 class TestPWMBounds:
-    def test_large_input_stays_in_bounds(self, executor, controller_node, publisher, listener):
+    def test_large_input_stays_in_bounds(self, executor, commander_node, publisher, listener):
         """Even with extreme input, PWM should never exceed [min_us, max_us]."""
         publisher.send(linear=(999, 999, 999), angular=(999, 999, 999))
         spin_for(executor, 0.5)
@@ -203,23 +203,23 @@ class TestPWMBounds:
         latest = listener.latest()
         for i, val in latest.items():
             assert val is not None, f"No message on thruster {i}"
-            assert val >= controller_node.min_us, \
+            assert val >= commander_node.min_us, \
                 f"Thruster {i} below min: {val}"
-            assert val <= controller_node.max_us, \
+            assert val <= commander_node.max_us, \
                 f"Thruster {i} above max: {val}"
 
 
 class TestMessageFlow:
-    def test_timer_publishes_without_input(self, executor, controller_node, listener):
+    def test_timer_publishes_without_input(self, executor, commander_node, listener):
         """Timer should publish neutral even with no Twist input."""
         spin_for(executor, 0.5)
 
         latest = listener.latest()
         received_count = sum(1 for v in latest.values() if v is not None)
-        assert received_count == controller_node.n_thrusters, \
-            f"Only {received_count}/{controller_node.n_thrusters} channels received"
+        assert received_count == commander_node.n_arm_motors, \
+            f"Only {received_count}/{commander_node.n_arm_motors} channels received"
 
-    def test_multiple_messages_last_one_wins(self, executor, controller_node, publisher, listener):
+    def test_multiple_messages_last_one_wins(self, executor, commander_node, publisher, listener):
         """Rapidly publishing should result in the last command being active."""
         for val in [5.0, 10.0, 20.0, 0.0]:
             publisher.send(linear=(0, val, 0))
@@ -227,8 +227,8 @@ class TestMessageFlow:
 
         # After sending 0, should be back to neutral
         latest = listener.latest()
-        neutral = controller_node.neutral_us
-        for i in range(4):
+        neutral = commander_node.neutral_us
+        for i in range(commander_node.n_arm_motors):
             if latest[i] is not None:
                 assert abs(latest[i] - neutral) < 5.0, \
-                    f"Thruster {i} not back to neutral: {latest[i]}"
+                    f"Arm motor {i} not back to neutral: {latest[i]}"
