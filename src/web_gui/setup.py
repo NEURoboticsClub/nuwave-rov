@@ -1,4 +1,5 @@
 from setuptools import find_packages, setup
+from glob import glob
 
 package_name = 'web_gui'
 
@@ -10,8 +11,9 @@ setup(
         ('share/ament_index/resource_index/packages',
             ['resource/' + package_name]),
         ('share/' + package_name, ['package.xml']),
+        ('share/' + package_name + '/static', glob('static/*')),
     ],
-    install_requires=['setuptools'],
+    install_requires=['setuptools', 'aiohttp'],
     zip_safe=True,
     maintainer='Cameron Zifcak',
     maintainer_email='cameronzifcak@gmail.com',
