@@ -3,6 +3,7 @@ from rclpy.node import Node
 from geometry_msgs.msg import Twist
 from std_msgs import msg
 from std_msgs.msg import Float32
+from ament_index_python.packages import get_package_share_directory
 import yaml
 import os
 import numpy as np
@@ -18,9 +19,10 @@ class ThrusterController(Node):
         self.declare_parameter('max_us', 1900.0)
         self.declare_parameter('max_force_n', 1.0)     # force at max PWM per thruster
         self.declare_parameter('publish_rate_hz', 50.0)
+        pkg_share = get_package_share_directory('controller')
         self.declare_parameter(
                 'thruster_config', 
-                os.path.expanduser('~/nuwave-rov/src/controller/config/new_thruster_config.yaml')
+                os.path.join(pkg_share, 'config', 'new_thruster_config.yaml')
                 )
         self.declare_parameter('thruster_topic', '/thruster')
 

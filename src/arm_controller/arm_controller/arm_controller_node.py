@@ -3,6 +3,7 @@ from rclpy.node import Node
 from geometry_msgs.msg import Twist
 from std_msgs import msg
 from std_msgs.msg import Float32, Float32MultiArray
+from ament_index_python.packages import get_package_share_directory
 import yaml
 import os
 import numpy as np
@@ -18,9 +19,11 @@ class ArmController(Node):
         self.declare_parameter('max_us', 1900.0)
         self.declare_parameter('max_force_n', 50.0)     # force at max PWM per arm motor
         self.declare_parameter('publish_rate_hz', 50.0)
+
+        pkg_share = get_package_share_directory('arm_controller')
         self.declare_parameter(
                 'arm_config', 
-                os.path.expanduser('~/nuwave-rov/src/arm_controller/config/arm_config.yaml')
+                os.path.join(pkg_share, 'config', 'arm_config.yaml')
                 )
         self.declare_parameter('arm_topic', 'arm_commands')
         self.declare_parameter('n_arm_motors', 6)  

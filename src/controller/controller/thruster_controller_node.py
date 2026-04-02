@@ -2,6 +2,7 @@ import rclpy
 from rclpy.node import Node
 from sensor_msgs.msg import Joy
 from std_msgs.msg import Float32
+from ament_index_python.packages import get_package_share_directory
 import yaml
 import os
 import numpy as np
@@ -10,9 +11,10 @@ class ThrusterController(Node):
     def __init__(self):
         super().__init__('thruster_controller')
 
+        pkg_share = get_package_share_directory('controller')
         # === Parameters ===
-        self.declare_parameter('joy_config', os.path.expanduser('~/nuwave-rov/install/controller/share/controller/config/joystick_config.yaml'))
-        self.declare_parameter('thruster_config', os.path.expanduser('~/nuwave-rov/install/controller/share/controller/config/thruster_config.yaml'))
+        self.declare_parameter('joy_config', os.path.join(pkg_share, 'config', 'joystick_config.yaml'))
+        self.declare_parameter('thruster_config', os.path.join(pkg_share, 'config', 'thruster_config.yaml'))
         self.declare_parameter('joy_topic', '/joy')
         self.declare_parameter('thruster_topic', '/thruster')
 
