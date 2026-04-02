@@ -4,12 +4,10 @@
   <name>web_gui</name>
   <version>0.0.0</version>
   <description>TODO: Package description</description>
-  <maintainer email="zifcak.c@northeastern.edu">camzi</maintainer>
+  <maintainer email="cameronzifcak@gmail.com">Cameron Zifcak</maintainer>
   <license>TODO: License declaration</license>
 
   <depend>rclpy</depend>
-  <depend>std_msgs</depend>
-  <depend>sensor_msgs</depend>
 
   <test_depend>ament_copyright</test_depend>
   <test_depend>ament_flake8</test_depend>
