@@ -1,24 +1,56 @@
 <!DOCTYPE html>
 <html>
-<head><title>ROV Dashboard</title></head>
-<body>
-  <h1>Live Data</h1>
-  <div id="depth">Depth: --</div>
-  <div id="status">Status: --</div>
+  <head>
+    <title>ROV Dashboard</title>
+    <link rel="stylesheet" href="style.css">
+  </head>
 
-  <script>
-    const ws = new WebSocket(`ws://${location.host}/ws`);
+  <body>
+    <h1>Live Data</h1>
+    
+    <div class="thruster_bars">
+      <div class="bar_container" id="thruster_bar_container_0">
+        <p>Thruster 0</p>
+        <div class="bar" id="thruster_0" style="--value: 0;"></div>
+        <p id="thruster_0_pwm">PWM: 1500 μs</p>
+      </div>
+      <div class="bar_container" id="thruster_bar_container_1">
+        <p>Thruster 1</p>
+        <div class="bar" id="thruster_1" style="--value: 0;"></div>
+        <p id="thruster_1_pwm">PWM: 1500 μs</p>
+      </div>
+      <div class="bar_container" id="thruster_bar_container_2">
+        <p>Thruster 2</p>
+        <div class="bar" id="thruster_2" style="--value: 0;"></div>
+        <p id="thruster_2_pwm">PWM: 1500 μs</p>
+      </div>
+      <div class="bar_container" id="thruster_bar_container_3">
+        <p>Thruster 3</p>
+        <div class="bar" id="thruster_3" style="--value: 0;"></div>
+        <p id="thruster_3_pwm">PWM: 1500 μs</p>
+      </div>
+      <div class="bar_container" id="thruster_bar_container_4">
+        <p>Thruster 4</p>
+        <div class="bar" id="thruster_4" style="--value: 0;"></div>
+        <p id="thruster_4_pwm">PWM: 1500 μs</p>
+      </div>
+      <div class="bar_container" id="thruster_bar_container_5">
+        <p>Thruster 5</p>
+        <div class="bar" id="thruster_5" style="--value: 0;"></div>
+        <p id="thruster_5_pwm">PWM: 1500 μs</p>
+      </div>
+      <div class="bar_container" id="thruster_bar_container_6">
+        <p>Thruster 6</p>
+        <div class="bar" id="thruster_6" style="--value: 0;"></div>
+        <p id="thruster_6_pwm">PWM: 1500 μs</p>
+      </div>
+      <div class="bar_container" id="thruster_bar_container_7">
+        <p>Thruster 7</p>
+        <div class="bar" id="thruster_7" style="--value: 0;"></div>
+        <p id="thruster_7_pwm">PWM: 1500 μs</p>
+      </div>
+    </div>
 
-    ws.onmessage = (event) => {
-      const { topic, data } = JSON.parse(event.data);
-
-      if (topic === '/imu/depth')
-        document.getElementById('depth').textContent = `Depth: ${data.toFixed(2)} m`;
-      if (topic === '/status')
-        document.getElementById('status').textContent = `Status: ${data}`;
-    };
-
-    ws.onclose = () => setTimeout(() => location.reload(), 2000);
-  </script>
-</body>
+    <script src="testScript.js"></script>
+  </body>
 </html>
