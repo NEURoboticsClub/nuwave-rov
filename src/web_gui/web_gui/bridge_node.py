@@ -92,8 +92,17 @@ class WebBridgeNode(Node):
         self._subs.append(self.create_subscription(Twist, '/velocity_commands', self._on_velocity_commands, 10))
         self._subs.append(self.create_subscription(Float32MultiArray, '/arm_commands', self._on_arm_commands, 10))
 
-        # Camera topic
-        self._subs.append(self.create_subscription(Image, '/video_0', self._on_video_0, 10))
+        # Camera topics
+        for camera_id in range(4):
+            topic = f'/video_{camera_id}'
+            self._subs.append(
+                self.create_subscription(
+                    Image,
+                    topic,
+                    lambda msg, topic=topic: self._on_video(topic, msg),
+                    10,
+                )
+            )
         self.get_logger().info('WebBridge node started')
 
     def _forward(self, topic: str, payload):
@@ -134,7 +143,7 @@ class WebBridgeNode(Node):
     def _on_arm_commands(self, msg: Float32MultiArray):
         self._forward('/arm_commands', list(msg.data))
 
-    def _on_video_0(self, msg: Image):
+    def _on_video(self, topic: str, msg: Image):
         payload = {
             'width': msg.width,
             'height': msg.height,
@@ -142,7 +151,7 @@ class WebBridgeNode(Node):
             'step': msg.step,
             'data': list(msg.data),
         }
-        self._forward('/video_0', payload)
+        self._forward(topic, payload)
 
 # --- HTTP + WebSocket server ---
 async def ws_handler(request):

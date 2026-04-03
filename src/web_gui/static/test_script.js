@@ -2,9 +2,27 @@ class MessageTester {
     constructor() {
         this.onmessage = null;
         this.publishRate = 100;
+        this.depthHistory = [];
+        this.depthHistoryLength = 60;
+        this.startTime = Date.now();
 
         this.start();
     }
+
+    generateDepthSample() {
+        const elapsed = (Date.now() - this.startTime) / 1000;
+        const baseline = 48 + Math.sin(elapsed / 8) * 18;
+        const wave = Math.sin(elapsed * 1.7) * 2.5 + Math.cos(elapsed * 0.9) * 1.2;
+        return Math.max(0, Math.min(100, baseline + wave));
+    }
+
+    recordDepth(depth) {
+        this.depthHistory.push(depth);
+        if (this.depthHistory.length > this.depthHistoryLength) {
+            this.depthHistory.shift();
+        }
+    }
+
     start() {
         window.testInterval = setInterval(() => {
             // Thruster PWM + power monitor data (x8)
@@ -36,11 +54,11 @@ class MessageTester {
             }
 
             // Depth sensor data
-            const depth = Math.abs(Math.sin(Date.now() / 5000)) * 100;
+            const depth = this.generateDepthSample();
+            this.recordDepth(depth);
             this.sendMessage({ topic: '/depth/depth', data: parseFloat(depth) });
 
-            const depth_array = Array.from({ length: 10 }, (_, i) => depth + Math.cos(Date.now() / 5000 + i) * 5);
-            this.sendMessage({ topic: '/depth/depth_array', data: depth_array.map(d => parseFloat(d)) });
+            this.sendMessage({ topic: '/depth/depth_array', data: this.depthHistory.map((sample) => parseFloat(sample.toFixed(2))) });
             
             const pressure = 1 + depth * 0.1 + Math.cos(Date.now() / 5000) * 0.5;
             this.sendMessage({ topic: '/depth/pressure', data: parseFloat(pressure) });

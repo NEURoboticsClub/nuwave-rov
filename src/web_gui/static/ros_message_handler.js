@@ -57,7 +57,10 @@ ws.onmessage = (event) => {
         return;
     }
 
-    if (topic === '/video_0') {
-        updateCamera(data);
+    if (topic.startsWith('/video_')) {
+        const cameraId = Number(topic.split('_')[1]);
+        if (!Number.isNaN(cameraId)) {
+            updateCamera(cameraId, data);
+        }
     }
 };
