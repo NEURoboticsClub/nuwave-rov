@@ -6,51 +6,18 @@
   </head>
 
   <body>
-    <h1>Live Data</h1>
-    
-    <div class="thruster_bars">
-      <div class="bar_container" id="thruster_bar_container_0">
-        <p>Thruster 0</p>
-        <div class="bar" id="thruster_0" style="--value: 0;"></div>
-        <p id="thruster_0_pwm">PWM: 1500 μs</p>
-      </div>
-      <div class="bar_container" id="thruster_bar_container_1">
-        <p>Thruster 1</p>
-        <div class="bar" id="thruster_1" style="--value: 0;"></div>
-        <p id="thruster_1_pwm">PWM: 1500 μs</p>
-      </div>
-      <div class="bar_container" id="thruster_bar_container_2">
-        <p>Thruster 2</p>
-        <div class="bar" id="thruster_2" style="--value: 0;"></div>
-        <p id="thruster_2_pwm">PWM: 1500 μs</p>
-      </div>
-      <div class="bar_container" id="thruster_bar_container_3">
-        <p>Thruster 3</p>
-        <div class="bar" id="thruster_3" style="--value: 0;"></div>
-        <p id="thruster_3_pwm">PWM: 1500 μs</p>
-      </div>
-      <div class="bar_container" id="thruster_bar_container_4">
-        <p>Thruster 4</p>
-        <div class="bar" id="thruster_4" style="--value: 0;"></div>
-        <p id="thruster_4_pwm">PWM: 1500 μs</p>
-      </div>
-      <div class="bar_container" id="thruster_bar_container_5">
-        <p>Thruster 5</p>
-        <div class="bar" id="thruster_5" style="--value: 0;"></div>
-        <p id="thruster_5_pwm">PWM: 1500 μs</p>
-      </div>
-      <div class="bar_container" id="thruster_bar_container_6">
-        <p>Thruster 6</p>
-        <div class="bar" id="thruster_6" style="--value: 0;"></div>
-        <p id="thruster_6_pwm">PWM: 1500 μs</p>
-      </div>
-      <div class="bar_container" id="thruster_bar_container_7">
-        <p>Thruster 7</p>
-        <div class="bar" id="thruster_7" style="--value: 0;"></div>
-        <p id="thruster_7_pwm">PWM: 1500 μs</p>
-      </div>
+    <div class="shell">
+      <header class="hero">
+        <p class="hero__eyebrow">ROV Dashboard</p>
+        <h1>Live Data</h1>
+        <p class="hero__copy">Compact monitors for thrusters, power, arm motion, depth, commands, and camera streaming.</p>
+      </header>
+
+      <main id="dashboard" class="dashboard"></main>
     </div>
 
-    <script src="testScript.js"></script>
+    <script src="build_dashboard.js"></script>
+    <script src="script.js"></script>
+    <script src="ros_message_handler.js"></script>
   </body>
 </html>
