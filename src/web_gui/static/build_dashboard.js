@@ -2,6 +2,7 @@ const dashboard = {
     meters: new Map(),
     sparkline: null,
     cameras: new Map(),
+    thrusterViz: null,
 };
 
 function clamp(value, min, max) {
@@ -244,6 +245,212 @@ function buildThrusterPanel() {
             format: (v) => `${v.toFixed(0)} us`,
         });
     }
+
+    const vizCard = document.createElement("div");
+    vizCard.className = "thruster-viz-card";
+
+    const vizGrid = document.createElement("div");
+    vizGrid.className = "thruster-viz-grid";
+
+    const xPanel = document.createElement("div");
+    xPanel.className = "thruster-viz-panel";
+    const xHead = document.createElement("div");
+    xHead.className = "row__head";
+    const xLabel = document.createElement("span");
+    xLabel.className = "row__label";
+    xLabel.textContent = "X-Drive";
+    xHead.appendChild(xLabel);
+    const xCanvas = document.createElement("canvas");
+    xCanvas.className = "thruster-viz";
+    xPanel.append(xHead, xCanvas);
+
+    const upPanel = document.createElement("div");
+    upPanel.className = "thruster-viz-panel";
+    const upHead = document.createElement("div");
+    upHead.className = "row__head";
+    const upLabel = document.createElement("span");
+    upLabel.className = "row__label";
+    upLabel.textContent = "Up Motors";
+    upHead.appendChild(upLabel);
+    const upCanvas = document.createElement("canvas");
+    upCanvas.className = "thruster-viz";
+    upPanel.append(upHead, upCanvas);
+
+    vizGrid.append(xPanel, upPanel);
+    vizCard.append(vizGrid);
+    panel.appendChild(vizCard);
+
+    dashboard.thrusterViz = {
+        card: vizCard,
+        xCanvas,
+        upCanvas,
+        xValues: [1500, 1500, 1500, 1500],
+        upValues: [1500, 1500, 1500, 1500],
+    };
+
+    drawThrusterViz();
+    drawUpMotorViz();
+}
+
+function drawThrusterArrow(context, x, y, dx, dy, color) {
+    const len = Math.hypot(dx, dy);
+    if (len < 1) {
+        return;
+    }
+
+    context.strokeStyle = color;
+    context.lineWidth = 2;
+    context.beginPath();
+    context.moveTo(x, y);
+    context.lineTo(x + dx, y + dy);
+    context.stroke();
+
+    const ux = dx / len;
+    const uy = dy / len;
+    const head = clamp(len * 0.3, 4, 10);
+    const wing = clamp(head * 0.45, 2, 5);
+
+    context.beginPath();
+    context.moveTo(x + dx, y + dy);
+    context.lineTo(x + dx - ux * head - uy * wing, y + dy - uy * head + ux * wing);
+    context.lineTo(x + dx - ux * head + uy * wing, y + dy - uy * head - ux * wing);
+    context.closePath();
+    context.fillStyle = color;
+    context.fill();
+}
+
+function drawThrusterViz() {
+    const viz = dashboard.thrusterViz;
+    if (!viz) {
+        return;
+    }
+
+    const context = viz.xCanvas.getContext("2d");
+    const size = resizeCanvasToDisplaySize(viz.xCanvas, context);
+    const w = size.width;
+    const h = size.height;
+
+    context.clearRect(0, 0, w, h);
+
+    const cx = w * 0.5;
+    const cy = h * 0.55;
+    const robotSize = Math.min(w, h) * 0.42;
+    const half = robotSize * 0.5;
+
+    // Top-down robot body (square) with a front indicator.
+    context.fillStyle = "rgba(16, 34, 56, 0.92)";
+    context.strokeStyle = "rgba(143, 176, 209, 0.5)";
+    context.lineWidth = 1.5;
+    context.fillRect(cx - half, cy - half, robotSize, robotSize);
+    context.strokeRect(cx - half, cy - half, robotSize, robotSize);
+
+    context.beginPath();
+    context.moveTo(cx - robotSize * 0.12, cy - half);
+    context.lineTo(cx + robotSize * 0.12, cy - half);
+    context.lineTo(cx, cy - half - 9);
+    context.closePath();
+    context.fillStyle = "rgba(124, 217, 255, 0.85)";
+    context.fill();
+
+    const corners = [
+        { x: cx - half, y: cy - half }, // top-left
+        { x: cx + half, y: cy - half }, // top-right
+        { x: cx - half, y: cy + half }, // bottom-left
+        { x: cx + half, y: cy + half }, // bottom-right
+    ];
+
+    // X-drive directions in robot frame (y forward/up):
+    // TL and BR: +x +y
+    // TR and BL: -x +y
+    const dirs = [
+        { x: 1, y: 1 },
+        { x: -1, y: 1 },
+        { x: -1, y: 1 },
+        { x: 1, y: 1 },
+    ];
+
+    const norm = 1 / Math.sqrt(2);
+    const maxLen = Math.min(w, h) * 0.2;
+
+    for (let i = 0; i < 4; i++) {
+        const pwm = viz.xValues[i] ?? 1500;
+        const force = clamp((pwm - 1500) / 500, -1, 1);
+        const mag = Math.abs(force);
+
+        const ux = dirs[i].x * norm;
+        const uy = dirs[i].y * norm;
+        const sign = force >= 0 ? 1 : -1;
+        const dx = ux * maxLen * mag * sign;
+        const dy = -uy * maxLen * mag * sign;
+
+        const pos = corners[i];
+
+        context.beginPath();
+        context.arc(pos.x, pos.y, 4, 0, Math.PI * 2);
+        context.fillStyle = "rgba(231, 242, 255, 0.9)";
+        context.fill();
+
+        drawThrusterArrow(context, pos.x, pos.y, dx, dy, "#57c7ff");
+
+        context.fillStyle = "rgba(143, 176, 209, 0.85)";
+        context.font = "10px IBM Plex Sans, Segoe UI, sans-serif";
+        context.textAlign = "center";
+        context.textBaseline = "middle";
+        context.fillText(`T${i}`, pos.x, pos.y + 12);
+    }
+}
+
+function drawUpMotorViz() {
+    const viz = dashboard.thrusterViz;
+    if (!viz) {
+        return;
+    }
+
+    const context = viz.upCanvas.getContext("2d");
+    const size = resizeCanvasToDisplaySize(viz.upCanvas, context);
+    const w = size.width;
+    const h = size.height;
+
+    context.clearRect(0, 0, w, h);
+
+    const cx = w * 0.5;
+    const cy = h * 0.55;
+    const robotSize = Math.min(w, h) * 0.42;
+    const half = robotSize * 0.5;
+
+    context.fillStyle = "rgba(16, 34, 56, 0.92)";
+    context.strokeStyle = "rgba(143, 176, 209, 0.5)";
+    context.lineWidth = 1.5;
+    context.fillRect(cx - half, cy - half, robotSize, robotSize);
+    context.strokeRect(cx - half, cy - half, robotSize, robotSize);
+
+    const corners = [
+        { x: cx - half, y: cy - half },
+        { x: cx + half, y: cy - half },
+        { x: cx - half, y: cy + half },
+        { x: cx + half, y: cy + half },
+    ];
+
+    const maxLen = Math.min(w, h) * 0.18;
+    for (let i = 0; i < 4; i++) {
+        const pwm = viz.upValues[i] ?? 1500;
+        const force = clamp((pwm - 1500) / 500, -1, 1);
+        const dy = -maxLen * force;
+        const pos = corners[i];
+
+        context.beginPath();
+        context.arc(pos.x, pos.y, 4, 0, Math.PI * 2);
+        context.fillStyle = "rgba(231, 242, 255, 0.9)";
+        context.fill();
+
+        drawThrusterArrow(context, pos.x, pos.y, 0, dy, "#73e0a8");
+
+        context.fillStyle = "rgba(143, 176, 209, 0.85)";
+        context.font = "10px IBM Plex Sans, Segoe UI, sans-serif";
+        context.textAlign = "center";
+        context.textBaseline = "middle";
+        context.fillText(`U${i}`, pos.x, pos.y + 12);
+    }
 }
 
 function buildPowerPanel() {
@@ -360,7 +567,7 @@ function buildDepthPanel() {
     });
 
     const sparkRow = document.createElement("div");
-    sparkRow.className = "row";
+    sparkRow.className = "row depth-history-row";
 
     const sparkHead = document.createElement("div");
     sparkHead.className = "row__head";
@@ -469,6 +676,17 @@ function updateMeter(key, rawValue) {
     setText(meter.value, formatted);
     meter.lastSeen = Date.now();
     meter.row.classList.remove("is-stale");
+
+    if (key.startsWith("thruster_") && dashboard.thrusterViz) {
+        const thrusterId = Number(key.split("_")[1]);
+        if (!Number.isNaN(thrusterId) && thrusterId >= 0 && thrusterId < 4) {
+            dashboard.thrusterViz.xValues[thrusterId] = rawValue;
+            drawThrusterViz();
+        } else if (!Number.isNaN(thrusterId) && thrusterId >= 4 && thrusterId < 8) {
+            dashboard.thrusterViz.upValues[thrusterId - 4] = rawValue;
+            drawUpMotorViz();
+        }
+    }
 
     if (meter.fill) {
         const range = meter.max - meter.min || 1;
