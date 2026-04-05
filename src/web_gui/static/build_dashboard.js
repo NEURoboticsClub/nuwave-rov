@@ -800,29 +800,27 @@ function updateCamera(cameraId, video) {
 
     const canvas = camera.canvas;
     const context = canvas.getContext("2d");
-    const frame = context.createImageData(canvas.width, canvas.height);
 
-    const sourceWidth = video.width || canvas.width;
-    const sourceHeight = video.height || canvas.height;
-    const source = video.data;
+    const blob = new Blob(
+        [new Uint8Array(video.data)],
+        { type: `image/${video.format || 'jpeg'}` }
+    );
+    const url = URL.createObjectURL(blob);
+    const img = new Image();
 
-    for (let y = 0; y < canvas.height; y++) {
-        for (let x = 0; x < canvas.width; x++) {
-            const sx = Math.floor((x / canvas.width) * sourceWidth);
-            const sy = Math.floor((y / canvas.height) * sourceHeight);
-            const srcIndex = (sy * sourceWidth + sx) * 3;
-            const dstIndex = (y * canvas.width + x) * 4;
+    img.onload = () => {
+        context.drawImage(img, 0, 0, canvas.width, canvas.height);
+        URL.revokeObjectURL(url);
+        camera.lastSeen = Date.now();
+        camera.card.classList.remove("is-stale");
+    };
 
-            frame.data[dstIndex] = source[srcIndex] ?? 0;
-            frame.data[dstIndex + 1] = source[srcIndex + 1] ?? 0;
-            frame.data[dstIndex + 2] = source[srcIndex + 2] ?? 0;
-            frame.data[dstIndex + 3] = 255;
-        }
-    }
+    img.onerror = () => {
+        URL.revokeObjectURL(url);
+        console.error(`Failed to load image for camera ${cameraId}`);
+    };
 
-    context.putImageData(frame, 0, 0);
-    camera.lastSeen = Date.now();
-    camera.card.classList.remove("is-stale");
+    img.src = url;
 }
 
 function refreshStaleState() {

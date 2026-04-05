@@ -3,7 +3,7 @@ from rclpy.node import Node
 from rclpy.executors import MultiThreadedExecutor
 from std_msgs.msg import Float32, Float32MultiArray
 from geometry_msgs.msg import Twist
-from sensor_msgs.msg import FluidPressure, Temperature, Image
+from sensor_msgs.msg import FluidPressure, Temperature, CompressedImage
 from ament_index_python.packages import get_package_share_directory
 import asyncio
 import json
@@ -97,7 +97,7 @@ class WebBridgeNode(Node):
             topic = f'/camera_{camera_id}/image/compressed'
             self._subs.append(
                 self.create_subscription(
-                    Image,
+                    CompressedImage,
                     topic,
                     lambda msg, topic=topic: self._on_video(topic, msg),
                     10,
@@ -143,12 +143,9 @@ class WebBridgeNode(Node):
     def _on_arm_commands(self, msg: Float32MultiArray):
         self._forward('/arm_commands', list(msg.data))
 
-    def _on_video(self, topic: str, msg: Image):
+    def _on_video(self, topic: str, msg: CompressedImage):
         payload = {
-            'width': msg.width,
-            'height': msg.height,
-            'encoding': msg.encoding,
-            'step': msg.step,
+            'format': msg.format,
             'data': list(msg.data),
         }
         self._forward(topic, payload)

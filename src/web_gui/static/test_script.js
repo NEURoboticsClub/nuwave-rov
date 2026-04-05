@@ -66,18 +66,33 @@ class MessageTester {
             const temperature = 20 + Math.cos(Date.now() / 5000) * 5;
             this.sendMessage({ topic: '/depth/temperature', data: parseFloat(temperature) });
 
-            // Camera streaming data (using cv2_to_imgmsg)
+            // Camera streaming data (CompressedImage with JPEG format)
+            const testCanvas = document.createElement('canvas');
+            testCanvas.width = 640;
+            testCanvas.height = 480;
+            const testCtx = testCanvas.getContext('2d');
+
+            // Draw a test pattern
+            for (let y = 0; y < 480; y += 40) {
+                for (let x = 0; x < 640; x += 40) {
+                    testCtx.fillStyle = `hsl(${(x + y + Math.round(Date.now() / 10)) % 360}, 40%, 50%)`;
+                    testCtx.fillRect(x, y, 40, 40);
+                }
+            }
+
+            // Encode as JPEG and extract raw bytes
+            const dataUrl = testCanvas.toDataURL('image/jpeg', 0.8);
+            const base64 = dataUrl.split(',')[1];
+            const binary = atob(base64);
+            const jpegBytes = Array.from(binary, c => c.charCodeAt(0));
+
             const video = {
                 header: {
                     stamp: Date.now(),
                     frame_id: 'camera_0'
                 },
-                height: 480,
-                width: 640,
-                encoding: 'bgr8',
-                is_bigendian: 0,
-                step: 640 * 3,
-                data: Array.from({ length: 480 * 640 * 3 }, () => Math.floor(Math.random() * 256))
+                format: 'jpeg',
+                data: jpegBytes
             };
             this.sendMessage({ topic: '/camera_0/image/compressed', data: video });
 
