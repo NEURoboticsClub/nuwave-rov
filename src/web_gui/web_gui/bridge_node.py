@@ -94,7 +94,7 @@ class WebBridgeNode(Node):
 
         # Camera topics
         for camera_id in range(4):
-            topic = f'/video_{camera_id}'
+            topic = f'/camera_{camera_id}/image/compressed'
             self._subs.append(
                 self.create_subscription(
                     Image,

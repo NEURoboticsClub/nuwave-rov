@@ -636,7 +636,7 @@ function buildCommandsPanel() {
 }
 
 function buildCameraPanel() {
-    const panel = createPanel("Cameras", "/video_0..3");
+    const panel = createPanel("Cameras", "/camera_0..3/image/compressed");
     const wrap = document.createElement("div");
     wrap.className = "camera-wrap";
 
