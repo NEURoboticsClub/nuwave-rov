@@ -79,7 +79,7 @@ class MessageTester {
                 step: 640 * 3,
                 data: Array.from({ length: 480 * 640 * 3 }, () => Math.floor(Math.random() * 256))
             };
-            this.sendMessage({ topic: '/video_0', data: video });
+            this.sendMessage({ topic: '/camera_0/image/compressed', data: video });
 
             /* ===== Houston data ===== */
             // Twist data type (controls thrusters)
