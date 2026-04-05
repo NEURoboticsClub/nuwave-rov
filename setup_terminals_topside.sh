@@ -39,6 +39,7 @@ JOYSTICK_LAUNCH="$SETUP && ros2 launch houston_pkg joystick_launch.launch.py"
 START_HOUSTON="$SETUP && ros2 run houston_pkg houston"
 START_THRUSTER_CONTROLLER="$SETUP && ros2 run controller thruster_controller_node"
 START_ARM_CONTROLLER="$SETUP && ros2 run arm_controller arm_controller_node"
+START_WEB_GUI="$SETUP && ros2 run web_gui bridge_node"
 
 LAYOUT_FILE=$(mktemp /tmp/terminator_ros2_setup_topside_XXXX.conf)
 
