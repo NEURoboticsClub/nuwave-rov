@@ -1,4 +1,8 @@
 ws.onmessage = (event) => {
+    if (event.data === 'connected') {
+        console.log('WebSocket initialized!');
+        return;
+    }
     const { topic, data } = JSON.parse(event.data);
 
     if (topic.startsWith('/thruster/')) {
