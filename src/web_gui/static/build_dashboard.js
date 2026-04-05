@@ -472,7 +472,7 @@ function buildPowerPanel() {
         const spec = [
             { metric: "bus_voltage", label: "Bus", min: 0, max: 16, format: (v) => `${v.toFixed(2)} V`, color: "#57c7ff" },
             { metric: "current", label: "Current", min: 0, max: 20, format: (v) => `${v.toFixed(2)} A`, color: "#f0b35f" },
-            { metric: "power", label: "Power", min: 0, max: 250, format: (v) => `${v.toFixed(1)} W`, color: "#73e0a8" },
+            // { metric: "power", label: "Power", min: 0, max: 250, format: (v) => `${v.toFixed(1)} W`, color: "#73e0a8" },
         ];
 
         spec.forEach((item) => {
@@ -489,17 +489,17 @@ function buildPowerPanel() {
             meter.row.style.setProperty("--meter-accent", item.color);
         });
 
-        registerVerticalMeter(metrics, `power_${i}_shunt_voltage`, "Shunt", {
-            min: -0.2,
-            max: 0.2,
-            format: (v) => `${v.toFixed(3)} V`,
-            placeholder: "--",
-            signed: true,
-        });
+        // registerVerticalMeter(metrics, `power_${i}_shunt_voltage`, "Shunt", {
+        //     min: -0.2,
+        //     max: 0.2,
+        //     format: (v) => `${v.toFixed(3)} V`,
+        //     placeholder: "--",
+        //     signed: true,
+        // });
 
-        const shuntMeter = dashboard.meters.get(`power_${i}_shunt_voltage`);
-        shuntMeter.row.classList.add("power-meter--accented", "power-meter--shunt");
-        shuntMeter.row.style.setProperty("--meter-accent", "#f08d62");
+        // const shuntMeter = dashboard.meters.get(`power_${i}_shunt_voltage`);
+        // shuntMeter.row.classList.add("power-meter--accented", "power-meter--shunt");
+        // shuntMeter.row.style.setProperty("--meter-accent", "#f08d62");
 
         card.append(badge, metrics);
         grid.appendChild(card);
