@@ -85,20 +85,20 @@ class MessageTester {
             // Twist data type (controls thrusters)
             const velocity_commands = {
                 linear: {
-                    x: Math.sin(Date.now() / 1000) * 0.5,
-                    y: Math.cos(Date.now() / 1000) * 0.5,
-                    z: Math.sin(Date.now() / 2000) * 0.5
+                    x: Math.sin(Date.now() / 1000),
+                    y: Math.cos(Date.now() / 1000),
+                    z: Math.sin(Date.now() / 2000)
                 },
                 angular: {
-                    x: Math.cos(Date.now() / 1000) * 0.5,
-                    y: Math.sin(Date.now() / 1000) * 0.5,
-                    z: Math.cos(Date.now() / 2000) * 0.5
+                    x: Math.cos(Date.now() / 1000),
+                    y: Math.sin(Date.now() / 1000),
+                    z: Math.cos(Date.now() / 2000)
                 }
             };
             this.sendMessage({ topic: '/velocity_commands', data: velocity_commands });
 
             // Float32MultiArray data type (controls arm)
-            const arm_commands = Array.from({ length: 6 }, (_, i) => Math.sin(Date.now() / 1000 + i) * 0.5);
+            const arm_commands = Array.from({ length: 6 }, (_, i) => Math.sin(Date.now() / 1000 + i));
             this.sendMessage({ topic: '/arm_commands', data: arm_commands.map(c => parseFloat(c)) });
         }, this.publishRate);
     }

@@ -118,7 +118,7 @@ function registerTableMeter(parent, key, label, format) {
     });
 }
 
-function registerSignedBarMeter(parent, key, label, min = -0.5, max = 0.5) {
+function registerSignedBarMeter(parent, key, label, min = -1, max = 1) {
     const row = document.createElement("div");
     row.className = "command-row";
 
