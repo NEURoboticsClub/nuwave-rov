@@ -30,7 +30,7 @@ ws.onmessage = (event) => {
     }
 
     if (topic === '/depth/pressure') {
-        updateMeter('depth_pressure', data);
+        updateMeter('depth_pressure', data / 100000); // Convert Pa to bar
         return;
     }
 

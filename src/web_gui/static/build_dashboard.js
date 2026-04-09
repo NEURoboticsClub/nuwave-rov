@@ -538,7 +538,7 @@ function buildDepthPanel() {
         key: "depth_depth",
         label: "Depth",
         min: 0,
-        max: 100,
+        max: 5,
         bar: true,
         placeholder: "0.00 m",
         format: (v) => `${v.toFixed(2)} m`,
@@ -549,10 +549,10 @@ function buildDepthPanel() {
         key: "depth_pressure",
         label: "Pressure",
         min: 0,
-        max: 20,
+        max: 5,
         bar: true,
-        placeholder: "0.00",
-        format: (v) => `${v.toFixed(2)}`,
+        placeholder: "0.00 bar",
+        format: (v) => `${v.toFixed(2)} bar`,
     });
 
     registerMeter({
@@ -721,7 +721,7 @@ function updateSparkline(key, values) {
     const canvas = dashboard.sparkline.canvas;
     const context = canvas.getContext("2d");
     const fixedMin = 0;
-    const fixedMax = 100;
+    const fixedMax = 5;
     const size = resizeCanvasToDisplaySize(canvas, context);
     const w = size.width;
     const h = size.height;

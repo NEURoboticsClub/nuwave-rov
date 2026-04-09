@@ -13,7 +13,7 @@ class MessageTester {
         const elapsed = (Date.now() - this.startTime) / 1000;
         const baseline = 48 + Math.sin(elapsed / 8) * 18;
         const wave = Math.sin(elapsed * 1.7) * 2.5 + Math.cos(elapsed * 0.9) * 1.2;
-        return Math.max(0, Math.min(100, baseline + wave));
+        return Math.max(0, Math.min(5, (baseline + wave) / 20));
     }
 
     recordDepth(depth) {
@@ -60,7 +60,7 @@ class MessageTester {
 
             this.sendMessage({ topic: '/depth/depth_array', data: this.depthHistory.map((sample) => parseFloat(sample.toFixed(2))) });
             
-            const pressure = 1 + depth * 0.1 + Math.cos(Date.now() / 5000) * 0.5;
+            const pressure = (1 + depth * 0.1 + Math.cos(Date.now() / 5000) * 0.5) * 100000; // pressure in pascals (simulated)
             this.sendMessage({ topic: '/depth/pressure', data: parseFloat(pressure) });
 
             const temperature = 20 + Math.cos(Date.now() / 5000) * 5;
@@ -95,6 +95,9 @@ class MessageTester {
                 data: jpegBytes
             };
             this.sendMessage({ topic: '/camera_0/image/compressed', data: video });
+            this.sendMessage({ topic: '/camera_1/image/compressed', data: video });
+            this.sendMessage({ topic: '/camera_2/image/compressed', data: video });
+            this.sendMessage({ topic: '/camera_3/image/compressed', data: video });
 
             /* ===== Houston data ===== */
             // Twist data type (controls thrusters)
