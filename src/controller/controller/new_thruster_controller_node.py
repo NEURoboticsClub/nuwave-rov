@@ -14,7 +14,7 @@ class ThrusterController(Node):
         super().__init__('thruster_controller')
 
         # Parameters
-        self.declare_parameter('neutral_us', 1500.0)
+        self.declare_parameter('neutral_us', 1514.0)
         self.declare_parameter('min_us', 1100.0)
         self.declare_parameter('max_us', 1900.0)
         self.declare_parameter('max_force_n', 1.0)     # force at max PWM per thruster
@@ -26,7 +26,7 @@ class ThrusterController(Node):
                 )
         self.declare_parameter('thruster_topic', '/thruster')
 
-        self.neutral_us = float(self.get_parameter('neutral_us').value or 1500.0)
+        self.neutral_us = float(self.get_parameter('neutral_us').value or 1514.0)
         self.min_us = float(self.get_parameter('min_us').value or 1100.0)
         self.max_us = float(self.get_parameter('max_us').value or 1900.0)
         self.max_force = float(self.get_parameter('max_force_n').value or 50.0)
