@@ -34,7 +34,7 @@ SETUP="cd $WS && source $WS/venv/bin/activate && source $WS/install/setup.bash"
 # - ros2 launch power_monitor_pkg multi_power_monitor.launch.py
 # - ros2 run rov_depth_sensor depth_sensor_node
 # - ros2 run camera_pkg camera_publisher --ros-args -p camera_id:=0
-# - ros2 run imu_pkg imu_driver
+# - ros2 run imu_pkg imu_pub
 
 
 MULTI_THRUSTER_LAUNCH="$SETUP && ros2 launch thruster_pkg multi_thruster.launch.py"
@@ -42,7 +42,7 @@ MULTI_ARM_LAUNCH="$SETUP && ros2 launch thruster_pkg multi_arm_motor.launch.py"
 POWER_MONITOR_LAUNCH="$SETUP && ros2 launch power_monitor_pkg multi_power_monitor.launch.py"
 DEPTH_SENSOR_LAUNCH="$SETUP && ros2 run rov_depth_sensor depth_sensor_node"
 CAMERA_LAUNCH="$SETUP && ros2 run camera_pkg camera_publisher --ros-args -p camera_id:=0"
-IMU_LAUNCH="$SETUP && ros2 run imu_pkg imu_driver"
+IMU_LAUNCH="$SETUP && ros2 run imu_pkg imu_pub"
 
 LAYOUT_FILE=$(mktemp /tmp/terminator_ros2_setup_bottomside_XXXX.conf)
 
