@@ -5,6 +5,7 @@ from std_msgs.msg import Float32, Float32MultiArray
 from geometry_msgs.msg import Twist
 from sensor_msgs.msg import FluidPressure, Temperature, CompressedImage
 from ament_index_python.packages import get_package_share_directory
+from rclpy.qos import QoSProfile, ReliabilityPolicy, HistoryPolicy
 import asyncio
 import json
 import threading
@@ -93,6 +94,11 @@ class WebBridgeNode(Node):
         self._subs.append(self.create_subscription(Float32MultiArray, '/arm_commands', self._on_arm_commands, 10))
 
         # Camera topics
+        camera_qos = QoSProfile(
+            reliability=ReliabilityPolicy.BEST_EFFORT,
+            history=HistoryPolicy.KEEP_LAST,
+            depth=1,
+        )
         for camera_id in range(4):
             topic = f'/camera_{camera_id}/image/compressed'
             self._subs.append(
@@ -100,7 +106,7 @@ class WebBridgeNode(Node):
                     CompressedImage,
                     topic,
                     lambda msg, topic=topic: self._on_video(topic, msg),
-                    10,
+                    camera_qos,
                 )
             )
         self.get_logger().info('WebBridge node started')
