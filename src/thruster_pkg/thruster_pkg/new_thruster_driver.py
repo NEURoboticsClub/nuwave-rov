@@ -135,40 +135,34 @@ class ThrusterNode(Node):
         Signal to SPIN BABY SPIN
         """
         cmd = float(msg.data)
-        if cmd > HIGH_ANGLE:
-            self._write_us(cmd)
-            # print(f"Wrote {cmd} us to motor channel {self.channel}")
-        else:
-            self._write_angle(cmd)
-            # print(f"Wrote {cmd} deg to motor channel {self.channel}")
-        self.target_us = max(self.min_us, min(self.max_us, msg.data))
+        # if cmd > HIGH_ANGLE:
+        #     self._write_us(cmd)
+        #     # print(f"Wrote {cmd} us to motor channel {self.channel}")
+        # else:
+        #     self._write_angle(cmd)
+        #     # print(f"Wrote {cmd} deg to motor channel {self.channel}")
+        self.target_us = max(self.min_us, min(self.max_us, cmd))
         self.last_msg_time = self.get_clock().now()
 
     # TODO: reintegrate updates independent of callback if possible to allow different publishing and update rates
     def update(self):
-        pass
-    #     now = self.get_clock().now()
-    #     dt = (now - getattr(self, "_prev_time", now)).nanoseconds / 1e9
-    #     self._prev_time = now
+        now = self.get_clock().now()
+        dt = (now - getattr(self, "_prev_time", now)).nanoseconds / 1e9
+        self._prev_time = now
 
-    #     # Watchdog: go neutral if stale
-    #     if (now - self.last_msg_time) > self.watchdog_timeout:
-    #         target_us = self.neutral_us
-    #     else:
-    #         target_us = self.map_cmd_to_us(self.current_cmd)
-
-    #     # Skew Limiting
-    #     if self.slew_us_per_s > 0.0 and dt > 0.0:
-    #         max_delta = self.slew_us_per_s * dt
-    #         delta = target_us - self.current_us
-    #         if abs(delta) > max_delta:
-    #             target = self.current_us + math.copysign(max_delta, delta)
-    #     # Write 
-    #     if self.pwm is not None:
-    #         try:
-    #             self._write_us(target)
-    #         except Exception as e:
-    #             self.get_logger().error(f'PWM write error: {e}')
+        # Skew Limiting
+        if self.slew_us_per_s > 0.0 and dt > 0.0:
+            max_delta = self.slew_us_per_s * dt
+            delta = self.target_us - self.current_us
+            if abs(delta) > max_delta:
+                target = self.current_us + math.copysign(max_delta, delta)
+        
+        # Write 
+        if self.pwm is not None:
+            try:
+                self._write_us(target)
+            except Exception as e:
+                self.get_logger().error(f'PWM write error: {e}')
 
     def destroy_node(self):
         # send neutral and cleanup
