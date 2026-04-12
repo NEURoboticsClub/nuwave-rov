@@ -11,5 +11,5 @@ thruster_node:
     invert_direction: false
     max_abs_cmd: 0.5
     deadband_us: 20.0
-    slew_us_per_s: 4000.0
+    slew_us_per_s: 100.0
     watchdog_timeout_s: 0.5
