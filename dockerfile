@@ -15,7 +15,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 ENV LANG=en_US.UTF-8
 ENV LC_ALL=en_US.UTF-8
 
-# ROS 2 apt repo 
+# ROS 2 apt repo
 RUN apt-get update && apt-get install -y --no-install-recommends curl gnupg2 lsb-release \
  && curl -sSL https://raw.githubusercontent.com/ros/rosdistro/master/ros.key \
     -o /usr/share/keyrings/ros-archive-keyring.gpg \
@@ -23,7 +23,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends curl gnupg2 lsb
     http://packages.ros.org/ros2/ubuntu $(. /etc/os-release && echo $UBUNTU_CODENAME) main" \
     | tee /etc/apt/sources.list.d/ros2.list > /dev/null
 
-# Install ROS 2 Humble 
+# Install ROS 2 Humble
 ARG ROS_META=ros-humble-desktop
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ${ROS_META} \
@@ -32,7 +32,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     python3-vcstool \
  && rm -rf /var/lib/apt/lists/*
 
-# Initialize rosdep 
+# Initialize rosdep
 RUN rosdep init && rosdep update
 
 WORKDIR /workspace
@@ -48,9 +48,10 @@ RUN sed -i 's/\r$//' /ros_entrypoint.sh && chmod +x /ros_entrypoint.sh
 
 # Install deps
 RUN apt-get update && \
+    . /opt/ros/humble/setup.sh && \
     rosdep update && \
-    rosdep install --from-paths /workspace --ignore-src -y --skip-keys=ament_python && \
-    apt-get install -y --no-install-recommends ros-humble-rosbridge-server && \
+    rosdep install --from-paths /workspace --ignore-src -y --skip-keys="ament_python cv2" && \
+    apt-get install -y --no-install-recommends ros-humble-rosbridge-server python3-opencv && \
     rm -rf /var/lib/apt/lists/*
 
 ENTRYPOINT ["/ros_entrypoint.sh"]

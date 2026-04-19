@@ -72,6 +72,10 @@ class IMUPublisher(Node):
         imu_msg.orientation.z = quaternion['k']
         imu_msg.orientation.w = quaternion['real']
 
+        imu_msg.linear_velocity.x = linear_velocity['velocity_x']
+        imu_msg.linear_velocity.y = linear_velocity['velocity_y']
+        imu_msg.linear_velocity.z = linear_velocity['velocity_z']
+
         self.publisher_.publish(imu_msg)
 
 

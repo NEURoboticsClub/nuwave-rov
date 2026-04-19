@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>ROV Dashboard</title>
+    <link rel="stylesheet" href="static/style.css">
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "https://cdn.jsdelivr.net/npm/three@0.161.0/build/three.module.js"
+        }
+      }
+    </script>
+  </head>
+
+  <body>
+    <main id="dashboard" class="dashboard"></main>
+
+    <script type="module">
+      import * as THREE from 'three';
+      import { GLTFLoader } from 'https://cdn.jsdelivr.net/npm/three@0.161.0/examples/jsm/loaders/GLTFLoader.js';
+
+      window.THREE = THREE;
+      window.THREE_GLTFLoader = GLTFLoader;
+
+      await new Promise((resolve, reject) => {
+        const dashboardScript = document.createElement('script');
+        dashboardScript.src = 'static/build_dashboard.js';
+        dashboardScript.onload = resolve;
+        dashboardScript.onerror = reject;
+        document.body.appendChild(dashboardScript);
+      });
+
+      const params = new URLSearchParams(window.location.search);
+      const isPartyMode = params.get('partymode') === '1';
+      const isTestMode = params.get('test') === '1' || isPartyMode;
+      const wsScriptPath = isTestMode ? 'static/test_script.js' : 'static/script.js';
+
+      if (isPartyMode) {
+        document.body.classList.add('test-mode');
+      }
+
+      const wsScript = document.createElement('script');
+      wsScript.src = wsScriptPath;
+      wsScript.onload = () => {
+        const handlerScript = document.createElement('script');
+        handlerScript.src = 'static/ros_message_handler.js';
+        document.body.appendChild(handlerScript);
+      };
+
+      document.body.appendChild(wsScript);
+    </script>
+  </body>
+</html>

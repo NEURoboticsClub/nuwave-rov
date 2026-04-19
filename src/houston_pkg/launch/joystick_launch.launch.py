@@ -11,7 +11,7 @@ def generate_launch_description():
                 ('/joy', '/joy_thruster')
             ],
             parameters=[{
-                'dev': '/dev/input/by-id/usb-PowerA_Xbox_Series_X_EnWired_Controller_Blue_inline_0000010A899E80B3-joystick',
+                'device_name': 'PowerA Xbox Series X Controller',
                 # 'device_id': 0
             }]
 
@@ -24,7 +24,7 @@ def generate_launch_description():
                 ('/joy', '/joy_arm')
             ],
             parameters=[{
-                'dev': '/dev/input/by-id/usb-©Microsoft_Corporation_Controller_86231B39-joystick',
+                # 'device_name': 'X360 Controller',
                 # 'device_id': 1
             }]
         ),
