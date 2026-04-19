@@ -2,7 +2,7 @@
 <html>
   <head>
     <title>ROV Dashboard</title>
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="static/style.css">
     <script type="importmap">
       {
         "imports": {
@@ -24,7 +24,7 @@
 
       await new Promise((resolve, reject) => {
         const dashboardScript = document.createElement('script');
-        dashboardScript.src = 'build_dashboard.js';
+        dashboardScript.src = 'static/build_dashboard.js';
         dashboardScript.onload = resolve;
         dashboardScript.onerror = reject;
         document.body.appendChild(dashboardScript);
@@ -33,7 +33,7 @@
       const params = new URLSearchParams(window.location.search);
       const isPartyMode = params.get('partymode') === '1';
       const isTestMode = params.get('test') === '1' || isPartyMode;
-      const wsScriptPath = isTestMode ? 'test_script.js' : 'script.js';
+      const wsScriptPath = isTestMode ? 'static/test_script.js' : 'static/script.js';
 
       if (isPartyMode) {
         document.body.classList.add('test-mode');
@@ -43,7 +43,7 @@
       wsScript.src = wsScriptPath;
       wsScript.onload = () => {
         const handlerScript = document.createElement('script');
-        handlerScript.src = 'ros_message_handler.js';
+        handlerScript.src = 'static/ros_message_handler.js';
         document.body.appendChild(handlerScript);
       };
 
