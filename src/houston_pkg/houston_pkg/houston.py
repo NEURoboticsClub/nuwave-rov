@@ -113,9 +113,10 @@ class Houston(Node):
     def publish_twist(self, axis_values, button_values):
         """Publish the twist velocity command."""
         msg = Twist()
-        msg.angular.y = float(axis_values['pitch'])
+        msg.angular.x = float(axis_values['pitch'])
+        msg.angular.y = float(button_values['roll_right']) - float(button_values['roll_left'])
         msg.angular.z = float(axis_values['yaw'])
-        msg.angular.x = float(button_values['roll_right']) - float(button_values['roll_left'])
+
 
         msg.linear.x = float(axis_values['drive_forward'])
         msg.linear.y = float(axis_values['strafe'])
