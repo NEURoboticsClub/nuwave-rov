@@ -61,6 +61,17 @@ ws.onmessage = (event) => {
         return;
     }
 
+    if ((topic === '/imu' || topic === 'imu' || topic.startsWith('/imu/')) && typeof updateModelOrientation === 'function') {
+        if (data && typeof data === 'object' && data.orientation) {
+            updateModelOrientation(data);
+        } else if (Array.isArray(data) && data.length >= 3) {
+            updateModelOrientation(data[0], data[1], data[2]);
+        } else if (data && typeof data === 'object') {
+            updateModelOrientation(data);
+        }
+        return;
+    }
+
     if (topic.startsWith('/camera_')) {
         const cameraId = Number(topic.split('_')[1].split('/')[0]);
         if (!Number.isNaN(cameraId)) {
