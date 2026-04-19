@@ -118,9 +118,9 @@ class Houston(Node):
         msg.angular.z = float(axis_values['yaw'])
 
 
-        msg.linear.x = float(axis_values['drive_forward'])
-        msg.linear.y = float(axis_values['strafe'])
-        msg.linear.z = float(axis_values['up']) - float(axis_values['down'])
+        msg.linear.x = float(axis_values['strafe'])
+        msg.linear.y = float(axis_values['drive_forward'])
+        msg.linear.z = (float(axis_values['up']) - float(axis_values['down'])) * 0.5
 
         self.twist_pub.publish(msg)
 

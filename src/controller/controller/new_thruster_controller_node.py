@@ -14,6 +14,25 @@ class ThrusterController(Node):
         super().__init__('thruster_controller')
 
         # Parameters
+
+        # Four thrusters control linear velocity, and they are pointed at 45 degrees. To get an accurate force to pwm use the equation below
+        thruster_max = 4 / np.sqrt(2) 
+        self.declare_parameter('max_x_n', thruster_max)
+        self.declare_parameter('max_y_n', thruster_max)
+        self.declare_parameter('max_z_n', 4.0)
+        self.declare_parameter('max_roll_nm', 1.0)
+        self.declare_parameter('max_pitch_nm', 1.0)
+        self.declare_parameter('max_yaw_nm', 1.0)
+
+        self.wrench_scale = np.array([
+            float(self.get_parameter('max_x_n').value),
+            float(self.get_parameter('max_y_n').value),
+            float(self.get_parameter('max_z_n').value),
+            float(self.get_parameter('max_roll_nm').value),
+            float(self.get_parameter('max_pitch_nm').value),
+            float(self.get_parameter('max_yaw_nm').value),
+        ])
+
         self.declare_parameter('neutral_us', 1514.0)
         self.declare_parameter('min_us', 1100.0)
         self.declare_parameter('max_us', 1900.0)
@@ -106,8 +125,9 @@ class ThrusterController(Node):
         """
         Turns a twist msg -> a torque map for each thruster
         """
-        tau = np.concatenate([linear, angular])
-        forces = self.allocMatrix_inverse @ tau # nx1 thruster forces
+        tau_norm = np.concatenate([linear, angular])
+        tau = tau_norm * self.wrench_scale
+        forces = self.allocMatrix_inverse @ tau
         return forces
     def map_torque_to_PWM(self, forces : np.ndarray) -> np.ndarray:
         """

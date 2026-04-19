@@ -7,13 +7,13 @@
 
 thruster_control:
   - axis: "strafe"
-    input: 1
-    invert: false
+    input: 0
+    invert: true
     sensitivity: 1
     scale: "linear"
 
   - axis: "drive_forward"
-    input: 0            # num# of analog input. Find out from tuner node
+    input: 1            # num# of analog input. Find out from tuner node
     invert: false       # to invert the axis
     sensitivity: 1      # more = more sensitive. keep it > 0
     scale: "linear"     # one of linear, logarithmic
