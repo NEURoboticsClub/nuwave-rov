@@ -36,12 +36,14 @@ def main():
     N = 8
     nodes = []
     for i in range(N):
-        argv = [
-            '--ros-args',
-            '-p', f'channel:={i}',
-            '-p', f'topic:=thruster/thruster_{i}',
-        ]
-        nodes.append(ThrusterNode_with_args(argv, node_name=f'thruster_node_{i}'))
+        nodes.append(ThrusterNode(
+            node_name=f'thruster_node_{i}',
+            cli_args=[
+                '--ros-args',
+                '-p', f'channel:={i}',
+                '-p', f'topic:=thruster/thruster_{i}',
+            ],
+        ))
 
     exe = MultiThreadedExecutor()
     for n in nodes:
@@ -56,16 +58,3 @@ def main():
             n.destroy_node()
         if rclpy.ok():
             rclpy.shutdown()
-
-
-def ThrusterNode_with_args(argv, node_name):
-    saved = sys.argv
-    sys.argv = [saved[0]] + argv
-    try:
-        return ThrusterNode(node_name=node_name)
-    finally:
-        sys.argv = saved
-
-
-if __name__ == "__main__":
-    main()

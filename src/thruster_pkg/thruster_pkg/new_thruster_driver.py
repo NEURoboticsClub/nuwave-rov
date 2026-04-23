@@ -18,8 +18,8 @@ class ThrusterNode(Node):
     Safety: clamp, watchdog timeout -> neutral, optional slew limiting
     """
 
-    def __init__(self, node_name='thruster_node'):
-        super().__init__(node_name)
+    def __init__(self, node_name='thruster_node', **kwargs):
+        super().__init__(node_name, **kwargs)
         # Params
         self.declare_parameter('topic', '')
         self.declare_parameter('i2c_bus', 7)
