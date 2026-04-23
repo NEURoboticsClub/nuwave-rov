@@ -33,21 +33,15 @@ from thruster_pkg.new_thruster_driver import ThrusterNode
 def main():
     rclpy.init()
 
-    # How many channels to simulate — tweak or make it an arg
     N = 8
-
     nodes = []
     for i in range(N):
-        # Each instance needs a unique node name and its own params.
-        # Pass them as CLI-style args via rclpy's arguments mechanism:
         argv = [
             '--ros-args',
-            '-r', f'__node:=thruster_node_{i}',
             '-p', f'channel:={i}',
             '-p', f'topic:=thruster/thruster_{i}',
         ]
-        rclpy.init  # already inited; just here to remind this is a single ctx
-        nodes.append(ThrusterNode_with_args(argv))
+        nodes.append(ThrusterNode_with_args(argv, node_name=f'thruster_node_{i}'))
 
     exe = MultiThreadedExecutor()
     for n in nodes:
@@ -64,14 +58,11 @@ def main():
             rclpy.shutdown()
 
 
-def ThrusterNode_with_args(argv):
-    """Instantiate ThrusterNode as if launched with `--ros-args ...`."""
-    # rclpy.node.Node reads context args at construction — we temporarily swap sys.argv
-    import sys
+def ThrusterNode_with_args(argv, node_name):
     saved = sys.argv
     sys.argv = [saved[0]] + argv
     try:
-        return ThrusterNode()
+        return ThrusterNode(node_name=node_name)
     finally:
         sys.argv = saved
 
