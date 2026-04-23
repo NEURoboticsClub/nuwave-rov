@@ -9,6 +9,64 @@ class MessageTester {
         this.start();
     }
 
+    eulerToQuaternion(roll, pitch, yaw) {
+        const halfRoll = roll * 0.5;
+        const halfPitch = pitch * 0.5;
+        const halfYaw = yaw * 0.5;
+
+        const cr = Math.cos(halfRoll);
+        const sr = Math.sin(halfRoll);
+        const cp = Math.cos(halfPitch);
+        const sp = Math.sin(halfPitch);
+        const cy = Math.cos(halfYaw);
+        const sy = Math.sin(halfYaw);
+
+        return {
+            x: sr * cp * cy - cr * sp * sy,
+            y: cr * sp * cy + sr * cp * sy,
+            z: cr * cp * sy - sr * sp * cy,
+            w: cr * cp * cy + sr * sp * sy,
+        };
+    }
+
+    createImuMessage() {
+        const elapsed = (Date.now() - this.startTime) / 1000;
+        const nowMillis = Date.now();
+        const sec = Math.floor(nowMillis / 1000);
+        const nanosec = (nowMillis % 1000) * 1e6;
+
+        const roll = Math.sin(elapsed * 0.45) * 0.45;
+        const pitch = Math.cos(elapsed * 0.35) * 0.35;
+        const yaw = elapsed * 0.25;
+        const quaternion = this.eulerToQuaternion(roll, pitch, yaw);
+
+        return {
+            header: {
+                stamp: {
+                    sec,
+                    nanosec,
+                },
+                frame_id: 'IMU_Frame',
+            },
+            angular_velocity: {
+                x: Math.cos(elapsed * 0.45) * 0.18,
+                y: -Math.sin(elapsed * 0.35) * 0.12,
+                z: 0.25,
+            },
+            linear_acceleration: {
+                x: Math.sin(elapsed * 0.9) * 0.55,
+                y: Math.cos(elapsed * 0.8) * 0.45,
+                z: 9.81 + Math.sin(elapsed * 0.6) * 0.18,
+            },
+            linear_velocity: {
+                x: Math.sin(elapsed * 0.9) * 0.55,
+                y: Math.cos(elapsed * 0.8) * 0.45,
+                z: 9.81 + Math.sin(elapsed * 0.6) * 0.18,
+            },
+            orientation: quaternion,
+        };
+    }
+
     generateDepthSample() {
         const elapsed = (Date.now() - this.startTime) / 1000;
         const baseline = 48 + Math.sin(elapsed / 8) * 18;
@@ -65,6 +123,9 @@ class MessageTester {
 
             const temperature = 20 + Math.cos(Date.now() / 5000) * 5;
             this.sendMessage({ topic: '/depth/temperature', data: parseFloat(temperature) });
+
+            // IMU message data (sensor_msgs/Imu shape)
+            this.sendMessage({ topic: '/imu', data: this.createImuMessage() });
 
             // Camera streaming data (CompressedImage with JPEG format)
             const testCanvas = document.createElement('canvas');

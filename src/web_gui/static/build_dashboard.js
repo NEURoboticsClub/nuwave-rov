@@ -3,6 +3,7 @@ const dashboard = {
     sparkline: null,
     cameras: new Map(),
     thrusterViz: null,
+    model3d: null,
 };
 
 function clamp(value, min, max) {
@@ -30,6 +31,23 @@ function resizeCanvasToDisplaySize(canvas, context) {
 
     context.setTransform(dpr, 0, 0, dpr, 0, 0);
     return { width: cssWidth, height: cssHeight };
+}
+
+function resizeRendererToDisplaySize(renderer) {
+    const canvas = renderer.domElement;
+    const cssWidth = Math.max(1, Math.floor(canvas.clientWidth || 1));
+    const cssHeight = Math.max(1, Math.floor(canvas.clientHeight || 1));
+    const dpr = Math.min(2, window.devicePixelRatio || 1);
+    const pixelWidth = Math.max(1, Math.floor(cssWidth * dpr));
+    const pixelHeight = Math.max(1, Math.floor(cssHeight * dpr));
+
+    if (canvas.width !== pixelWidth || canvas.height !== pixelHeight) {
+        renderer.setPixelRatio(dpr);
+        renderer.setSize(cssWidth, cssHeight, false);
+        return true;
+    }
+
+    return false;
 }
 
 function createPanel(title, topic = "") {
@@ -449,7 +467,7 @@ function drawUpMotorViz() {
         context.font = "10px IBM Plex Sans, Segoe UI, sans-serif";
         context.textAlign = "center";
         context.textBaseline = "middle";
-        context.fillText(`U${i}`, pos.x, pos.y + 12);
+        context.fillText(`T${i + 4}`, pos.x, pos.y + 12);
     }
 }
 
@@ -666,6 +684,380 @@ function buildCameraPanel() {
     panel.appendChild(wrap);
 }
 
+function normalizeLoadedModel(THREE, root) {
+    const bounds = new THREE.Box3().setFromObject(root);
+    const size = bounds.getSize(new THREE.Vector3());
+    const center = bounds.getCenter(new THREE.Vector3());
+    const maxDim = Math.max(size.x, size.y, size.z, Number.EPSILON);
+    const targetSize = 1.8;
+    const scale = targetSize / maxDim;
+
+    root.position.sub(center);
+    root.scale.setScalar(scale);
+    root.position.y += 0.15;
+}
+
+function loadRovModel(THREE, modelPath = "robot.glb") {
+    const GLTFLoader = window.THREE_GLTFLoader;
+    if (!GLTFLoader) {
+        return Promise.reject(new Error("GLTFLoader not available"));
+    }
+
+    const loader = new GLTFLoader();
+    return new Promise((resolve, reject) => {
+        loader.load(
+            modelPath,
+            (gltf) => {
+                const modelRoot = gltf.scene || gltf.scenes?.[0];
+                if (!modelRoot) {
+                    reject(new Error("robot.glb has no scene"));
+                    return;
+                }
+
+                modelRoot.traverse((node) => {
+                    if (node.isMesh) {
+                        node.castShadow = false;
+                        node.receiveShadow = false;
+                    }
+                });
+
+                normalizeLoadedModel(THREE, modelRoot);
+                resolve(modelRoot);
+            },
+            undefined,
+            (error) => reject(error)
+        );
+    });
+}
+
+function applyModelOrientation() {
+    if (!dashboard.model3d) {
+        return;
+    }
+
+    const { roll, pitch, yaw } = dashboard.model3d.orientation;
+    if (dashboard.model3d.model) {
+        // GLB local axes are rotated relative to IMU axes.
+        // Map IMU {roll, pitch, yaw} -> model {x, y, z} as {pitch, yaw, roll}.
+        dashboard.model3d.model.rotation.set(pitch, yaw, roll, "XYZ");
+    }
+
+    const toDeg = (radians) => radians * (180 / Math.PI);
+    setText(
+        dashboard.model3d.readout,
+        `ROLL ${toDeg(roll).toFixed(1)} deg | PITCH ${toDeg(pitch).toFixed(1)} deg | YAW ${toDeg(yaw).toFixed(1)} deg`
+    );
+}
+
+function formatImuComponent(value, digits = 3) {
+    const n = Number(value);
+    return Number.isFinite(n) ? n.toFixed(digits) : "--";
+}
+
+function updateImuTelemetry(imuPayload) {
+    if (!dashboard.model3d || !dashboard.model3d.telemetry || !imuPayload || typeof imuPayload !== "object") {
+        return;
+    }
+
+    const telemetry = dashboard.model3d.telemetry;
+    const orientation = imuPayload.orientation && typeof imuPayload.orientation === "object"
+        ? imuPayload.orientation
+        : imuPayload;
+    const angularVelocity = imuPayload.angular_velocity && typeof imuPayload.angular_velocity === "object"
+        ? imuPayload.angular_velocity
+        : imuPayload;
+    const linearVelocity = imuPayload.linear_velocity && typeof imuPayload.linear_velocity === "object"
+        ? imuPayload.linear_velocity
+        : imuPayload.linear_acceleration && typeof imuPayload.linear_acceleration === "object"
+            ? imuPayload.linear_acceleration
+        : imuPayload;
+
+    const gx = angularVelocity.x ?? angularVelocity.gyro_x;
+    const gy = angularVelocity.y ?? angularVelocity.gyro_y;
+    const gz = angularVelocity.z ?? angularVelocity.gyro_z;
+    setText(
+        telemetry.gyro,
+        `x ${formatImuComponent(gx)} y ${formatImuComponent(gy)} z ${formatImuComponent(gz)}`
+    );
+
+    const vx = linearVelocity.x ?? linearVelocity.vel_x ?? linearVelocity.accel_x;
+    const vy = linearVelocity.y ?? linearVelocity.vel_y ?? linearVelocity.accel_y;
+    const vz = linearVelocity.z ?? linearVelocity.vel_z ?? linearVelocity.accel_z;
+    setText(
+        telemetry.linearVelocity,
+        `x ${formatImuComponent(vx)} y ${formatImuComponent(vy)} z ${formatImuComponent(vz)}`
+    );
+
+    dashboard.model3d.lastSeen = Date.now();
+    dashboard.model3d.rows.forEach((row) => row.classList.remove("is-stale"));
+}
+
+function quaternionToEulerXYZ(qx, qy, qz, qw) {
+    const x = Number(qx);
+    const y = Number(qy);
+    const z = Number(qz);
+    const w = Number(qw);
+
+    if (!Number.isFinite(x) || !Number.isFinite(y) || !Number.isFinite(z) || !Number.isFinite(w)) {
+        return null;
+    }
+
+    const norm = Math.hypot(x, y, z, w);
+    if (norm <= Number.EPSILON) {
+        return null;
+    }
+
+    const nx = x / norm;
+    const ny = y / norm;
+    const nz = z / norm;
+    const nw = w / norm;
+
+    const sinrCosp = 2 * (nw * nx + ny * nz);
+    const cosrCosp = 1 - 2 * (nx * nx + ny * ny);
+    const roll = Math.atan2(sinrCosp, cosrCosp);
+
+    const sinp = 2 * (nw * ny - nz * nx);
+    const pitch = Math.abs(sinp) >= 1 ? Math.sign(sinp) * (Math.PI / 2) : Math.asin(sinp);
+
+    const sinyCosp = 2 * (nw * nz + nx * ny);
+    const cosyCosp = 1 - 2 * (ny * ny + nz * nz);
+    const yaw = Math.atan2(sinyCosp, cosyCosp);
+
+    return { roll, pitch, yaw };
+}
+
+function updateModelOrientation(rollOrOrientation, pitch, yaw, unit = "rad") {
+    let rollValue = 0;
+    let pitchValue = 0;
+    let yawValue = 0;
+    let unitValue = unit;
+
+    if (typeof rollOrOrientation === "object" && rollOrOrientation !== null) {
+        updateImuTelemetry(rollOrOrientation);
+    }
+
+    if (typeof rollOrOrientation === "object" && rollOrOrientation !== null) {
+        if (rollOrOrientation.orientation && typeof rollOrOrientation.orientation === "object") {
+            const euler = quaternionToEulerXYZ(
+                rollOrOrientation.orientation.x,
+                rollOrOrientation.orientation.y,
+                rollOrOrientation.orientation.z,
+                rollOrOrientation.orientation.w
+            );
+            if (!euler) {
+                return;
+            }
+            rollValue = euler.roll;
+            pitchValue = euler.pitch;
+            yawValue = euler.yaw;
+            unitValue = "rad";
+        } else {
+            const hasQuaternion =
+                Number.isFinite(Number(rollOrOrientation.w ?? rollOrOrientation.real)) &&
+                Number.isFinite(Number(rollOrOrientation.x ?? rollOrOrientation.i)) &&
+                Number.isFinite(Number(rollOrOrientation.y ?? rollOrOrientation.j)) &&
+                Number.isFinite(Number(rollOrOrientation.z ?? rollOrOrientation.k));
+
+            if (hasQuaternion) {
+                const euler = quaternionToEulerXYZ(
+                    rollOrOrientation.x ?? rollOrOrientation.i,
+                    rollOrOrientation.y ?? rollOrOrientation.j,
+                    rollOrOrientation.z ?? rollOrOrientation.k,
+                    rollOrOrientation.w ?? rollOrOrientation.real
+                );
+                if (!euler) {
+                    return;
+                }
+                rollValue = euler.roll;
+                pitchValue = euler.pitch;
+                yawValue = euler.yaw;
+                unitValue = "rad";
+            } else {
+                rollValue = Number(rollOrOrientation.roll ?? rollOrOrientation.x ?? 0);
+                pitchValue = Number(rollOrOrientation.pitch ?? rollOrOrientation.y ?? 0);
+                yawValue = Number(rollOrOrientation.yaw ?? rollOrOrientation.z ?? 0);
+                unitValue = rollOrOrientation.unit || unitValue;
+            }
+        }
+    } else {
+        rollValue = Number(rollOrOrientation ?? 0);
+        pitchValue = Number(pitch ?? 0);
+        yawValue = Number(yaw ?? 0);
+    }
+
+    if (!Number.isFinite(rollValue) || !Number.isFinite(pitchValue) || !Number.isFinite(yawValue)) {
+        return;
+    }
+
+    if (unitValue === "deg" || unitValue === "degree" || unitValue === "degrees") {
+        const scale = Math.PI / 180;
+        rollValue *= scale;
+        pitchValue *= scale;
+        yawValue *= scale;
+    }
+
+    if (!dashboard.model3d) {
+        return;
+    }
+
+    dashboard.model3d.orientation = {
+        roll: rollValue,
+        pitch: pitchValue,
+        yaw: yawValue,
+    };
+
+    applyModelOrientation();
+}
+
+function buildModelPanel() {
+    const panel = createPanel("IMU", "/imu");
+    const wrap = document.createElement("div");
+    wrap.className = "model3d-wrap";
+
+    const canvas = document.createElement("canvas");
+    canvas.className = "model3d-canvas";
+
+    const readout = document.createElement("div");
+    readout.className = "model3d-readout row";
+
+    const readoutHead = document.createElement("div");
+    readoutHead.className = "row__head";
+
+    const readoutLabel = document.createElement("span");
+    readoutLabel.className = "row__label";
+    readoutLabel.textContent = "Orientation";
+
+    const readoutValue = document.createElement("span");
+    readoutValue.className = "row__value";
+    readoutValue.textContent = "ROLL 0.0 deg | PITCH 0.0 deg | YAW 0.0 deg";
+
+    readoutHead.append(readoutLabel, readoutValue);
+    readout.appendChild(readoutHead);
+
+    const details = document.createElement("div");
+    details.className = "model3d-details";
+
+    const createTelemetryRow = (labelText, initialText = "--") => {
+        const row = document.createElement("div");
+        row.className = "row model3d-row";
+
+        const head = document.createElement("div");
+        head.className = "row__head";
+
+        const label = document.createElement("span");
+        label.className = "row__label";
+        label.textContent = labelText;
+
+        const value = document.createElement("span");
+        value.className = "row__value";
+        value.textContent = initialText;
+
+        head.append(label, value);
+        row.appendChild(head);
+        details.appendChild(row);
+
+        return { row, value };
+    };
+
+    const gyroRow = createTelemetryRow("Angular Vel (rad/s)", "x -- y -- z --");
+    const linearVelocityRow = createTelemetryRow("Linear Vel", "x -- y -- z --");
+
+    wrap.append(canvas, readout, details);
+    panel.appendChild(wrap);
+
+    dashboard.model3d = {
+        canvas,
+        readout: readoutValue,
+        rows: [readout, gyroRow.row, linearVelocityRow.row],
+        telemetry: {
+            gyro: gyroRow.value,
+            linearVelocity: linearVelocityRow.value,
+        },
+        orientation: {
+            roll: 0,
+            pitch: 0,
+            yaw: 0,
+        },
+        lastSeen: 0,
+        renderer: null,
+        camera: null,
+        scene: null,
+        model: null,
+        animationFrame: 0,
+    };
+
+    const THREE = window.THREE;
+    if (!THREE || !window.THREE_GLTFLoader) {
+        const context = canvas.getContext("2d");
+        const size = resizeCanvasToDisplaySize(canvas, context);
+        context.clearRect(0, 0, size.width, size.height);
+        context.fillStyle = "rgba(231, 242, 255, 0.9)";
+        context.font = "12px IBM Plex Sans, Segoe UI, sans-serif";
+        context.textAlign = "center";
+        context.textBaseline = "middle";
+        context.fillText("three.js or GLTFLoader unavailable", size.width * 0.5, size.height * 0.5);
+        return;
+    }
+
+    const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+    renderer.setClearColor(0x000000, 0);
+
+    const scene = new THREE.Scene();
+    scene.add(new THREE.AmbientLight(0x9dbfdc, 0.55));
+
+    const keyLight = new THREE.DirectionalLight(0xcce7ff, 1.05);
+    keyLight.position.set(2.6, 2.2, 1.4);
+    scene.add(keyLight);
+
+    const fillLight = new THREE.DirectionalLight(0x7fc2ff, 0.45);
+    fillLight.position.set(-2.2, 1.2, -1.8);
+    scene.add(fillLight);
+
+    const grid = new THREE.GridHelper(5, 12, 0x2f5d80, 0x183652);
+    grid.position.y = -0.45;
+    scene.add(grid);
+
+    const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 100);
+    camera.position.set(2.4, 1.8, 2.7);
+    camera.lookAt(0, 0, 0);
+
+    dashboard.model3d.renderer = renderer;
+    dashboard.model3d.scene = scene;
+    dashboard.model3d.camera = camera;
+    dashboard.model3d.model = null;
+
+    loadRovModel(THREE, "robot.glb")
+        .then((model) => {
+            dashboard.model3d.model = model;
+            scene.add(model);
+            applyModelOrientation();
+        })
+        .catch((error) => {
+            setText(dashboard.model3d.readout, "Failed to load robot.glb");
+            console.error("Failed to load robot.glb", error);
+        });
+
+    const renderLoop = () => {
+        if (!dashboard.model3d || !dashboard.model3d.renderer || !dashboard.model3d.camera) {
+            return;
+        }
+
+        const resized = resizeRendererToDisplaySize(dashboard.model3d.renderer);
+        if (resized) {
+            dashboard.model3d.camera.aspect = dashboard.model3d.canvas.clientWidth / dashboard.model3d.canvas.clientHeight;
+            dashboard.model3d.camera.updateProjectionMatrix();
+        }
+
+        dashboard.model3d.renderer.render(dashboard.model3d.scene, dashboard.model3d.camera);
+        dashboard.model3d.animationFrame = window.requestAnimationFrame(renderLoop);
+    };
+
+    applyModelOrientation();
+    renderLoop();
+}
+
+window.updateModelOrientation = updateModelOrientation;
+
 function updateMeter(key, rawValue) {
     const meter = dashboard.meters.get(key);
     if (!meter || typeof rawValue !== "number" || Number.isNaN(rawValue)) {
@@ -842,6 +1234,17 @@ function refreshStaleState() {
             camera.card.classList.add("is-stale");
         }
     });
+
+    if (dashboard.model3d && Array.isArray(dashboard.model3d.rows)) {
+        const isStale = !dashboard.model3d.lastSeen || now - dashboard.model3d.lastSeen > staleMs;
+        dashboard.model3d.rows.forEach((row) => {
+            if (isStale) {
+                row.classList.add("is-stale");
+            } else {
+                row.classList.remove("is-stale");
+            }
+        });
+    }
 }
 
 function buildDashboard() {
@@ -849,8 +1252,9 @@ function buildDashboard() {
     buildPowerPanel();
     buildArmPanel();
     buildDepthPanel();
-    buildCommandsPanel();
+    // buildCommandsPanel();
     buildCameraPanel();
+    buildModelPanel();
 }
 
 buildDashboard();
