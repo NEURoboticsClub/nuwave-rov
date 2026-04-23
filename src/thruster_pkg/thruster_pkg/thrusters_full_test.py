@@ -27,7 +27,7 @@ time.sleep = lambda *_: None
 
 import rclpy
 from rclpy.executors import MultiThreadedExecutor
-from thruster_pkg.thruster_node import ThrusterNode   # adjust import
+from thruster_pkg.new_thruster_driver import ThrusterNode
 
 
 def main():
