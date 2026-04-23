@@ -142,12 +142,12 @@ class ThrusterNode(Node):
 
     # TODO: reintegrate updates independent of callback if possible to allow different publishing and update rates
     def update(self):
-        if (now - self.last_msg_time) > self.watchdog_timeout:
-            self.target_us = self.neutral_us
-
         now = self.get_clock().now()
         dt = (now - getattr(self, "_prev_time", now)).nanoseconds / 1e9
         self._prev_time = now
+        
+        if (now - self.last_msg_time) > self.watchdog_timeout:
+            self.target_us = self.neutral_us
 
         # Start from the commanded target, clamp if needed
         target = self.target_us
