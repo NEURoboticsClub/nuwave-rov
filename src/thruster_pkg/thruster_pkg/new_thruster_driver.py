@@ -78,7 +78,7 @@ class ThrusterNode(Node):
 
         # Ros Wiring
         self.sub = self.create_subscription(Float32, topic, self.cmd_callback, 10)
-        self.response_pub = self.create_publisher(Float32, topic + "/response_pwm/", 10)
+        self.response_pub = self.create_publisher(Float32, topic + "/response_pwm", 10)
         self.timer = self.create_timer(1.0 / self.update_rate_hz, self.update)
 
         self.get_logger().info(
