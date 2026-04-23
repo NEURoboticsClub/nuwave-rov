@@ -44,6 +44,16 @@ class WebBridgeNode(Node):
                 )
             )
 
+            response_topic = f'/thruster/thruster_{thruster_id}/response_pwm'
+            self._subs.append(
+                self.create_subscription(
+                    Float32,
+                    response_topic,
+                    lambda msg, topic=response_topic: self._on_scalar(topic, msg),
+                    10,
+                )
+            )
+
         # Power monitor telemetry: /power_monitor/monitor_<id>/<metric>
         metrics = ('bus_voltage', 'current', 'power', 'shunt_voltage')
         for monitor_id in range(8):
