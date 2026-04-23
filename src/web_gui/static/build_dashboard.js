@@ -760,7 +760,7 @@ function normalizeLoadedModel(THREE, root) {
     root.position.y += 0.15;
 }
 
-function loadRovModel(THREE, modelPath = "robot.glb") {
+function loadRovModel(THREE, modelPath = "/static/robot.glb") {
     const GLTFLoader = window.THREE_GLTFLoader;
     if (!GLTFLoader) {
         return Promise.reject(new Error("GLTFLoader not available"));
@@ -1089,15 +1089,15 @@ function buildModelPanel() {
     dashboard.model3d.camera = camera;
     dashboard.model3d.model = null;
 
-    loadRovModel(THREE, "robot.glb")
+    loadRovModel(THREE)
         .then((model) => {
             dashboard.model3d.model = model;
             scene.add(model);
             applyModelOrientation();
         })
         .catch((error) => {
-            setText(dashboard.model3d.readout, "Failed to load robot.glb");
-            console.error("Failed to load robot.glb", error);
+            setText(dashboard.model3d.readout, "Failed to load /static/robot.glb");
+            console.error("Failed to load /static/robot.glb", error);
         });
 
     const renderLoop = () => {
