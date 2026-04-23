@@ -78,6 +78,7 @@ class ThrusterNode(Node):
 
         # Ros Wiring
         self.sub = self.create_subscription(Float32, topic, self.cmd_callback, 10)
+        self.response_pub = self.create_publisher(Float32, topic + "/response_pwm/", 10)
         self.timer = self.create_timer(1.0 / self.update_rate_hz, self.update)
 
         self.get_logger().info(
@@ -158,14 +159,16 @@ class ThrusterNode(Node):
             if abs(delta) > max_delta:
                 target = self.current_us + (max_delta if delta > 0 else -max_delta)
 
-        self.get_logger().debug(f"Target us: {target}, Current us: {self.current_us}, dt: {dt:.3f}")
-        # Write to motors
         if self.pwm is not None:
             try:
                 self._write_us(target)
                 self.current_us = target
             except Exception as e:
                 self.get_logger().error(f'PWM write error: {e}')
+        
+        response_pwm_message = Float32()
+        response_pwm_message.data = target
+        self.response_pub.publish(response_pwm_message)
 
     def destroy_node(self):
         # send neutral and cleanup
