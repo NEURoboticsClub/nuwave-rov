@@ -88,6 +88,9 @@ class MessageTester {
                 const pwm = Math.sin(Date.now() / 1000 + thrusterId) * 500 + 1500;
                 this.sendMessage({ topic: `/thruster/thruster_${thrusterId}`, data: parseFloat(pwm) });
 
+                const responsePwm = Math.max(1000, Math.min(2000, pwm + Math.sin(Date.now() / 700 + thrusterId) * 70));
+                this.sendMessage({ topic: `/thruster/thruster_${thrusterId}/response_pwm`, data: parseFloat(responsePwm) });
+
 
                 const power_monitor_topic = `/power_monitor/monitor_${thrusterId}`;
 

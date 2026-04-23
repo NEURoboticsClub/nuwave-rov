@@ -6,8 +6,15 @@ ws.onmessage = (event) => {
     const { topic, data } = JSON.parse(event.data);
 
     if (topic.startsWith('/thruster/')) {
-        const thrusterId = topic.split('/')[2].split('_')[1];
-        updateMeter(`thruster_${thrusterId}`, data);
+        const parts = topic.split('/');
+        const thrusterId = parts[2]?.split('_')[1];
+        if (!Number.isNaN(Number(thrusterId))) {
+            if (parts[3] === 'response_pwm') {
+                updateThrusterMeter(`thruster_${thrusterId}`, 'response', data);
+            } else {
+                updateThrusterMeter(`thruster_${thrusterId}`, 'target', data);
+            }
+        }
         return;
     }
 

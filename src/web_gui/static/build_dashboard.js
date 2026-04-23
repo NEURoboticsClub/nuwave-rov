@@ -1,5 +1,6 @@
 const dashboard = {
     meters: new Map(),
+    thrusterMeters: new Map(),
     sparkline: null,
     cameras: new Map(),
     thrusterViz: null,
@@ -110,6 +111,53 @@ function registerMeter(options) {
         min: options.min,
         max: options.max,
         format: options.format,
+        lastSeen: 0,
+    });
+}
+
+function registerThrusterMeter(parent, key, label) {
+    const card = document.createElement("div");
+    card.className = "thruster-meter";
+
+    const head = document.createElement("div");
+    head.className = "row__head";
+
+    const name = document.createElement("span");
+    name.className = "row__label";
+    name.textContent = label;
+
+    const value = document.createElement("span");
+    value.className = "row__value";
+    value.textContent = "RESP --";
+
+    head.append(name, value);
+
+    const track = document.createElement("div");
+    track.className = "thruster-meter__track";
+
+    const responseFill = document.createElement("div");
+    responseFill.className = "thruster-meter__response";
+
+    const targetMarker = document.createElement("div");
+    targetMarker.className = "thruster-meter__target";
+
+    track.append(responseFill, targetMarker);
+
+    const footer = document.createElement("div");
+    footer.className = "thruster-meter__footer";
+    footer.textContent = "TARGET --";
+
+    card.append(head, track, footer);
+    parent.appendChild(card);
+
+    dashboard.thrusterMeters.set(key, {
+        card,
+        value,
+        responseFill,
+        targetMarker,
+        footer,
+        min: 1000,
+        max: 2000,
         lastSeen: 0,
     });
 }
@@ -252,16 +300,7 @@ function buildThrusterPanel() {
     panel.appendChild(grid);
 
     for (let i = 0; i < 8; i++) {
-        registerMeter({
-            parent: grid,
-            key: `thruster_${i}`,
-            label: `T${i}`,
-            min: 1000,
-            max: 2000,
-            bar: true,
-            placeholder: "1500 us",
-            format: (v) => `${v.toFixed(0)} us`,
-        });
+        registerThrusterMeter(grid, `thruster_${i}`, `T${i}`);
     }
 
     const vizCard = document.createElement("div");
@@ -308,6 +347,30 @@ function buildThrusterPanel() {
 
     drawThrusterViz();
     drawUpMotorViz();
+}
+
+function updateThrusterMeter(key, kind, rawValue) {
+    const meter = dashboard.thrusterMeters.get(key);
+    if (!meter || typeof rawValue !== "number" || Number.isNaN(rawValue)) {
+        return;
+    }
+
+    const range = meter.max - meter.min || 1;
+    const normalised = clamp((rawValue - meter.min) / range, 0, 1);
+
+    meter.lastSeen = Date.now();
+    meter.card.classList.remove("is-stale");
+
+    if (kind === "response") {
+        meter.responseFill.style.width = `${normalised * 100}%`;
+        setText(meter.value, `RESP ${rawValue.toFixed(0)} us`);
+        return;
+    }
+
+    if (kind === "target") {
+        meter.targetMarker.style.left = `${normalised * 100}%`;
+        setText(meter.footer, `TARGET ${rawValue.toFixed(0)} us`);
+    }
 }
 
 function drawThrusterArrow(context, x, y, dx, dy, color) {
@@ -1057,6 +1120,7 @@ function buildModelPanel() {
 }
 
 window.updateModelOrientation = updateModelOrientation;
+window.updateThrusterMeter = updateThrusterMeter;
 
 function updateMeter(key, rawValue) {
     const meter = dashboard.meters.get(key);
@@ -1222,6 +1286,16 @@ function refreshStaleState() {
     dashboard.meters.forEach((meter) => {
         if (!meter.lastSeen || now - meter.lastSeen > staleMs) {
             meter.row.classList.add("is-stale");
+        } else {
+            meter.row.classList.remove("is-stale");
+        }
+    });
+
+    dashboard.thrusterMeters.forEach((meter) => {
+        if (!meter.lastSeen || now - meter.lastSeen > staleMs) {
+            meter.card.classList.add("is-stale");
+        } else {
+            meter.card.classList.remove("is-stale");
         }
     });
 
