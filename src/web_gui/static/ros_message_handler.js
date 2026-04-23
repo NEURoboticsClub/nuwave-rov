@@ -1,10 +1,7 @@
-ws.onmessage = (event) => {
-    if (event.data === 'connected') {
-        console.log('WebSocket initialized!');
-        return;
-    }
-    const { topic, data } = JSON.parse(event.data);
+const pendingRosMessages = new Map();
+let rosFlushScheduled = false;
 
+function processRosMessage(topic, data) {
     if (topic.startsWith('/thruster/')) {
         const parts = topic.split('/');
         const thrusterId = parts[2]?.split('_')[1];
@@ -84,5 +81,40 @@ ws.onmessage = (event) => {
         if (!Number.isNaN(cameraId)) {
             updateCamera(cameraId, data);
         }
+    }
+}
+
+function flushRosMessages() {
+    rosFlushScheduled = false;
+
+    if (pendingRosMessages.size === 0) {
+        return;
+    }
+
+    const messages = Array.from(pendingRosMessages.entries());
+    pendingRosMessages.clear();
+
+    for (const [topic, data] of messages) {
+        processRosMessage(topic, data);
+    }
+
+    if (pendingRosMessages.size > 0 && !rosFlushScheduled) {
+        rosFlushScheduled = true;
+        window.requestAnimationFrame(flushRosMessages);
+    }
+}
+
+ws.onmessage = (event) => {
+    if (event.data === 'connected') {
+        console.log('WebSocket initialized!');
+        return;
+    }
+
+    const { topic, data } = JSON.parse(event.data);
+    pendingRosMessages.set(topic, data);
+
+    if (!rosFlushScheduled) {
+        rosFlushScheduled = true;
+        window.requestAnimationFrame(flushRosMessages);
     }
 };
