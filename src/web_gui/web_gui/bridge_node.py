@@ -15,6 +15,9 @@ from aiohttp import web
 
 # --- Shared state: connected WebSocket clients ---
 ws_clients: set[web.WebSocketResponse] = set()
+pending_messages: dict[str, object] = {}
+pending_lock = threading.Lock()
+flush_interval_s = 1.0 / 30.0
 
 async def broadcast(data: dict):
     """Send JSON data to all connected browser clients."""
@@ -122,9 +125,21 @@ class WebBridgeNode(Node):
         self.get_logger().info('WebBridge node started')
 
     def _forward(self, topic: str, payload):
-        """Thread-safe: schedule broadcast onto the asyncio loop."""
-        data = {'topic': topic, 'data': payload}
-        asyncio.run_coroutine_threadsafe(broadcast(data), self._loop)
+        """Thread-safe: store the latest value for periodic websocket flush."""
+        with pending_lock:
+            pending_messages[topic] = payload
+
+    async def _flush_loop(self):
+        while True:
+            await asyncio.sleep(flush_interval_s)
+            with pending_lock:
+                if not pending_messages:
+                    continue
+                items = list(pending_messages.items())
+                pending_messages.clear()
+
+            for topic, payload in items:
+                await broadcast({'topic': topic, 'data': payload})
 
     def _on_scalar(self, topic: str, msg: Float32):
         self._forward(topic, float(msg.data))
@@ -210,6 +225,7 @@ def main():
     loop.run_until_complete(runner.setup())
     site = web.TCPSite(runner, 'localhost', 8080)
     loop.run_until_complete(site.start())
+    loop.create_task(node._flush_loop())
     node.get_logger().info('Web UI at http://localhost:8080')
 
     try:
