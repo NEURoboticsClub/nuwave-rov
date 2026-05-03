@@ -12,6 +12,9 @@ def _create_nodes(context, *args, **kwargs):
     base_name = LaunchConfiguration('base_name').perform(context)
     i2c_bus = int(LaunchConfiguration('i2c_bus').perform(context))
     i2c_address = int(LaunchConfiguration('i2c_address').perform(context))
+
+    simulate = LaunchConfiguration('simulate').perform(context).lower() in ('true', '1', 'yes')
+
     pkg = get_package_share_directory('thruster_pkg')
 
     nodes = []
@@ -22,6 +25,7 @@ def _create_nodes(context, *args, **kwargs):
             'i2c_bus': i2c_bus,
             'i2c_address': i2c_address,
             'channel': i,
+            'simulate': simulate,
         }
         nodes.append(
             Node(
@@ -41,5 +45,6 @@ def generate_launch_description():
         DeclareLaunchArgument('base_name', default_value='thruster', description='Base name for thruster nodes'),
         DeclareLaunchArgument('i2c_bus', default_value='7', description='I2C bus number for PCA9685'),
         DeclareLaunchArgument('i2c_address', default_value='64', description='I2C address (decimal) for PCA9685'),
+        DeclareLaunchArgument('simulate', default_value='false', description='If true, skip PCA9685 init'),
         OpaqueFunction(function=_create_nodes)
     ])
