@@ -82,10 +82,20 @@ class Houston(Node):
                 invert = bool(cfg.get("invert", False))
                 sensitivity = float(cfg.get("sensitivity", 1.0))
                 scale = cfg.get("scale", "linear")
+                # Controller is NOISEY! Tune deadzone, so that stick drift still gives us neutral when we have it at rest
+                deadzone = float(cfg.get("deadzone", 0.07))
 
                 raw = msg.axes[axis_index] if axis_index < len(msg.axes) else 0.0
                 if invert:
                     raw *= -1.0
+                
+                # Deadzone processing
+                if abs(raw) < deadzone:
+                    raw = 0.0
+                else:
+                    # Deadzone rescaling, so it is still within the [-1, 1] range
+                    # This is so it doesn't go 0.0 to +- deadzone immediately.
+                    raw = (raw - np.sign(raw) * deadzone) / (1.0 - deadzone)
 
                 val = raw * sensitivity
 
