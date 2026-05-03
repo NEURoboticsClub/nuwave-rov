@@ -32,8 +32,7 @@ setup(
     },
     entry_points={
         'console_scripts': [
-            'thruster_node = '+package_name+'.thruster_driver_simple:main',
-            'new_thruster_node = '+package_name+'.new_thruster_driver:main',
+            'thruster_node = '+package_name+'.thruster_driver:main',
             'thruster_sub = '+package_name+'.thruster_sub:main',
             'thruster_test = '+package_name+'.thruster_test:main',
             'thrusters_full_test = '+package_name+'.thrusters_full_test:main',

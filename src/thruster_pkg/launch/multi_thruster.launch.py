@@ -30,7 +30,7 @@ def _create_nodes(context, *args, **kwargs):
         nodes.append(
             Node(
                 package='thruster_pkg',
-                executable='new_thruster_node',
+                executable='thruster_node',
                 name=name,
                 parameters=[params],
                 output='screen'

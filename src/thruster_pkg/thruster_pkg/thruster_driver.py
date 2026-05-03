@@ -1,37 +1,30 @@
 import time
-import math
-import os
-import sys
-import uuid
 import rclpy
 from rclpy.node import Node
 from std_msgs.msg import Float32
 from rclpy.duration import Duration
 
-# Use the external PCA9685 implementation (the user's working script uses
-# `from PCA9685 import PCA9685` with methods setPWMFreq, setRotationAngle,
-# and exit_PCA9685).
 from .PCA9685 import PCA9685
+
+# ---- CONFIG ----
+LOW_ANGLE = 0
+HIGH_ANGLE = 180
+STOP_ANGLE = 90
+GPIO = None
 
 class ThrusterNode(Node):
     """
-    Subscribes: std_msgs/Float32 on <topic> (default: /cmd_thrust), range [-1, 1].
-    Maps to PWM us around neutral and writes to PCA9685 channel.
-    Safety: clamp, watchdog timeout -> neutral, optional slew limiting.
+    Subscribes: std_msgs/Float32 representing PWM signals 
+    Safety: clamp, watchdog timeout -> neutral, optional slew limiting
     """
 
-    def __init__(self, node_name: str = None):
-        # Allow creating multiple instances by giving each a distinct name.
-        # If none provided, generate a short unique name suffix.
-        if node_name is None:
-            node_name = f'thruster_node_{uuid.uuid4().hex[:8]}'
-        super().__init__(node_name)
-
-        # If empty, derive topic from node name
+    def __init__(self, node_name='thruster_node', **kwargs):
+        super().__init__(node_name, **kwargs)
+        # Params
         self.declare_parameter('topic', '')
         self.declare_parameter('i2c_bus', 7)
-        self.declare_parameter('i2c_address', 0x40)           # PCA9685 default
-        self.declare_parameter('channel', 0)                  # PCA9685 output channel
+        self.declare_parameter('i2c_address', 0x40)
+        self.declare_parameter('channel', 0)
         self.declare_parameter('pwm_freq_hz', 50)             # ESC expects ~50 Hz
         self.declare_parameter('neutral_us', 1500.0)          # stop
         self.declare_parameter('min_us', 1000.0)              # full reverse (or forward, see invert)
@@ -41,237 +34,202 @@ class ThrusterNode(Node):
         self.declare_parameter('max_abs_cmd', 0.8)            # safety clamp
         self.declare_parameter('update_rate_hz', 50.0)        # write rate to the hat
         self.declare_parameter('watchdog_timeout_s', 0.5)     # neutral if no msg in this time
-        self.declare_parameter('slew_us_per_s', 4000.0)       # 0 to disable rate limit; else max change per sec
-
+        self.declare_parameter('slew_us_per_s', 750.0)       # 0 to disable rate limit; else max change per sec
+        self.declare_parameter('simulate', False)
+        # Read Params
         topic = self.get_parameter('topic').get_parameter_value().string_value
+        bus = self.get_parameter('i2c_bus').value
+        addr = self.get_parameter('i2c_address').value
+        self.channel = self.get_parameter('channel').value
+        self.pwm_freq = self.get_parameter('pwm_freq_hz').value
+        
+        self.neutral_us = self.get_parameter('neutral_us').value
+        self.min_us = self.get_parameter('min_us').value
+        self.max_us = self.get_parameter('max_us').value
 
-        # Derive topic from node_name when topic param not provided. Expect
-        # node_name like 'thruster_0' or base 'thruster_<n>'. If derivation
-        # fails, fall back to '/thruster_0'. Ensure topic starts with '/'.
-        if not topic:
-            # try to extract trailing _<number>
-            import re
-            m = re.search(r'(.+?)_(\d+)$', node_name)
-            if m:
-                topic = f'thruster/{m.group(1)}_{m.group(2)}'
-            else:
-                topic = 'thruster/thruster_0'
-        elif not topic.startswith('/'):
-            topic = '/' + topic
+        self.deadband_us = self.get_parameter('deadband_us').value
+        self.update_rate_hz = self.get_parameter('update_rate_hz').value
+        self.watchdog_timeout = Duration(
+                seconds=self.get_parameter('watchdog_timeout_s').value
+                )
+        self.slew_us_per_s = self.get_parameter('slew_us_per_s').value
+        self.simulate = self.get_parameter('simulate').value
+        print("Slew rate (us/s):", self.slew_us_per_s)
+        # Derived Vals
+        self.period_us = 1_000_000.0 / self.pwm_freq
 
-        bus = int(self.get_parameter('i2c_bus').value)
-        addr = int(self.get_parameter('i2c_address').value)
-        self.channel = int(self.get_parameter('channel').value)
-        pwm_freq = float(self.get_parameter('pwm_freq_hz').value)
+        if not topic: 
+            topic = f"thruster_{self.channel}"
 
-        self.neutral_us = float(self.get_parameter('neutral_us').value)
-        self.min_us = float(self.get_parameter('min_us').value)
-        self.max_us = float(self.get_parameter('max_us').value)
-        self.deadband_us = float(self.get_parameter('deadband_us').value)
-        self.invert = bool(self.get_parameter('invert_direction').value)
-        self.max_abs_cmd = float(self.get_parameter('max_abs_cmd').value)
-        self.update_rate_hz = float(self.get_parameter('update_rate_hz').value)
-        self.watchdog_timeout = Duration(seconds=float(self.get_parameter('watchdog_timeout_s').value))
-        self.slew_us_per_s = float(self.get_parameter('slew_us_per_s').value)
+        # State
+        self.target_us = self.neutral_us
+        self.current_us = self.neutral_us
+        now = self.get_clock().now()
+        self.last_msg_time = now
+        self._prev_time = now
+        self._got_first_cmd = False
 
-        # Derived values
-        self.period_us = int(1_000_000.0 / pwm_freq)
-        self.last_msg_time = self.get_clock().now()
-        self.current_cmd = 0.0
-        self.current_us = self.neutral_us  # track last output for slew limiting
-        # Init hardware using the external PCA9685 class.
-        # The external class from the user's script expects `bus=` and then
-        # calling `setPWMFreq(freq)`; it exposes `setRotationAngle(channel, angle)`
-        # for servo-like output and `exit_PCA9685()` for cleanup.
-        try:
-            self.pwm = PCA9685(bus=bus)
-            # configure frequency like the user's working script
+        
+
+        # PCA stuff
+        # Adding a simulation flag, so we can see the driver code work without the PCA9865 needing to be connected
+
+        if self.simulate:
+            self.pwm = None
+            self.get_logger().warn('Sim mode: no hardware writes')
+        else:
             try:
-                self.pwm.setPWMFreq(int(pwm_freq))
-            except Exception:
-                # Some PCA implementations use set_pwm_freq style; ignore if not present
-                try:
-                    self.pwm.set_pwm_freq(int(pwm_freq))
-                except Exception:
-                    pass
-            self.get_logger().info(f'PCA9685 on bus {bus}, addr 0x{addr:02X}, freq {pwm_freq} Hz')
+                import Jetson.GPIO as GPIO_lib
+                global GPIO
+                GPIO = GPIO_lib
 
-            # Send neutral signal immediately on startup to initialize ESCs.
-            neutral_angle = int(self.us_to_angle(self.neutral_us))
-            self.pwm.setRotationAngle(self.channel, neutral_angle)
-            self.get_logger().info(f'Sent neutral ({neutral_angle} deg) to channel {self.channel} on init')
-        except Exception as e:
-            # Log and continue; periodic updates will keep trying
-            self.get_logger().warning(f'Failed to initialize PCA9685: {e}')
+                self.pwm = PCA9685(bus=bus, address=addr)
+                self.pwm.setPWMFreq(int(self.pwm_freq))
+                self._write_us(self.neutral_us)
+                self.get_logger().info("Hardware initialized")
+            except Exception as e:
+                self.pwm = None
+                self.get_logger().error(f'PCA9685 init failed: {e}')
 
-        # ROS wiring: subscribe to controller outputs (Float32 per-thruster)
-        self.sub = self.create_subscription(Float32, topic, self.cmd_cb, 10)
-        self.timer = self.create_timer(1.0 / self.update_rate_hz, self.update_output)
+        self._arm()
+
+        # Ros Wiring
+        self.sub = self.create_subscription(Float32, topic, self.cmd_callback, 10)
+        self.response_pub = self.create_publisher(Float32, topic + "/response_pwm", 10)
+        self.timer = self.create_timer(1.0 / self.update_rate_hz, self.update)
 
         self.get_logger().info(
-            f'Listening on "{topic}" for Float32 in [-1,1]; driving channel {self.channel}'
-        )
+                f'Listening on "{topic}" for Float32 (us), '
+                f'range [{self.min_us, self.max_us}], neutral_us={self.neutral_us}'
+                )
 
-    def cmd_cb(self, msg: Float32):
-        cmd = max(-self.max_abs_cmd, min(self.max_abs_cmd, msg.data))
-        if self.invert:
-            cmd = -cmd
-        self.current_cmd = cmd
+    def _arm(self):
+        """Simple arming sequence and set to neutral/stop."""
+        print("Arming thruster on channel", self.channel)
+        if self.pwm is not None:
+            try:
+                self.pwm.setRotationAngle(self.channel, STOP_ANGLE)
+            except Exception:
+                pass
+        print(f" -> {STOP_ANGLE} (stop / neutral)")
+        time.sleep(2.0)
+        
+    def _write_us(self, us : float):
+        """
+        Clamp, convert and write to hardware.
+        """
+        # Clamp signal between min_us and max_us
+        us = max(self.min_us, min(self.max_us, us))
+
+        # Give a deadband around neutral (force exact neutral if within band)
+        if self.deadband_us > 0.0 and abs(us - self.neutral_us) <= self.deadband_us:
+            us = self.neutral_us
+
+        us_centered = us - self.neutral_us
+        angle = 0.0
+        if us_centered >= 0.0:
+            angle = us_centered / (self.max_us - self.neutral_us)
+        else:
+            angle = us_centered / (self.neutral_us - self.min_us)
+        self._write_angle(angle)
+    
+    def _write_angle(self, val : float):
+
+        if val >= 0.0:
+            angle = STOP_ANGLE + val * (HIGH_ANGLE - STOP_ANGLE)
+        else:
+            angle = STOP_ANGLE + val * (STOP_ANGLE - LOW_ANGLE)
+        
+        angle = int(max(LOW_ANGLE, min(HIGH_ANGLE, angle)))
+        self.get_logger().debug(f'Angle: {angle}')
+
+        if self.pwm is None:
+            return
+        try:
+            self.pwm.setRotationAngle(self.channel, angle)
+        except Exception as e:
+            self.get_logger().error(f'Falied to send angle: {e}')
+
+    # Callbacks
+    def cmd_callback(self, msg : Float32):
+        """
+        Signal to SPIN BABY SPIN
+        """
+        cmd = float(msg.data)
+        
+        self.target_us = max(self.min_us, min(self.max_us, cmd))
         self.last_msg_time = self.get_clock().now()
+        self._got_first_cmd = True
 
-    def map_cmd_to_us(self, cmd: float) -> float:
-        """
-        Linear map from [-1, 1] to [min_us, max_us] around neutral,
-        respecting optional neutral deadband.
-        """
-        # cmd=-1 -> min_us, cmd=0 -> neutral, cmd=1 -> max_us
-        if cmd >= 0.0:
-            us = self.neutral_us + cmd * (self.max_us - self.neutral_us)
-        else:
-            us = self.neutral_us + cmd * (self.neutral_us - self.min_us)
-
-        # deadband: snap very small commands to neutral
-        if self.deadband_us > 0.0:
-            if abs(us - self.neutral_us) <= self.deadband_us:
-                us = self.neutral_us
-        return us
-
-    def us_to_angle(self, us: float) -> float:
-        """
-        Convert a microsecond pulse width in [min_us, max_us] to a 0..180
-        rotation angle usable by the user's PCA9685.setRotationAngle.
-        """
-        # Avoid division by zero
-        span = (self.max_us - self.min_us) if (self.max_us - self.min_us) != 0 else 1.0
-        ratio = (us - self.min_us) / span
-        angle = ratio * 180.0
-        # Clip to typical angle bounds
-        return max(0.0, min(180.0, angle))
-
-    def apply_slew_limit(self, target_us: float, dt: float) -> float:
-        if self.slew_us_per_s <= 0.0:
-            return target_us
-        max_delta = self.slew_us_per_s * dt
-        delta = target_us - self.current_us
-        if abs(delta) <= max_delta:
-            return target_us
-        return self.current_us + math.copysign(max_delta, delta)
-
-    def update_output(self):
+    # TODO: reintegrate updates independent of callback if possible to allow different publishing and update rates
+    def update(self):
         now = self.get_clock().now()
-        dt = (now - getattr(self, "_prev_time", now)).nanoseconds / 1e9
+        dt = (now - self._prev_time).nanoseconds / 1e9
         self._prev_time = now
-
-        # Watchdog: go neutral if stale
-        if (now - self.last_msg_time) > self.watchdog_timeout:
-            target_us = self.neutral_us
-        else:
-            target_us = self.map_cmd_to_us(self.current_cmd)
+        
+        # Watchdog code may need some tweaking
+        if self._got_first_cmd and (now - self.last_msg_time) > self.watchdog_timeout:
+            if self.target_us != self.neutral_us:
+                self.get_logger().warn('Watchdog timeout: ramping to neutral.')
+            self.target_us = self.neutral_us
 
         # Slew limiting
-        target_us = self.apply_slew_limit(target_us, dt if dt > 0 else 0.0)
+        target = self.target_us
+        if self.slew_us_per_s > 0.0 and dt > 0.0:
+            max_delta = self.slew_us_per_s * dt
+            delta = target - self.current_us
+            if abs(delta) > max_delta:
+                target = self.current_us + (max_delta if delta > 0 else -max_delta)
 
-        try:
-            # Convert microseconds to rotation angle (0..180) and send via the
-            # working PCA9685 API.
-            angle = int(self.us_to_angle(target_us))
+        self.current_us = target
+
+        if self.pwm is not None:
             try:
-                self.pwm.setRotationAngle(self.channel, angle)
-            except Exception:
-                # fallback: some APIs may expose set_rotation_angle or set_angle
-                try:
-                    self.pwm.set_rotation_angle(self.channel, angle)
-                except Exception:
-                    # last resort: try set_pwm_us-like method if present
-                    try:
-                        self.pwm.set_pwm_us(self.channel, int(target_us), period_us=self.period_us)
-                    except Exception as e:
-                        raise
-            self.current_us = target_us
-        except Exception as e:
-            self.get_logger().error(f'PWM write error: {e}')
-    
+                self._write_us(target)
+            except Exception as e:
+                self.get_logger().error(f'PWM write error: {e}')
+        
+        response_pwm_message = Float32()
+        response_pwm_message.data = float(target)
+        self.response_pub.publish(response_pwm_message)
+
     def destroy_node(self):
-        # Fail-safe: neutral on shutdown
+        # send neutral and cleanup
+        if self.pwm is not None:
+            try:
+                self.pwm.setRotationAngle(self.channel, STOP_ANGLE)
+            except Exception as e:
+                self.get_logger().error(f'Failed to send stop angle on shutdown: {e}')
         try:
-            # send neutral and release shared PCA holder
-            try:
-                # send neutral using rotation angle mapping
-                try:
-                    self.pwm.setRotationAngle(self.channel, int(self.us_to_angle(self.neutral_us)))
-                except Exception:
-                    try:
-                        self.pwm.set_pwm_us(self.channel, int(self.neutral_us), period_us=self.period_us)
-                    except Exception:
-                        pass
-            except Exception:
-                pass
-            # try to gracefully close the PCA9685 instance if available
-            try:
-                self.pwm.exit_PCA9685()
-            except Exception:
-                pass
+            self.pwm.exit_PCA9685()
         except Exception:
             pass
+
+        if GPIO is not None:
+            try:
+                GPIO.cleanup()
+            except Exception:
+                pass
+
         super().destroy_node()
 
+
 def main(args=None):
-    # Support running multiple instances in one process via repeated
-    # --node-name=NAME arguments. If none provided, single instance with
-    # a unique anonymous name will be created.
-    names = []
-    count = None
-    base_name = 'thruster'
-    if args is None:
-        argv = sys.argv[1:]
-    else:
-        argv = list(args)
-    for a in argv:
-        if a.startswith('--node-name='):
-            names.append(a.split('=', 1)[1])
-        elif a.startswith('--count='):
-            try:
-                count = int(a.split('=', 1)[1])
-            except Exception:
-                count = None
-        elif a.startswith('--base-name='):
-            base_name = a.split('=', 1)[1]
+    rclpy.init()
+    node = ThrusterNode()
 
-    # If explicit names weren't provided but a count was, generate numbered names
-    if not names and count is not None and count > 0:
-        names = [f"{base_name}_{i}" for i in range(count)]
-
-    rclpy.init(args=args)
     try:
-        if len(names) <= 1:
-            node = ThrusterNode(node_name=(names[0] if names else None))
-            try:
-                rclpy.spin(node)
-            except KeyboardInterrupt:
-                pass
-            finally:
-                node.get_logger().info('Shutting down thruster node...')
-                node.destroy_node()
-        else:
-            from rclpy.executors import MultiThreadedExecutor
-            nodes = [ThrusterNode(node_name=n) for n in names]
-            executor = MultiThreadedExecutor()
-            for n in nodes:
-                executor.add_node(n)
-            try:
-                executor.spin()
-            except KeyboardInterrupt:
-                pass
-            finally:
-                for n in nodes:
-                    try:
-                        n.get_logger().info('Shutting down thruster node...')
-                        n.destroy_node()
-                    except Exception:
-                        pass
-                executor.shutdown()
+        rclpy.spin(node)
+    except KeyboardInterrupt:
+        node.get_logger().info("KeyboardInterrupt — shutting down thruster node.")
     finally:
+        node.get_logger().info('Shutting down thruster node...')
+        try:
+            node.destroy_node()
+        except Exception:
+            pass
         rclpy.shutdown()
+
 
 if __name__ == '__main__':
     main()
