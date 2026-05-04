@@ -32,12 +32,17 @@ SETUP="cd $WS && source $WS/venv/bin/activate && source $WS/install/setup.bash"
 # - ros2 launch thruster_pkg multi_thruster.launch.py
 # - ros2 launch thruster_pkg multi_arm_motor.launch.py
 # - ros2 launch power_monitor_pkg multi_power_monitor.launch.py
+# - ros2 run rov_depth_sensor depth_sensor_node
+# - ros2 run camera_pkg camera_publisher --ros-args -p camera_id:=0
+# - ros2 run imu_pkg imu_pub
 
 
 MULTI_THRUSTER_LAUNCH="$SETUP && ros2 launch thruster_pkg multi_thruster.launch.py"
 MULTI_ARM_LAUNCH="$SETUP && ros2 launch thruster_pkg multi_arm_motor.launch.py"
 POWER_MONITOR_LAUNCH="$SETUP && ros2 launch power_monitor_pkg multi_power_monitor.launch.py"
-BONUS_TERMINAL="$SETUP"
+DEPTH_SENSOR_LAUNCH="$SETUP && ros2 run rov_depth_sensor depth_sensor_node"
+CAMERA_LAUNCH="$SETUP && ros2 run camera_pkg camera_publisher --ros-args -p camera_id:=0"
+IMU_LAUNCH="$SETUP && ros2 run imu_pkg imu_pub"
 
 LAYOUT_FILE=$(mktemp /tmp/terminator_ros2_setup_bottomside_XXXX.conf)
 
@@ -54,31 +59,48 @@ cat > "$LAYOUT_FILE" <<EOF
     [[[hpane]]]
       type = HPaned
       parent = window0
-    [[[vpane_left]]]
+    [[[vpane_left_top]]]
       type = VPaned
       parent = hpane
-    [[[vpane_right]]]
+    [[[vpane_left_bottom]]]
+      type = VPaned
+      parent = vpane_left_top
+    [[[vpane_right_top]]]
       type = VPaned
       parent = hpane
+    [[[vpane_right_bottom]]]
+      type = VPaned
+      parent = vpane_right_top
     [[[top-left]]]
       type = Terminal
-      parent = vpane_left
+      parent = vpane_left_top
       title = Multi-Thruster
       command = bash -c '$MULTI_THRUSTER_LAUNCH; exec bash'
-    [[[bottom-left]]]
+    [[[middle-left]]]
       type = Terminal
-      parent = vpane_left
+      parent = vpane_left_bottom
       title = Power Monitor
       command = bash -c '$POWER_MONITOR_LAUNCH; exec bash'
+    [[[bottom-left]]]
+      type = Terminal
+      parent = vpane_left_bottom
+      title = Depth Sensor
+      command = bash -c '$DEPTH_SENSOR_LAUNCH; exec bash'
     [[[top-right]]]
       type = Terminal
-      parent = vpane_right
+      parent = vpane_right_top
       title = Multi-Arm
       command = bash -c '$MULTI_ARM_LAUNCH; exec bash'
+    [[[middle-right]]]
+      type = Terminal
+      parent = vpane_right_bottom
+      title = IMU
+      command = bash -c '$IMU_LAUNCH; exec bash'
     [[[bottom-right]]]
       type = Terminal
-      parent = vpane_right
-      command = bash -c '$BONUS_TERMINAL; exec bash'
+      parent = vpane_right_bottom
+      title = Camera
+      command = bash -c '$CAMERA_LAUNCH; exec bash'
 [plugins]
 EOF
 
