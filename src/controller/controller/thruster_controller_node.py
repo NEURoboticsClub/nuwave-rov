@@ -1,3 +1,4 @@
+import enum
 import rclpy
 from rclpy.node import Node
 from geometry_msgs.msg import Twist
@@ -33,9 +34,6 @@ class ThrusterController(Node):
             float(self.get_parameter('max_yaw_nm').value),
         ])
 
-        self.declare_parameter('neutral_us', 1500.0)
-        self.declare_parameter('min_us', 1100.0)
-        self.declare_parameter('max_us', 1900.0)
         self.declare_parameter('max_force_n', 1.0)     # force at max PWM per thruster
         self.declare_parameter('publish_rate_hz', 50.0)
         pkg_share = get_package_share_directory('controller')
@@ -45,9 +43,6 @@ class ThrusterController(Node):
                 )
         self.declare_parameter('thruster_topic', '/thruster')
 
-        self.neutral_us = float(self.get_parameter('neutral_us').value or 1500.0)
-        self.min_us = float(self.get_parameter('min_us').value or 1100.0)
-        self.max_us = float(self.get_parameter('max_us').value or 1900.0)
         self.max_force = float(self.get_parameter('max_force_n').value or 50.0)
         rate = float(self.get_parameter('publish_rate_hz').value or 50.0)
 
@@ -58,6 +53,8 @@ class ThrusterController(Node):
 
         # Configure Thrusters and Allocation
         config = self.load_yaml(thruster_config_path)
+        self.pwm_range_table = self._configure_virtual_thruster_pwm_range(config)
+
         self.allocMatrix = self.compute_thruster_allocation_matrix(config)
         self.n_thrusters = self.allocMatrix.shape[1]
         self.allocMatrix_inverse = np.linalg.pinv(self.allocMatrix)
@@ -71,7 +68,8 @@ class ThrusterController(Node):
 
         # State
         self.lastest_twist = Twist()
-        self.pwm_commands = np.full(self.n_thrusters, self.neutral_us)
+        # Init command send neutral to all thrusters
+        self.pwm_commands = self.pwm_range_table[:,1]
         # Listen to state
         # Scream to thrusters
 
@@ -86,7 +84,28 @@ class ThrusterController(Node):
             return {}
         with open(config_path, 'r') as f:
             return yaml.safe_load(f)
-
+    
+    def _configure_virtual_thruster_pwm_range(self, config : dict) -> np.ndarray:
+        """
+        Each thruster has a neutral_us, min_us, max_us configured.
+        When we get the force each thruster should be outputting we want to map it along the bounds of that, specific thruster.
+        Returns: A list of bounds for the thruster at index i
+        """
+        
+        thrusters = config.get('thrusters', [])
+        table = np.zeros((len(thrusters), 3))
+        for indx, thruster in enumerate(thrusters):
+            try:
+                table[indx:0] = float(thruster['min_us'])
+                table[indx:1] = float(thruster['neutral_us'])
+                table[indx:2] = float(thruster['max_us'])
+            except KeyError as e:
+                raise ValueError(
+                        f"Thruster {indx} is missing required PWM field {e}. "
+                        f"Each thruster needs min_us, neutral_us, and max_us. "
+                        )
+        return table
+    
     def compute_thruster_allocation_matrix(self, config : dict) -> np.ndarray:
 
         thrusters = config['thrusters']
@@ -133,13 +152,20 @@ class ThrusterController(Node):
         """
         Turns a list of torques -> to a list of PWM signals
         """
-
+        # These are nx1 vectors for each thrusters configured pwm ranges
+        min_us = self.pwm_range_table[:, 0] 
+        neutral_us = self.pwm_range_table[:, 1]
+        max_us = self.pwm_range_table[:, 2]
+        
+        # This normalizes the forces to be within -1 and 1
         normalized = np.clip(forces / self.max_force, -1, 1)
         
+        # If normalized >= 0, which is forward we linear interp the pwm to be some point between neutral and max
+        # Same is applied for reverse but with neutral_us being the leading term.
         pwm = np.where(
                 normalized >= 0,
-                self.neutral_us + normalized * (self.max_us - self.neutral_us),
-                self.neutral_us + normalized * (self.neutral_us - self.min_us)
+                neutral_us + normalized * (max_us - neutral_us),
+                neutral_us + normalized * (neutral_us - min_us)
                 )
         return pwm
 
