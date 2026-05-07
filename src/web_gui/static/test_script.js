@@ -136,32 +136,33 @@ class MessageTester {
             testCanvas.height = 480;
             const testCtx = testCanvas.getContext('2d');
 
-            // Draw a test pattern
-            for (let y = 0; y < 480; y += 40) {
-                for (let x = 0; x < 640; x += 40) {
-                    testCtx.fillStyle = `hsl(${(x + y + Math.round(Date.now() / 10)) % 360}, 40%, 50%)`;
-                    testCtx.fillRect(x, y, 40, 40);
+            for (let camId = 0; camId < 4; camId++) {
+
+                // Draw a test pattern
+                for (let y = 0; y < 480; y += 20) {
+                    for (let x = 0; x < 640; x += 20) {
+                        const offset = camId == 0 ? (x + y) : camId == 1 ? (-x + y) : camId == 2 ? (y ^ x * Math.sin(y + y)) : (x ^ y);
+                        testCtx.fillStyle = `hsl(${(offset + Math.round(Date.now() / 10)) % 100 + 100 * camId}, 40%, 50%)`;
+                        testCtx.fillRect(x, y, 20, 20);
+                    }
                 }
+
+                // Encode as JPEG and extract raw bytes
+                const dataUrl = testCanvas.toDataURL('image/jpeg', 0.8);
+                const base64 = dataUrl.split(',')[1];
+                const binary = atob(base64);
+                const jpegBytes = Array.from(binary, c => c.charCodeAt(0));
+
+                const video = {
+                    header: {
+                        stamp: Date.now(),
+                        frame_id: 'camera_' + camId
+                    },
+                    format: 'jpeg',
+                    data: jpegBytes
+                };
+                this.sendMessage({ topic: '/camera_' + camId + '/image/compressed', data: video });
             }
-
-            // Encode as JPEG and extract raw bytes
-            const dataUrl = testCanvas.toDataURL('image/jpeg', 0.8);
-            const base64 = dataUrl.split(',')[1];
-            const binary = atob(base64);
-            const jpegBytes = Array.from(binary, c => c.charCodeAt(0));
-
-            const video = {
-                header: {
-                    stamp: Date.now(),
-                    frame_id: 'camera_0'
-                },
-                format: 'jpeg',
-                data: jpegBytes
-            };
-            this.sendMessage({ topic: '/camera_0/image/compressed', data: video });
-            this.sendMessage({ topic: '/camera_1/image/compressed', data: video });
-            this.sendMessage({ topic: '/camera_2/image/compressed', data: video });
-            this.sendMessage({ topic: '/camera_3/image/compressed', data: video });
 
             /* ===== Houston data ===== */
             // Twist data type (controls thrusters)

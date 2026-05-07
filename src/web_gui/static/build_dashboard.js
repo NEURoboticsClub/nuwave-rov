@@ -316,6 +316,7 @@ function registerVerticalMeter(parent, key, label, options) {
 
 function buildThrusterPanel() {
     const panel = createPanel("Thrusters", "/thruster/thruster_i");
+    panel.id = "panel-thrusters";
     const grid = document.createElement("div");
     grid.className = "compact-grid";
     panel.appendChild(grid);
@@ -557,6 +558,7 @@ function drawUpMotorViz() {
 
 function buildPowerPanel() {
     const panel = createPanel("Power", "/power_monitor/monitor_i/*");
+    panel.id = "panel-power";
     const grid = document.createElement("div");
     grid.className = "power-grid";
 
@@ -612,6 +614,7 @@ function buildPowerPanel() {
 
 function buildArmPanel() {
     const panel = createPanel("", "");
+    panel.id = "panel-arm";
     const layout = document.createElement("div");
     layout.className = "arm-layout";
     panel.appendChild(layout);
@@ -693,6 +696,7 @@ function buildArmPanel() {
 
 function buildDepthPanel() {
     const panel = createPanel("Depth", "/depth/*");
+    panel.id = "panel-depth";
     const grid = document.createElement("div");
     grid.className = "depth-grid";
 
@@ -764,6 +768,7 @@ function buildDepthPanel() {
 
 function buildCameraPanel() {
     const panel = createPanel("Cameras", "/camera_0..3/image/compressed");
+    panel.id = "panel-cameras";
     const wrap = document.createElement("div");
     wrap.className = "camera-wrap";
 
@@ -782,6 +787,18 @@ function buildCameraPanel() {
 
         card.append(title, canvas);
         wrap.appendChild(card);
+
+        card.style.cursor = "pointer";
+        card.addEventListener("click", () => {
+            const dashboardEl = document.getElementById("dashboard");
+            if (dashboardEl.classList.contains("cinema-mode")) {
+                dashboardEl.classList.remove("cinema-mode");
+                card.classList.remove("camera-card--cinema");
+            } else {
+                dashboardEl.classList.add("cinema-mode");
+                card.classList.add("camera-card--cinema");
+            }
+        });
 
         dashboard.cameras.set(cameraId, {
             card,
@@ -1020,6 +1037,7 @@ function updateModelOrientation(rollOrOrientation, pitch, yaw, unit = "rad") {
 
 function buildModelPanel() {
     const panel = createPanel("IMU", "/imu");
+    panel.id = "panel-model";
     const wrap = document.createElement("div");
     wrap.className = "model3d-wrap";
 
@@ -1378,3 +1396,16 @@ function buildDashboard() {
 
 buildDashboard();
 setInterval(refreshStaleState, 1000);
+
+document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") {
+        const dashboardEl = document.getElementById("dashboard");
+        if (dashboardEl && dashboardEl.classList.contains("cinema-mode")) {
+            dashboardEl.classList.remove("cinema-mode");
+            document.querySelectorAll(".camera-card--cinema").forEach(card => {
+                card.classList.remove("camera-card--cinema");
+            });
+        }
+    }
+});
+
