@@ -635,6 +635,7 @@ function buildArmPanel() {
         { label: "Take Screenshot", toggle: false, action: "screenshot" },
         { label: "Photogrammetry", toggle: true, topic: "/gui_buttons/photogrammetry" },
         { label: "Measure Iceberg", toggle: false, action: "measure_iceberg" },
+        { label: "Quad Cam", toggle: true, action: "toggle_quad_cam" },
     ];
 
     for (const config of buttonConfigs) {
@@ -643,21 +644,32 @@ function buildArmPanel() {
         button.className = "test-button-grid__button";
         button.textContent = config.label;
 
-        if (config.toggle) {
+        if (config.toggle && config.topic) {
             button.classList.add("test-button-grid__button--toggle");
             button.setAttribute("aria-pressed", "false");
             button.addEventListener("click", () => {
                 const isPressed = button.classList.toggle("is-active");
                 button.setAttribute("aria-pressed", String(isPressed));
-                if (config.topic) {
-                    publishMessage(config.topic, isPressed);
-                }
+                publishMessage(config.topic, isPressed);
             });
         } else if (config.action === "screenshot") {
             button.addEventListener("click", downloadAllCameraScreenshots);
         } else if (config.action === "measure_iceberg") {
             button.addEventListener("click", () => {
                 publishMessage("/gui_buttons/measure_iceberg", "pressed");
+            });
+        } else if (config.action === "toggle_quad_cam") {
+            button.classList.add("test-button-grid__button--toggle");
+            button.setAttribute("aria-pressed", "false");
+            button.addEventListener("click", () => {
+                const isPressed = button.classList.toggle("is-active");
+                button.setAttribute("aria-pressed", String(isPressed));
+                const dashboardEl = document.getElementById("dashboard");
+                if (isPressed) {
+                    dashboardEl.classList.add("quad-mode");
+                } else {
+                    dashboardEl.classList.remove("quad-mode");
+                }
             });
         }
 
@@ -1239,6 +1251,15 @@ function updateSparkline(key, values) {
     }
 
     const canvas = dashboard.sparkline.canvas;
+    const latest = values[values.length - 1];
+
+    if (canvas.clientWidth === 0 || canvas.clientHeight === 0) {
+        setText(dashboard.sparkline.value, `${latest.toFixed(2)} m`);
+        dashboard.sparkline.lastSeen = Date.now();
+        dashboard.sparkline.row.classList.remove("is-stale");
+        return; // Skip rendering and resizing if canvas is hidden
+    }
+
     const context = canvas.getContext("2d");
     const fixedMin = 0;
     const fixedMax = 5;
@@ -1289,7 +1310,6 @@ function updateSparkline(key, values) {
     });
     context.stroke();
 
-    const latest = values[values.length - 1];
     const latestNorm = clamp((latest - fixedMin) / (fixedMax - fixedMin), 0, 1);
     const latestY = topPad + latestNorm * graphH;
 
@@ -1405,6 +1425,15 @@ document.addEventListener("keydown", (e) => {
             document.querySelectorAll(".camera-card--cinema").forEach(card => {
                 card.classList.remove("camera-card--cinema");
             });
+        }
+        else if (dashboardEl && dashboardEl.classList.contains("quad-mode")) {
+            dashboardEl.classList.remove("quad-mode");
+            // Find the untoggle button and update its state
+            const quadButton = Array.from(document.querySelectorAll(".test-button-grid__button")).find(btn => btn.textContent === "Quad Cam");
+            if (quadButton && quadButton.classList.contains("is-active")) {
+                quadButton.classList.remove("is-active");
+                quadButton.setAttribute("aria-pressed", "false");
+            }
         }
     }
 });
