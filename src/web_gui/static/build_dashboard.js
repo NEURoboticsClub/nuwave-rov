@@ -1,3 +1,11 @@
+/**
+ * publishes button values to /gui_buttons/
+ *  - scan_crabs: toggles crab scanning mode
+ *  - photogrammetry: toggles photogrammetry mode
+ *  - measure_iceberg: triggers iceberg measurement sequence
+ */
+
+
 const dashboard = {
     meters: new Map(),
     thrusterMeters: new Map(),
@@ -6,6 +14,41 @@ const dashboard = {
     thrusterViz: null,
     model3d: null,
 };
+
+function publishMessage(topic, data) {
+    if (typeof window.ws !== 'undefined' && window.ws && window.ws.send) {
+        const message = JSON.stringify({ topic, data });
+        window.ws.send(message);
+    }
+}
+
+function downloadAllCameraScreenshots() {
+    const timestamp = Date.now();
+    for (let cameraId = 0; cameraId < 4; cameraId++) {
+        const camera = dashboard.cameras.get(cameraId);
+        if (!camera || !camera.canvas) {
+            console.warn(`Camera ${cameraId} not available for screenshot`);
+            continue;
+        }
+
+        const canvas = camera.canvas;
+        canvas.toBlob((blob) => {
+            if (!blob) {
+                console.error(`Failed to create blob from camera ${cameraId}`);
+                return;
+            }
+
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `camera${cameraId}_${timestamp}.png`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+        }, 'image/png');
+    }
+}
 
 function clamp(value, min, max) {
     return Math.min(max, Math.max(min, value));
@@ -158,28 +201,6 @@ function registerThrusterMeter(parent, key, label) {
         targetDisplay,
         min: 1000,
         max: 2000,
-        lastSeen: 0,
-    });
-}
-
-function registerTableMeter(parent, key, label, format) {
-    const name = document.createElement("div");
-    name.className = "matrix__name";
-    name.textContent = label;
-
-    const value = document.createElement("div");
-    value.className = "matrix__cell";
-    value.textContent = "--";
-
-    parent.append(name, value);
-
-    dashboard.meters.set(key, {
-        row: value,
-        value,
-        fill: null,
-        min: 0,
-        max: 1,
-        format,
         lastSeen: 0,
     });
 }
@@ -590,14 +611,75 @@ function buildPowerPanel() {
 }
 
 function buildArmPanel() {
-    const panel = createPanel("Arm Motors", "/arm/arm_motor_i");
-    const grid = document.createElement("div");
-    grid.className = "compact-grid";
-    panel.appendChild(grid);
+    const panel = createPanel("", "");
+    const layout = document.createElement("div");
+    layout.className = "arm-layout";
+    panel.appendChild(layout);
+
+    const buttonsSection = document.createElement("div");
+    buttonsSection.className = "arm-section arm-section--buttons";
+
+    const buttonsTitle = document.createElement("div");
+    buttonsTitle.className = "arm-section__title";
+    buttonsTitle.textContent = "Buttons";
+    buttonsSection.appendChild(buttonsTitle);
+
+    const buttonGrid = document.createElement("div");
+    buttonGrid.className = "test-button-grid";
+
+    const buttonConfigs = [
+        { label: "Scan Crabs", toggle: true, topic: "/gui_buttons/scan_crabs" },
+        { label: "Take Screenshot", toggle: false, action: "screenshot" },
+        { label: "Photogrammetry", toggle: true, topic: "/gui_buttons/photogrammetry" },
+        { label: "Measure Iceberg", toggle: false, action: "measure_iceberg" },
+    ];
+
+    for (const config of buttonConfigs) {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "test-button-grid__button";
+        button.textContent = config.label;
+
+        if (config.toggle) {
+            button.classList.add("test-button-grid__button--toggle");
+            button.setAttribute("aria-pressed", "false");
+            button.addEventListener("click", () => {
+                const isPressed = button.classList.toggle("is-active");
+                button.setAttribute("aria-pressed", String(isPressed));
+                if (config.topic) {
+                    publishMessage(config.topic, isPressed);
+                }
+            });
+        } else if (config.action === "screenshot") {
+            button.addEventListener("click", downloadAllCameraScreenshots);
+        } else if (config.action === "measure_iceberg") {
+            button.addEventListener("click", () => {
+                publishMessage("/gui_buttons/measure_iceberg", "pressed");
+            });
+        }
+
+        buttonGrid.appendChild(button);
+    }
+
+    buttonsSection.appendChild(buttonGrid);
+
+    const motorsSection = document.createElement("div");
+    motorsSection.className = "arm-section arm-section--motors";
+
+    const motorsTitle = document.createElement("div");
+    motorsTitle.className = "arm-section__title";
+    motorsTitle.textContent = "Arm Motors";
+    motorsSection.appendChild(motorsTitle);
+
+    const motorsGrid = document.createElement("div");
+    motorsGrid.className = "compact-grid arm-section__grid";
+    motorsSection.appendChild(motorsGrid);
+
+    layout.append(buttonsSection, motorsSection);
 
     for (let i = 0; i < 6; i++) {
         registerMeter({
-            parent: grid,
+            parent: motorsGrid,
             key: `arm_motor_${i}`,
             label: `A${i}`,
             min: 1000,
@@ -678,42 +760,6 @@ function buildDepthPanel() {
     };
 
     panel.appendChild(grid);
-}
-
-function buildCommandsPanel() {
-    const panel = createPanel("Commands", "/velocity_commands + /arm_commands");
-    const wrap = document.createElement("div");
-    wrap.className = "commands-wrap";
-
-    const twistCol = document.createElement("div");
-    twistCol.className = "commands-col";
-
-    const twistTitle = document.createElement("div");
-    twistTitle.className = "matrix__head";
-    twistTitle.textContent = "Twist";
-    twistCol.appendChild(twistTitle);
-
-    registerSignedBarMeter(twistCol, "velocity_linear_x", "Lin X");
-    registerSignedBarMeter(twistCol, "velocity_linear_y", "Lin Y");
-    registerSignedBarMeter(twistCol, "velocity_linear_z", "Lin Z");
-    registerSignedBarMeter(twistCol, "velocity_angular_x", "Ang X");
-    registerSignedBarMeter(twistCol, "velocity_angular_y", "Ang Y");
-    registerSignedBarMeter(twistCol, "velocity_angular_z", "Ang Z");
-
-    const armCol = document.createElement("div");
-    armCol.className = "commands-col";
-
-    const armTitle = document.createElement("div");
-    armTitle.className = "matrix__head";
-    armTitle.textContent = "Arm Commands";
-    armCol.appendChild(armTitle);
-
-    for (let i = 0; i < 6; i++) {
-        registerSignedBarMeter(armCol, `arm_commands_${i}`, `Arm ${i}`);
-    }
-
-    wrap.append(twistCol, armCol);
-    panel.appendChild(wrap);
 }
 
 function buildCameraPanel() {
@@ -1326,7 +1372,6 @@ function buildDashboard() {
     buildPowerPanel();
     buildArmPanel();
     buildDepthPanel();
-    // buildCommandsPanel();
     buildCameraPanel();
     buildModelPanel();
 }
