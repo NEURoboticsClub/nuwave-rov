@@ -126,11 +126,15 @@ function registerThrusterMeter(parent, key, label) {
     name.className = "row__label";
     name.textContent = label;
 
+    const targetDisplay = document.createElement("span");
+    targetDisplay.className = "thruster-meter__target-display";
+    targetDisplay.textContent = "TARGET --";
+
     const value = document.createElement("span");
     value.className = "row__value";
     value.textContent = "RESP --";
 
-    head.append(name, value);
+    head.append(name, targetDisplay, value);
 
     const track = document.createElement("div");
     track.className = "thruster-meter__track";
@@ -143,11 +147,7 @@ function registerThrusterMeter(parent, key, label) {
 
     track.append(responseFill, targetMarker);
 
-    const footer = document.createElement("div");
-    footer.className = "thruster-meter__footer";
-    footer.textContent = "TARGET --";
-
-    card.append(head, track, footer);
+    card.append(head, track);
     parent.appendChild(card);
 
     dashboard.thrusterMeters.set(key, {
@@ -155,7 +155,7 @@ function registerThrusterMeter(parent, key, label) {
         value,
         responseFill,
         targetMarker,
-        footer,
+        targetDisplay,
         min: 1000,
         max: 2000,
         lastSeen: 0,
@@ -369,7 +369,7 @@ function updateThrusterMeter(key, kind, rawValue) {
 
     if (kind === "target") {
         meter.targetMarker.style.left = `${normalised * 100}%`;
-        setText(meter.footer, `TARGET ${rawValue.toFixed(0)} us`);
+        setText(meter.targetDisplay, `TARGET ${rawValue.toFixed(0)} us`);
     }
 }
 

@@ -188,6 +188,12 @@ body.test-mode {
     color: var(--muted);
 }
 
+.thruster-meter__target-display {
+    font-size: 10px;
+    letter-spacing: 0.04em;
+    color: var(--muted);
+}
+
 .thruster-meter .row__head {
     margin-bottom: 0;
 }
@@ -642,7 +648,8 @@ body.test-mode {
     opacity: 0.6;
 }
 
-.is-stale .thruster-meter__footer {
+.is-stale .thruster-meter__footer,
+.is-stale .thruster-meter__target-display {
     color: var(--stale);
 }
 
