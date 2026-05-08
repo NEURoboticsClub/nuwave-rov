@@ -96,9 +96,9 @@ class ThrusterController(Node):
         table = np.zeros((len(thrusters), 3))
         for indx, thruster in enumerate(thrusters):
             try:
-                table[indx:0] = float(thruster['min_us'])
-                table[indx:1] = float(thruster['neutral_us'])
-                table[indx:2] = float(thruster['max_us'])
+                table[indx, 0] = float(thruster['min_us'])
+                table[indx, 1] = float(thruster['neutral_us'])
+                table[indx, 2] = float(thruster['max_us'])
             except KeyError as e:
                 raise ValueError(
                         f"Thruster {indx} is missing required PWM field {e}. "
