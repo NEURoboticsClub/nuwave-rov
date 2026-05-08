@@ -43,8 +43,8 @@ class ThrusterController(Node):
                 )
         self.declare_parameter('thruster_topic', '/thruster')
 
-        self.max_force = float(self.get_parameter('max_force_n').value or 50.0)
-        rate = float(self.get_parameter('publish_rate_hz').value or 50.0)
+        self.max_force = float(self.get_parameter('max_force_n').value)
+        rate = float(self.get_parameter('publish_rate_hz').value)
 
         thruster_config_path = self.get_parameter('thruster_config').value
         thruster_topic = self.get_parameter('thruster_topic').value
@@ -96,9 +96,9 @@ class ThrusterController(Node):
         table = np.zeros((len(thrusters), 3))
         for indx, thruster in enumerate(thrusters):
             try:
-                table[indx:0] = float(thruster['min_us'])
-                table[indx:1] = float(thruster['neutral_us'])
-                table[indx:2] = float(thruster['max_us'])
+                table[indx, 0] = float(thruster['min_us'])
+                table[indx, 1] = float(thruster['neutral_us'])
+                table[indx, 2] = float(thruster['max_us'])
             except KeyError as e:
                 raise ValueError(
                         f"Thruster {indx} is missing required PWM field {e}. "
@@ -163,10 +163,10 @@ class ThrusterController(Node):
         # If normalized >= 0, which is forward we linear interp the pwm to be some point between neutral and max
         # Same is applied for reverse but with neutral_us being the leading term.
         pwm = np.where(
-                normalized >= 0,
-                neutral_us + normalized * (max_us - neutral_us),
-                neutral_us + normalized * (neutral_us - min_us)
-                )
+            normalized >= 0,
+            neutral_us + normalized * (max_us - neutral_us),
+            neutral_us + normalized * (neutral_us - min_us)
+        )
         return pwm
 
     def publish_thrusters(self):
