@@ -16,12 +16,14 @@ class FastCameraPublisher(Node):
 
         # ---------------- PARAMETERS ----------------
         self.declare_parameter('camera_id', 0)
+        self.declare_parameter('camera_device_path', '')
         self.declare_parameter('width', 320)
         self.declare_parameter('height', 240)
         self.declare_parameter('fps', 30)
         self.declare_parameter('jpeg_quality', 70)
 
         cam_id = self.get_parameter('camera_id').value
+        cam_device_path = str(self.get_parameter('camera_device_path').value).strip()
         width = self.get_parameter('width').value
         height = self.get_parameter('height').value
         fps = self.get_parameter('fps').value
@@ -43,9 +45,11 @@ class FastCameraPublisher(Node):
         )
 
         # ---------------- CAMERA SETUP ----------------
-        self.cap = cv2.VideoCapture(cam_id, cv2.CAP_V4L2)
+        self.cap = cv2.VideoCapture(cam_device_path, cv2.CAP_V4L2)
         if not self.cap.isOpened():
-            raise RuntimeError(f"Failed to open camera {cam_id}")
+            raise RuntimeError(
+                f"Failed to open camera {cam_id} using source {cam_device_path}"
+            )
 
         # Force MJPEG (HUGE performance win)
         self.cap.set(cv2.CAP_PROP_FOURCC,
@@ -72,7 +76,7 @@ class FastCameraPublisher(Node):
         )
 
         self.get_logger().info(
-            f"Camera {cam_id} streaming on {topic} "
+            f"Camera {cam_id} using source {cam_device_path} streaming on {topic} "
             f"({width}x{height} @ {fps} FPS)"
         )
 
