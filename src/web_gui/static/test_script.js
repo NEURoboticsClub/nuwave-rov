@@ -112,6 +112,9 @@ class MessageTester {
             for (let armMotorId = 0; armMotorId < 6; armMotorId++) {
                 const pwm = Math.cos(Date.now() / 1000 + armMotorId) * 500 + 1500;
                 this.sendMessage({ topic: `/arm/arm_motor_${armMotorId}`, data: parseFloat(pwm) });
+                
+                const responsePwm = Math.max(1000, Math.min(2000, pwm + Math.sin(Date.now() / 800 + armMotorId) * 80));
+                this.sendMessage({ topic: `/arm/arm_motor_${armMotorId}/response_pwm`, data: parseFloat(responsePwm) });
             }
 
             // Depth sensor data

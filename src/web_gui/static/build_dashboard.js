@@ -1,6 +1,7 @@
 const dashboard = {
     meters: new Map(),
     thrusterMeters: new Map(),
+    armMeters: new Map(),
     sparkline: null,
     cameras: new Map(),
     thrusterViz: null,
@@ -115,9 +116,9 @@ function registerMeter(options) {
     });
 }
 
-function registerThrusterMeter(parent, key, label) {
+function registerDualMeter(parent, key, label, collection) {
     const card = document.createElement("div");
-    card.className = "thruster-meter";
+    card.className = "thruster-meter"; // reusing the CSS classes since they fit
 
     const head = document.createElement("div");
     head.className = "row__head";
@@ -150,7 +151,7 @@ function registerThrusterMeter(parent, key, label) {
     card.append(head, track, footer);
     parent.appendChild(card);
 
-    dashboard.thrusterMeters.set(key, {
+    collection.set(key, {
         card,
         value,
         responseFill,
@@ -160,6 +161,14 @@ function registerThrusterMeter(parent, key, label) {
         max: 2000,
         lastSeen: 0,
     });
+}
+
+function registerThrusterMeter(parent, key, label) {
+    registerDualMeter(parent, key, label, dashboard.thrusterMeters);
+}
+
+function registerArmMeter(parent, key, label) {
+    registerDualMeter(parent, key, label, dashboard.armMeters);
 }
 
 function registerTableMeter(parent, key, label, format) {
@@ -349,8 +358,7 @@ function buildThrusterPanel() {
     drawUpMotorViz();
 }
 
-function updateThrusterMeter(key, kind, rawValue) {
-    const meter = dashboard.thrusterMeters.get(key);
+function updateDualMeter(meter, kind, rawValue) {
     if (!meter || typeof rawValue !== "number" || Number.isNaN(rawValue)) {
         return;
     }
@@ -371,6 +379,14 @@ function updateThrusterMeter(key, kind, rawValue) {
         meter.targetMarker.style.left = `${normalised * 100}%`;
         setText(meter.footer, `TARGET ${rawValue.toFixed(0)} us`);
     }
+}
+
+function updateThrusterMeter(key, kind, rawValue) {
+    updateDualMeter(dashboard.thrusterMeters.get(key), kind, rawValue);
+}
+
+function updateArmMeter(key, kind, rawValue) {
+    updateDualMeter(dashboard.armMeters.get(key), kind, rawValue);
 }
 
 function drawThrusterArrow(context, x, y, dx, dy, color) {
@@ -596,16 +612,7 @@ function buildArmPanel() {
     panel.appendChild(grid);
 
     for (let i = 0; i < 6; i++) {
-        registerMeter({
-            parent: grid,
-            key: `arm_motor_${i}`,
-            label: `A${i}`,
-            min: 1000,
-            max: 2000,
-            bar: true,
-            placeholder: "1500 us",
-            format: (v) => `${v.toFixed(0)} us`,
-        });
+        registerArmMeter(grid, `arm_motor_${i}`, `A${i}`);
     }
 }
 

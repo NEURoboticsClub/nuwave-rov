@@ -23,8 +23,15 @@ function processRosMessage(topic, data) {
     }
 
     if (topic.startsWith('/arm/')) {
-        const armMotorId = topic.split('/')[2].split('_')[2];
-        updateMeter(`arm_motor_${armMotorId}`, data);
+        const parts = topic.split('/');
+        const armMotorId = parts[2]?.split('_')[2];
+        if (!Number.isNaN(Number(armMotorId))) {
+            if (parts[3] === 'response_pwm') {
+                updateArmMeter(`arm_motor_${armMotorId}`, 'response', data);
+            } else {
+                updateArmMeter(`arm_motor_${armMotorId}`, 'target', data);
+            }
+        }
         return;
     }
 
