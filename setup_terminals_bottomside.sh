@@ -25,22 +25,30 @@ USE_SSH=false
 
 usage() {
     cat <<EOF
-Usage: $(basename "$0") [-d] [-s] [-h]
+Usage: ./$(basename "$0") [-d] [-s] [-h]
 
 Spawns all ROS2 nodes for bottomside (ROV) in a terminator window.
+
+Panes:
+  Multi-Thruster   ros2 launch thruster_pkg multi_thruster.launch.py
+  Multi-Arm        ros2 launch thruster_pkg multi_arm_motor.launch.py
+  Power Monitor    ros2 launch power_monitor_pkg multi_power_monitor.launch.py
+  Depth Sensor     ros2 run rov_depth_sensor depth_sensor_node
+  IMU              ros2 run imu_pkg imu_pub
+  Camera           ros2 run camera_pkg camera_publisher --ros-args -p camera_id:=0
 
 Options:
   -d    Skip colcon build step (faster if already compiled)
   -s    Run nodes over SSH on the ROV instead of locally
         Requires an SSH alias 'rov' in ~/.ssh/config, or override with:
-          ROV_HOST=user@host ROV_REMOTE_WS=/path/to/ws $(basename "$0") -s
+          ROV_HOST=user@host ROV_REMOTE_WS=/path/to/ws ./$(basename "$0") -s
   -h    Show this help menu
 
 Examples:
-  $(basename "$0")          # Local: build and launch
-  $(basename "$0") -d       # Local: skip build, just launch
-  $(basename "$0") -s       # Remote: build on ROV and launch over SSH
-  $(basename "$0") -d -s    # Remote: skip build, launch over SSH
+  ./$(basename "$0")          # Local: build and launch
+  ./$(basename "$0") -d       # Local: skip build, just launch
+  ./$(basename "$0") -s       # Remote: build on ROV and launch over SSH
+  ./$(basename "$0") -d -s    # Remote: skip build, launch over SSH
 EOF
 }
 
