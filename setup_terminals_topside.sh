@@ -1,19 +1,56 @@
 #!/bin/bash
 
+# Runs the following commands in separate terminals:
+# - ros2 launch houston_pkg joystick_launch.launch.py
+# - ros2 run houston_pkg houston
+# - ros2 run controller thruster_controller_node
+# - ros2 run arm_controller arm_controller_node
+# - ros2 run web_gui bridge_node
+
+# Usage: setup_terminals_topside.sh [-d] [-h]
+#   -d: skip colcon build step
+#   -h: show help
+
 WS="$HOME/nuwave-rov"
 
-# Build first
-echo "Starting topside setup..."
-echo WS is $WS
-cd "$WS" && source $WS/venv/bin/activate
+usage() {
+    cat <<EOF
+Usage: ./$(basename "$0") [-d] [-h]
+
+Spawns all ROS2 nodes for topside (laptop) in a terminator window.
+
+Panes:
+  Joysticks            ros2 launch houston_pkg joystick_launch.launch.py
+  Houston              ros2 run houston_pkg houston
+  Thruster Controller  ros2 run controller thruster_controller_node
+  Arm Controller       ros2 run arm_controller arm_controller_node
+  Web GUI              ros2 run web_gui bridge_node
+  Topside Shell        sourced shell for any additional commands
+
+Options:
+  -d    Skip colcon build step (faster if already compiled)
+  -h    Show this help menu
+
+Examples:
+  ./$(basename "$0")          # Build and launch
+  ./$(basename "$0") -d       # Skip build, just launch
+EOF
+}
 
 # Parse flags
 SKIP_BUILD=false
-while getopts "d" opt; do
+while getopts "dh" opt; do
     case $opt in
         d) SKIP_BUILD=true ;;
+        h) usage; exit 0 ;;
+        \?) usage; exit 1 ;;
     esac
 done
+
+# Build first
+echo "Starting topside setup..."
+echo "WS is $WS"
+cd "$WS" && source "$WS/venv/bin/activate"
 
 if [ "$SKIP_BUILD" = false ]; then
     echo "Running colcon build..."
@@ -26,15 +63,6 @@ fi
 
 
 SETUP="cd $WS && source $WS/venv/bin/activate && source $WS/install/setup.bash"
-
-
-# Runs the following commands in seperate terminals:
-# - ros2 launch houston_pkg joystick_launch.launch.py
-# - ros2 run houston_pkg houston
-# - ros2 run controller thruster_controller_node
-# - ros2 run arm_controller arm_controller_node
-# - ros2 run web_gui bridge_node
-
 
 JOYSTICK_LAUNCH="$SETUP && ros2 launch houston_pkg joystick_launch.launch.py"
 START_HOUSTON="$SETUP && ros2 run houston_pkg houston"
