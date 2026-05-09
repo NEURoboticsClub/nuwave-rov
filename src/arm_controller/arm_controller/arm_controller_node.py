@@ -14,10 +14,6 @@ class ArmController(Node):
         super().__init__('arm_controller')
 
         # Parameters
-        self.declare_parameter('neutral_us', 1500.0)
-        self.declare_parameter('min_us', 1100.0)
-        self.declare_parameter('max_us', 1900.0)
-        self.declare_parameter('max_force_n', 50.0)     # force at max PWM per arm motor
         self.declare_parameter('publish_rate_hz', 50.0)
 
         pkg_share = get_package_share_directory('arm_controller')
@@ -26,22 +22,17 @@ class ArmController(Node):
                 os.path.join(pkg_share, 'config', 'arm_config.yaml')
                 )
         self.declare_parameter('arm_topic', 'arm_commands')
-        self.declare_parameter('n_arm_motors', 6)  
-        
-        self.neutral_us = float(self.get_parameter('neutral_us').value or 1500.0)
-        self.min_us = float(self.get_parameter('min_us').value or 1100.0)
-        self.max_us = float(self.get_parameter('max_us').value or 1900.0)
-        self.max_force = float(self.get_parameter('max_force_n').value or 50.0)
-        self.n_arm_motors = int(self.get_parameter('n_arm_motors').value or 6)
-        rate = float(self.get_parameter('publish_rate_hz').value or 50.0)
+
+        rate = float(self.get_parameter('publish_rate_hz').value)
 
         arm_config_path = self.get_parameter('arm_config').value
         arm_topic = self.get_parameter('arm_topic').value
 
         self.get_logger().info(f"Loading arm config from: {arm_config_path}")
 
-        # Configure arm motors and Allocation
-        # config = self.load_yaml(arm_config_path)
+        config = self.load_yaml(arm_config_path)
+        self.pwm_range_table = self._configure_arm_motor_pwm_range(config)
+        self.n_arm_motors = self.pwm_range_table.shape[0]
 
         # Subscribers / Publishers
         self.status_sub = self.create_subscription(Float32MultiArray, arm_topic, self.Status_Callback, 10)
@@ -49,8 +40,9 @@ class ArmController(Node):
         for indx in range(self.n_arm_motors):
             pub = self.create_publisher(Float32, f'arm/arm_motor_{indx}', 10)
             self.arm_motor_pubs.append(pub)
-
-        self.pwm_commands = np.full(self.n_arm_motors, self.neutral_us)
+        
+        # Init command send neutral to all arm motors
+        self.pwm_commands = self.pwm_range_table[:,1]
 
         self.create_timer(1.0 / rate, self.publish_arm_motors)
         self.get_logger().info("Arm Controller Initialized")
@@ -73,18 +65,49 @@ class ArmController(Node):
 
         self.pwm_commands = self.map_val_to_PWM(arm_velocities)
 
+    def _configure_arm_motor_pwm_range(self, config : dict) -> np.ndarray:
+        """
+        Each arm motor has a neutral_us, min_us, max_us configured.
+        When we get the force each arm motor should be outputting we want to map it along the bounds of that, specific arm motor.
+        Returns: A list of bounds for the arm motor at index i
+        """
+        
+        arm_motors = config.get('arm_motors', [])
+        if not arm_motors:
+            raise ValueError(f"No arm_motors found in config")
+        table = np.zeros((len(arm_motors), 3))
+        for indx, arm_motor in enumerate(arm_motors):
+            try:
+                table[indx, 0] = float(arm_motor['min_us'])
+                table[indx, 1] = float(arm_motor['neutral_us'])
+                table[indx, 2] = float(arm_motor['max_us'])
+            except KeyError as e:
+                raise ValueError(
+                        f"Arm motor {indx} is missing required PWM field {e}. "
+                        f"Each arm motor needs min_us, neutral_us, and max_us. "
+                        )
+        
+        return table
+
     
     # takes normalized game controller input (-1 to 1) and maps that to PWM range for each motor
     def map_val_to_PWM(self, arm_velocities) -> np.ndarray:
+        # These are nx1 vectors for each thrusters configured pwm ranges
+        min_us = self.pwm_range_table[:, 0] 
+        neutral_us = self.pwm_range_table[:, 1]
+        max_us = self.pwm_range_table[:, 2]
         
-        pwm_commands = np.zeros(self.n_arm_motors)
-        for i in range(self.n_arm_motors):
-            if arm_velocities[i] > 0:
-                pwm_commands[i] = self.neutral_us + arm_velocities[i] * (self.max_us - self.neutral_us)
-            else:
-                pwm_commands[i] = self.neutral_us + arm_velocities[i] * (self.neutral_us - self.min_us)
-
-        return pwm_commands
+        # This normalizes the forces to be within -1 and 1
+        normalized = np.clip(arm_velocities, -1, 1)
+        
+        # If normalized >= 0, which is forward we linear interp the pwm to be some point between neutral and max
+        # Same is applied for reverse but with neutral_us being the leading term.
+        pwm = np.where(
+            normalized >= 0,
+            neutral_us + normalized * (max_us - neutral_us),
+            neutral_us + normalized * (neutral_us - min_us)
+        )
+        return pwm
 
     def publish_arm_motors(self):
         """

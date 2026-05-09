@@ -96,6 +96,16 @@ class WebBridgeNode(Node):
                 )
             )
 
+            response_topic = f'/arm/arm_motor_{arm_motor_id}/response_pwm'
+            self._subs.append(
+                self.create_subscription(
+                    Float32,
+                    response_topic,
+                    lambda msg, topic=response_topic: self._on_scalar(topic, msg),
+                    10,
+                )
+            )
+
         # Depth telemetry
         self._subs.append(self.create_subscription(Float32, '/depth/depth', self._on_depth, 10))
         self._subs.append(self.create_subscription(FluidPressure, '/depth/pressure', self._on_pressure, 10))

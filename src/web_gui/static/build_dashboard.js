@@ -9,6 +9,7 @@
 const dashboard = {
     meters: new Map(),
     thrusterMeters: new Map(),
+    armMeters: new Map(),
     sparkline: null,
     cameras: new Map(),
     thrusterViz: null,
@@ -158,9 +159,9 @@ function registerMeter(options) {
     });
 }
 
-function registerThrusterMeter(parent, key, label) {
+function registerDualMeter(parent, key, label, collection) {
     const card = document.createElement("div");
-    card.className = "thruster-meter";
+    card.className = "thruster-meter"; // reusing the CSS classes since they fit
 
     const head = document.createElement("div");
     head.className = "row__head";
@@ -193,7 +194,7 @@ function registerThrusterMeter(parent, key, label) {
     card.append(head, track);
     parent.appendChild(card);
 
-    dashboard.thrusterMeters.set(key, {
+    collection.set(key, {
         card,
         value,
         responseFill,
@@ -201,6 +202,36 @@ function registerThrusterMeter(parent, key, label) {
         targetDisplay,
         min: 1000,
         max: 2000,
+        lastSeen: 0,
+    });
+}
+
+function registerThrusterMeter(parent, key, label) {
+    registerDualMeter(parent, key, label, dashboard.thrusterMeters);
+}
+
+function registerArmMeter(parent, key, label) {
+    registerDualMeter(parent, key, label, dashboard.armMeters);
+}
+
+function registerTableMeter(parent, key, label, format) {
+    const name = document.createElement("div");
+    name.className = "matrix__name";
+    name.textContent = label;
+
+    const value = document.createElement("div");
+    value.className = "matrix__cell";
+    value.textContent = "--";
+
+    parent.append(name, value);
+
+    dashboard.meters.set(key, {
+        row: value,
+        value,
+        fill: null,
+        min: 0,
+        max: 1,
+        format,
         lastSeen: 0,
     });
 }
@@ -371,8 +402,7 @@ function buildThrusterPanel() {
     drawUpMotorViz();
 }
 
-function updateThrusterMeter(key, kind, rawValue) {
-    const meter = dashboard.thrusterMeters.get(key);
+function updateDualMeter(meter, kind, rawValue, isThruster = false, key = "") {
     if (!meter || typeof rawValue !== "number" || Number.isNaN(rawValue)) {
         return;
     }
@@ -386,6 +416,18 @@ function updateThrusterMeter(key, kind, rawValue) {
     if (kind === "response") {
         meter.responseFill.style.width = `${normalised * 100}%`;
         setText(meter.value, `RESP ${rawValue.toFixed(0)} us`);
+        
+        // Update visualization for response values (which represent actual thrust)
+        if (isThruster && dashboard.thrusterViz) {
+            const thrusterId = Number(key.split("_")[1]);
+            if (!Number.isNaN(thrusterId) && thrusterId >= 0 && thrusterId < 4) {
+                dashboard.thrusterViz.xValues[thrusterId] = rawValue;
+                drawThrusterViz();
+            } else if (!Number.isNaN(thrusterId) && thrusterId >= 4 && thrusterId < 8) {
+                dashboard.thrusterViz.upValues[thrusterId - 4] = rawValue;
+                drawUpMotorViz();
+            }
+        }
         return;
     }
 
@@ -393,6 +435,22 @@ function updateThrusterMeter(key, kind, rawValue) {
         meter.targetMarker.style.left = `${normalised * 100}%`;
         setText(meter.targetDisplay, `TARGET ${rawValue.toFixed(0)} us`);
     }
+}
+
+function updateThrusterMeter(key, kind, rawValue) {
+    updateDualMeter(dashboard.thrusterMeters.get(key), kind, rawValue, true, key);
+}
+
+function updateArmMeter(key, kind, rawValue) {
+    updateDualMeter(dashboard.armMeters.get(key), kind, rawValue, false, key);
+}
+
+function updateThrusterMeter(key, kind, rawValue) {
+    updateDualMeter(dashboard.thrusterMeters.get(key), kind, rawValue, true, key);
+}
+
+function updateArmMeter(key, kind, rawValue) {
+    updateDualMeter(dashboard.armMeters.get(key), kind, rawValue, false, key);
 }
 
 function drawThrusterArrow(context, x, y, dx, dy, color) {
@@ -693,16 +751,7 @@ function buildArmPanel() {
     layout.append(buttonsSection, motorsSection);
 
     for (let i = 0; i < 6; i++) {
-        registerMeter({
-            parent: motorsGrid,
-            key: `arm_motor_${i}`,
-            label: `A${i}`,
-            min: 1000,
-            max: 2000,
-            bar: true,
-            placeholder: "1500 us",
-            format: (v) => `${v.toFixed(0)} us`,
-        });
+        registerArmMeter(motorsGrid, `arm_motor_${i}`, `A${i}`);
     }
 }
 
@@ -1208,17 +1257,6 @@ function updateMeter(key, rawValue) {
     setText(meter.value, formatted);
     meter.lastSeen = Date.now();
     meter.row.classList.remove("is-stale");
-
-    if (key.startsWith("thruster_") && dashboard.thrusterViz) {
-        const thrusterId = Number(key.split("_")[1]);
-        if (!Number.isNaN(thrusterId) && thrusterId >= 0 && thrusterId < 4) {
-            dashboard.thrusterViz.xValues[thrusterId] = rawValue;
-            drawThrusterViz();
-        } else if (!Number.isNaN(thrusterId) && thrusterId >= 4 && thrusterId < 8) {
-            dashboard.thrusterViz.upValues[thrusterId - 4] = rawValue;
-            drawUpMotorViz();
-        }
-    }
 
     if (meter.fill) {
         const range = meter.max - meter.min || 1;
