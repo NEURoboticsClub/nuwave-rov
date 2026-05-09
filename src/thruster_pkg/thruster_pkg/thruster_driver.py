@@ -3,8 +3,9 @@ import rclpy
 from rclpy.node import Node
 from std_msgs.msg import Float32
 from rclpy.duration import Duration
-
-from .PCA9685 import PCA9685
+from .pwm_scribe_base import PWMScribeBase
+from .pwm_scribe_arduino import PWMScribeArduino
+from .pwm_scribe_hat import PWMScribeHat
 
 # ---- CONFIG ----
 LOW_ANGLE = 0
@@ -34,14 +35,16 @@ class ThrusterNode(Node):
         self.declare_parameter('max_abs_cmd', 0.8)            # safety clamp
         self.declare_parameter('update_rate_hz', 50.0)        # write rate to the hat
         self.declare_parameter('watchdog_timeout_s', 0.5)     # neutral if no msg in this time
-        self.declare_parameter('slew_us_per_s', 750.0)       # 0 to disable rate limit; else max change per sec
+        self.declare_parameter('slew_us_per_s', 750.0)        # 0 to disable rate limit; else max change per sec
         self.declare_parameter('simulate', False)
+        self.declare_parameter('pwm_hardware', 'arduino')     # 'arduino' or 'hat'
         # Read Params
         topic = self.get_parameter('topic').get_parameter_value().string_value
         bus = self.get_parameter('i2c_bus').value
         addr = self.get_parameter('i2c_address').value
         self.channel = self.get_parameter('channel').value
         self.pwm_freq = self.get_parameter('pwm_freq_hz').value
+        pwm_hardware = self.get_parameter('pwm_hardware').get_parameter_value().string_value
         
         self.neutral_us = self.get_parameter('neutral_us').value
         self.min_us = self.get_parameter('min_us').value
@@ -69,8 +72,6 @@ class ThrusterNode(Node):
         self._prev_time = now
         self._got_first_cmd = False
 
-        
-
         # PCA stuff
         # Adding a simulation flag, so we can see the driver code work without the PCA9865 needing to be connected
 
@@ -79,12 +80,15 @@ class ThrusterNode(Node):
             self.get_logger().warn('Sim mode: no hardware writes')
         else:
             try:
-                import Jetson.GPIO as GPIO_lib
-                global GPIO
-                GPIO = GPIO_lib
-
-                self.pwm = PCA9685(bus=bus, address=addr)
-                self.pwm.setPWMFreq(int(self.pwm_freq))
+                if pwm_hardware == "hat":
+                    addr = self.declare_parameter("i2c_address", 0x40).value
+                    bus = self.declare_parameter("i2c_bus", 50).value
+                    self.pwm = PWMScribeHat(bus, addr)
+                elif pwm_hardware == "arduino":
+                    port = self.declare_parameter("firmata_port", "/dev/ttyACM0").value
+                    pins = self.declare_parameter("firmata_pins", [9,10,11,12]).value
+                    self.pwm = PWMScribeArduino(port, pins)
+                # self.pwm.setPWMFreq(int(self.pwm_freq)) # abstract this out? or just pass frequency to scribe in constructor -- not sure how to set frequency in firmata
                 self._write_us(self.neutral_us)
                 self.get_logger().info("Hardware initialized")
             except Exception as e:
