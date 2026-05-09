@@ -103,7 +103,7 @@ def generate_launch_description():
                 parameters=[
                     {'camera_id': camera_id},
                     {'camera_port': camera_port},
-                    {'camera_device': f'/dev/video{camera_port}'},
+                    {'camera_device_path': f'/dev/video{camera_port}'},
                     {'width': 320},
                     {'height': 240},
                     {'fps': 30},

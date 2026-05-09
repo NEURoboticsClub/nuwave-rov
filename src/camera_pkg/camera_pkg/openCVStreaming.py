@@ -28,6 +28,7 @@ class FastCameraPublisher(Node):
         height = self.get_parameter('height').value
         fps = self.get_parameter('fps').value
         self.jpeg_quality = self.get_parameter('jpeg_quality').value
+        self.frame_id = f'camera_{cam_id}'
 
         topic = f'/camera_{cam_id}/image/compressed'
 
@@ -61,6 +62,7 @@ class FastCameraPublisher(Node):
 
         # ---------------- THREADING ----------------
         self.frame = None
+        self.frame_stamp = None
         self.lock = threading.Lock()
         self.running = True
 
@@ -90,8 +92,10 @@ class FastCameraPublisher(Node):
                 time.sleep(0.01)
                 continue
 
+            stamp = self.get_clock().now().to_msg()
             with self.lock:
                 self.frame = frame
+                self.frame_stamp = stamp
 
     def publish_frame(self):
         with self.lock:
@@ -108,6 +112,10 @@ class FastCameraPublisher(Node):
             return
 
         msg = CompressedImage()
+
+        msg.header.stamp = self.frame_stamp
+        msg.header.frame_id = self.frame_id
+
         msg.format = 'jpeg'
         msg.data = encoded.tobytes()
 
