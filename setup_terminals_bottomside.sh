@@ -73,7 +73,7 @@ if [ "$USE_SSH" = true ]; then
 
     SETUP="source /opt/ros/humble/setup.bash && cd $REMOTE_WS && source $REMOTE_WS/venv/bin/activate && source $REMOTE_WS/install/setup.bash"
 
-    wrap_ssh() { echo "ssh -t $REMOTE_HOST \"$1\""; }
+    wrap_ssh() { echo "ssh -t $REMOTE_HOST \"$1; exec bash -i\""; }
 
     MULTI_THRUSTER_LAUNCH=$(wrap_ssh "$SETUP && ros2 launch thruster_pkg multi_thruster.launch.py")
     MULTI_ARM_LAUNCH=$(wrap_ssh      "$SETUP && ros2 launch thruster_pkg multi_arm_motor.launch.py")
