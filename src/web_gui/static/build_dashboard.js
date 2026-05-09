@@ -1474,5 +1474,22 @@ document.addEventListener("keydown", (e) => {
             }
         }
     }
+    if (e.key === "q" || e.key === "Q") {
+        const dashboardEl = document.getElementById("dashboard");
+        if (dashboardEl) {
+            dashboardEl.classList.toggle("quad-mode");
+            // Find the toggle button and update its state
+            const quadButton = Array.from(document.querySelectorAll(".test-button-grid__button")).find(btn => btn.textContent === "Quad Cam");
+            if (quadButton) {
+                const isActive = dashboardEl.classList.contains("quad-mode");
+                if (isActive) {
+                    quadButton.classList.add("is-active");
+                } else {
+                    quadButton.classList.remove("is-active");
+                }
+                quadButton.setAttribute("aria-pressed", String(isActive));
+            }
+        }
+    }
 });
 
