@@ -4,7 +4,6 @@ from launch.conditions import IfCondition
 from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
 from cv2_enumerate_cameras import enumerate_cameras
-import glob
 import cv2
 
 
