@@ -71,7 +71,7 @@ if [ "$USE_SSH" = true ]; then
             || { echo "colcon build failed on remote!"; exit 1; }
     fi
 
-    SETUP="cd $REMOTE_WS && source $REMOTE_WS/venv/bin/activate && source $REMOTE_WS/install/setup.bash"
+    SETUP="source /opt/ros/humble/setup.bash && cd $REMOTE_WS && source $REMOTE_WS/venv/bin/activate && source $REMOTE_WS/install/setup.bash"
 
     wrap_ssh() { echo "ssh -t $REMOTE_HOST \"$1\""; }
 
