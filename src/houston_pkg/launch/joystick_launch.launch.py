@@ -15,32 +15,21 @@ def detect_joysticks():
             timeout=5,
             stderr=subprocess.STDOUT,
         )
-    except FileNotFoundError:
-        print("[joystick_launch] 'ros2' not on PATH; not sourced", file=sys.stderr)
-        return rov_joy_id, arm_joy_id
-    except subprocess.TimeoutExpired:
-        print("[joystick_launch] joy_enumerate_devices timed out after 5s", file=sys.stderr)
-        return rov_joy_id, arm_joy_id
-    except subprocess.CalledProcessError as e:
-        print(f"[joystick_launch] joy_enumerate_devices failed (exit {e.returncode}): {e.output!r}", file=sys.stderr)
+    except (FileNotFoundError, subprocess.TimeoutExpired, subprocess.CalledProcessError) as e:
+        print(f"[joystick_launch] enumerate failed: {e}", file=sys.stderr)
         return rov_joy_id, arm_joy_id
 
-    lines = result.split(b'\n')
-
-    # Device lines start at index 2 (header lines first)
-    #   of the form "Device 0: PowerA Xbox Series X Controller"
-    for device_id, line in enumerate(lines[2:4]):
+    # Skip the 2 header lines, take up to 2 device rows
+    for device_id, line in enumerate(result.split(b'\n')[2:4]):
         parts = line.split(b':')
-        name = parts[-1].lstrip() if len(parts) > 1 else b''
-        if not name:
+        if len(parts) < 2:
             continue
-        first = name[0]
-        if first == ord('P'):       # PowerA: ROV thrusters
+        name = parts[-1].strip()
+        first = name[:1]  # bytes slice — b'' if empty, never IndexError
+        if first == b'P':
             rov_joy_id = device_id
-        elif first == ord('X'):     # X360: arm
+        elif first == b'X':
             arm_joy_id = device_id
-        else:
-            print(f"[joystick_launch] Unrecognized device on slot {device_id}: {name!r}", file=sys.stderr)
 
     if rov_joy_id == -1:
         print("[joystick_launch] WARNING: ROV (PowerA) joystick not detected.", file=sys.stderr)
