@@ -358,7 +358,7 @@ function buildThrusterPanel() {
     drawUpMotorViz();
 }
 
-function updateDualMeter(meter, kind, rawValue) {
+function updateDualMeter(meter, kind, rawValue, isThruster = false, key = "") {
     if (!meter || typeof rawValue !== "number" || Number.isNaN(rawValue)) {
         return;
     }
@@ -372,6 +372,18 @@ function updateDualMeter(meter, kind, rawValue) {
     if (kind === "response") {
         meter.responseFill.style.width = `${normalised * 100}%`;
         setText(meter.value, `RESP ${rawValue.toFixed(0)} us`);
+        
+        // Update visualization for response values (which represent actual thrust)
+        if (isThruster && dashboard.thrusterViz) {
+            const thrusterId = Number(key.split("_")[1]);
+            if (!Number.isNaN(thrusterId) && thrusterId >= 0 && thrusterId < 4) {
+                dashboard.thrusterViz.xValues[thrusterId] = rawValue;
+                drawThrusterViz();
+            } else if (!Number.isNaN(thrusterId) && thrusterId >= 4 && thrusterId < 8) {
+                dashboard.thrusterViz.upValues[thrusterId - 4] = rawValue;
+                drawUpMotorViz();
+            }
+        }
         return;
     }
 
@@ -382,11 +394,11 @@ function updateDualMeter(meter, kind, rawValue) {
 }
 
 function updateThrusterMeter(key, kind, rawValue) {
-    updateDualMeter(dashboard.thrusterMeters.get(key), kind, rawValue);
+    updateDualMeter(dashboard.thrusterMeters.get(key), kind, rawValue, true, key);
 }
 
 function updateArmMeter(key, kind, rawValue) {
-    updateDualMeter(dashboard.armMeters.get(key), kind, rawValue);
+    updateDualMeter(dashboard.armMeters.get(key), kind, rawValue, false, key);
 }
 
 function drawThrusterArrow(context, x, y, dx, dy, color) {
@@ -1139,17 +1151,6 @@ function updateMeter(key, rawValue) {
     setText(meter.value, formatted);
     meter.lastSeen = Date.now();
     meter.row.classList.remove("is-stale");
-
-    if (key.startsWith("thruster_") && dashboard.thrusterViz) {
-        const thrusterId = Number(key.split("_")[1]);
-        if (!Number.isNaN(thrusterId) && thrusterId >= 0 && thrusterId < 4) {
-            dashboard.thrusterViz.xValues[thrusterId] = rawValue;
-            drawThrusterViz();
-        } else if (!Number.isNaN(thrusterId) && thrusterId >= 4 && thrusterId < 8) {
-            dashboard.thrusterViz.upValues[thrusterId - 4] = rawValue;
-            drawUpMotorViz();
-        }
-    }
 
     if (meter.fill) {
         const range = meter.max - meter.min || 1;
