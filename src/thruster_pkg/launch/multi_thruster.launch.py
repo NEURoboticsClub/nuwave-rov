@@ -4,7 +4,19 @@ from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
 from ament_index_python.packages import get_package_share_directory
 import os
+import yaml
 
+
+def load_yaml(config_path: str) -> dict:
+    if not os.path.exists(config_path):
+        print(f"[thruster_pkg launch] Config file not found: {config_path}")
+        return {}
+    try:
+        with open(config_path, 'r') as f:
+            return yaml.safe_load(f) or {}
+    except yaml.YAMLError as e:
+        print(f"[thruster_pkg launch] Failed to parse {config_path}: {e}")
+        return {}
 
 def _create_nodes(context, *args, **kwargs):
     # read launch configs
@@ -17,14 +29,22 @@ def _create_nodes(context, *args, **kwargs):
 
     pkg = get_package_share_directory('thruster_pkg')
 
+    config_path = os.path.join(pkg, 'config', 'thruster_config.yaml')
+    config = load_yaml(config_path)
+    thrusters = config.get('thrusters', [])
+    if (count > len(thrusters)):
+        print(f"[thruster_pkg launch] Warning: Requested {count} thrusters, but only {len(thrusters)} defined in config. Launching {len(thrusters)} thruster nodes.")
+        count = len(thrusters)
+
     nodes = []
     for i in range(count):
+        channel = thrusters[i].get('channel')
         name = f"{base_name}_{i}"
         params = {
             'topic': f'/thruster/{base_name}_{i}',
             'i2c_bus': i2c_bus,
             'i2c_address': i2c_address,
-            'channel': i,
+            'channel': channel,
             'simulate': simulate,
         }
         nodes.append(
