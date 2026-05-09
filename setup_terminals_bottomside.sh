@@ -20,6 +20,14 @@ WS="$HOME/nuwave-rov"
 REMOTE_HOST="${ROV_HOST:-rov}"
 REMOTE_WS="${ROV_REMOTE_WS:-/home/nuwave-rov/nuwave-rov}"
 
+# ROS environment (must match topside for cross-machine discovery)
+ROS_DOMAIN_ID="${ROS_DOMAIN_ID:-1}"
+ROS_LOCALHOST_ONLY="${ROS_LOCALHOST_ONLY:-0}"
+
+# SSH multiplexing (one auth, faster pane spawn)
+CTRL_PATH="/tmp/ssh-rov-%r@%h:%p"
+SSH_OPTS="-o ControlMaster=auto -o ControlPath=$CTRL_PATH -o ControlPersist=10m"
+
 SKIP_BUILD=false
 USE_SSH=false
 
@@ -44,6 +52,12 @@ Options:
           ROV_HOST=user@host ROV_REMOTE_WS=/path/to/ws ./$(basename "$0") -s
   -h    Show this help menu
 
+Environment overrides:
+  ROS_DOMAIN_ID       (default: 1) must match topside
+  ROS_LOCALHOST_ONLY  (default: 0) must be 0 for cross-machine discovery
+  ROV_HOST            (default: rov) SSH alias or user@host
+  ROV_REMOTE_WS       (default: /home/nuwave-rov/nuwave-rov) workspace path on ROV
+
 Examples:
   ./$(basename "$0")          # Local: build and launch
   ./$(basename "$0") -d       # Local: skip build, just launch
@@ -63,6 +77,11 @@ done
 
 if [ "$USE_SSH" = true ]; then
     echo "Starting bottomside setup over SSH ($REMOTE_HOST)..."
+    echo "  ROS_DOMAIN_ID=$ROS_DOMAIN_ID  ROS_LOCALHOST_ONLY=$ROS_LOCALHOST_ONLY"
+
+    # Open the master connection up front so the build and panes share it
+    ssh $SSH_OPTS -fN "$REMOTE_HOST" \
+        || { echo "Failed to open SSH master connection to $REMOTE_HOST"; exit 1; }
 
     if [ "$SKIP_BUILD" = false ]; then
         echo "Running colcon build on $REMOTE_HOST..."
@@ -71,9 +90,15 @@ if [ "$USE_SSH" = true ]; then
             || { echo "colcon build failed on remote!"; exit 1; }
     fi
 
-    SETUP="source /opt/ros/humble/setup.bash && cd $REMOTE_WS && source $REMOTE_WS/venv/bin/activate && source $REMOTE_WS/install/setup.bash"
+    # Source ROS + workspace and set domain/localhost env, since non-interactive shell won't have these by default
+    SETUP="source /opt/ros/humble/setup.bash \
+        && cd $REMOTE_WS \
+        && source $REMOTE_WS/venv/bin/activate \
+        && source $REMOTE_WS/install/setup.bash \
+        && export ROS_DOMAIN_ID=$ROS_DOMAIN_ID \
+        && export ROS_LOCALHOST_ONLY=$ROS_LOCALHOST_ONLY"
 
-    wrap_ssh() { echo "ssh -t $REMOTE_HOST \"$1; exec bash -i\""; }
+    wrap_ssh() { echo "ssh -t $SSH_OPTS $REMOTE_HOST \"$1; exec bash -i\""; }
 
     MULTI_THRUSTER_LAUNCH=$(wrap_ssh "$SETUP && ros2 launch thruster_pkg multi_thruster.launch.py")
     MULTI_ARM_LAUNCH=$(wrap_ssh      "$SETUP && ros2 launch thruster_pkg multi_arm_motor.launch.py")
@@ -83,7 +108,7 @@ if [ "$USE_SSH" = true ]; then
     IMU_LAUNCH=$(wrap_ssh            "$SETUP && ros2 run imu_pkg imu_pub")
 else
     echo "Starting bottomside setup locally..."
-    echo "WS is $WS"
+    echo "  WS=$WS  ROS_DOMAIN_ID=$ROS_DOMAIN_ID  ROS_LOCALHOST_ONLY=$ROS_LOCALHOST_ONLY"
     cd "$WS" && source "$WS/venv/bin/activate"
 
     if [ "$SKIP_BUILD" = false ]; then
@@ -95,7 +120,11 @@ else
         fi
     fi
 
-    SETUP="cd $WS && source $WS/venv/bin/activate && source $WS/install/setup.bash"
+    SETUP="cd $WS \
+        && source $WS/venv/bin/activate \
+        && source $WS/install/setup.bash \
+        && export ROS_DOMAIN_ID=$ROS_DOMAIN_ID \
+        && export ROS_LOCALHOST_ONLY=$ROS_LOCALHOST_ONLY"
 
     MULTI_THRUSTER_LAUNCH="$SETUP && ros2 launch thruster_pkg multi_thruster.launch.py"
     MULTI_ARM_LAUNCH="$SETUP && ros2 launch thruster_pkg multi_arm_motor.launch.py"
