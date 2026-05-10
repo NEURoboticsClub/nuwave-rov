@@ -104,7 +104,7 @@ if [ "$USE_SSH" = true ]; then
     MULTI_ARM_LAUNCH=$(wrap_ssh      "$SETUP && ros2 launch thruster_pkg multi_arm_motor.launch.py")
     POWER_MONITOR_LAUNCH=$(wrap_ssh  "$SETUP && ros2 launch power_monitor_pkg multi_power_monitor.launch.py")
     DEPTH_SENSOR_LAUNCH=$(wrap_ssh   "$SETUP && ros2 run rov_depth_sensor depth_sensor_node")
-    CAMERA_LAUNCH=$(wrap_ssh         "$SETUP && ros2 run camera_pkg camera_publisher --ros-args -p camera_id:=0")
+    CAMERA_LAUNCH=$(wrap_ssh         "$SETUP && ros2 launch camera_pkg multi_camera_launch.launch.py")
     IMU_LAUNCH=$(wrap_ssh            "$SETUP && ros2 run imu_pkg imu_pub")
 else
     echo "Starting bottomside setup locally..."
