@@ -35,6 +35,7 @@ class ThrusterNode(Node):
         self.declare_parameter('update_rate_hz', 50.0)        # write rate to the hat
         self.declare_parameter('watchdog_timeout_s', 0.5)     # neutral if no msg in this time
         self.declare_parameter('simulate', False)
+        self.declare_parameter('slew_us_per_s', 750.0)
         # Read Params
         topic = self.get_parameter('topic').get_parameter_value().string_value
         bus = self.get_parameter('i2c_bus').value

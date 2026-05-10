@@ -25,9 +25,11 @@ def _create_nodes(context, *args, **kwargs):
     i2c_address = int(LaunchConfiguration('i2c_address').perform(context))
     pkg = get_package_share_directory('thruster_pkg')
 
-    config_run_path = os.path.join(pkg, 'config', 'thruster_run_config.yaml')
+    simulate = LaunchConfiguration('simulate').perform(context).lower() in ('true', '1', 'yes')
+
+    config_run_path = os.path.join(pkg, 'config', 'arm_motor_run_config.yaml')
     run_config = load_yaml(config_run_path)
-    slew_rate_us_per_s = run_config.get('slew_us_per_s')
+    slew_rate_us_per_s = run_config.get('thruster_node', []).get('ros__parameters', []).get('slew_us_per_s')
 
     nodes = []
     for i in range(count):
@@ -37,6 +39,7 @@ def _create_nodes(context, *args, **kwargs):
             'i2c_bus': i2c_bus,
             'i2c_address': i2c_address,
             'channel': 8 + i,
+            'simulate': simulate,
             'slew_rate_us_per_s' : slew_rate_us_per_s,
         }
         nodes.append(
@@ -57,5 +60,6 @@ def generate_launch_description():
         DeclareLaunchArgument('base_name', default_value='arm_motor', description='Base name for thruster nodes'),
         DeclareLaunchArgument('i2c_bus', default_value='7', description='I2C bus number for PCA9685'),
         DeclareLaunchArgument('i2c_address', default_value='64', description='I2C address (decimal) for PCA9685'),
+        DeclareLaunchArgument('simulate', default_value='false', description='If true, skip PCA9685 init'),
         OpaqueFunction(function=_create_nodes)
     ])

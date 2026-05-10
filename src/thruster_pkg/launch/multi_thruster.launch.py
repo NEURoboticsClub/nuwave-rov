@@ -37,7 +37,7 @@ def _create_nodes(context, *args, **kwargs):
 
     thrusters = config.get('thrusters', [])
     # Temp Fix, ideally we have a nicer config situation
-    slew_rate_us_per_s = run_config.get('slew_us_per_s')
+    slew_rate_us_per_s = run_config.get('thruster_node', []).get('ros__parameters', []).get('slew_us_per_s')
     if (count > len(thrusters)):
         print(f"[thruster_pkg launch] Warning: Requested {count} thrusters, but only {len(thrusters)} defined in config. Launching {len(thrusters)} thruster nodes.")
         count = len(thrusters)
