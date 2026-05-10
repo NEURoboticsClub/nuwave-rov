@@ -34,7 +34,6 @@ class ThrusterNode(Node):
         self.declare_parameter('max_abs_cmd', 0.8)            # safety clamp
         self.declare_parameter('update_rate_hz', 50.0)        # write rate to the hat
         self.declare_parameter('watchdog_timeout_s', 0.5)     # neutral if no msg in this time
-        self.declare_parameter('slew_us_per_s', 750.0)       # 0 to disable rate limit; else max change per sec
         self.declare_parameter('simulate', False)
         # Read Params
         topic = self.get_parameter('topic').get_parameter_value().string_value
@@ -42,6 +41,8 @@ class ThrusterNode(Node):
         addr = self.get_parameter('i2c_address').value
         self.channel = self.get_parameter('channel').value
         self.pwm_freq = self.get_parameter('pwm_freq_hz').value
+
+        self.slew_us_per_s = self.get_parameter('slew_us_per_s').value
         
         self.neutral_us = self.get_parameter('neutral_us').value
         self.min_us = self.get_parameter('min_us').value
@@ -52,7 +53,6 @@ class ThrusterNode(Node):
         self.watchdog_timeout = Duration(
                 seconds=self.get_parameter('watchdog_timeout_s').value
                 )
-        self.slew_us_per_s = self.get_parameter('slew_us_per_s').value
         self.simulate = self.get_parameter('simulate').value
         print("Slew rate (us/s):", self.slew_us_per_s)
         # Derived Vals

@@ -29,9 +29,15 @@ def _create_nodes(context, *args, **kwargs):
 
     pkg = get_package_share_directory('thruster_pkg')
 
-    config_path = os.path.join(pkg, 'config', 'thruster_channel_config.yaml')
-    config = load_yaml(config_path)
+    config_channel_path = os.path.join(pkg, 'config', 'thruster_channel_config.yaml')
+    config_run_path = os.path.join(pkg, 'config', 'thruster_run_config.yaml')
+
+    config = load_yaml(config_channel_path)
+    run_config = load_yaml(config_run_path)
+
     thrusters = config.get('thrusters', [])
+    # Temp Fix, ideally we have a nicer config situation
+    slew_rate_us_per_s = run_config.get('slew_us_per_s')
     if (count > len(thrusters)):
         print(f"[thruster_pkg launch] Warning: Requested {count} thrusters, but only {len(thrusters)} defined in config. Launching {len(thrusters)} thruster nodes.")
         count = len(thrusters)
@@ -46,6 +52,7 @@ def _create_nodes(context, *args, **kwargs):
             'i2c_address': i2c_address,
             'channel': channel,
             'simulate': simulate,
+            'slew_rate_us_per_s' : slew_rate_us_per_s,
         }
         nodes.append(
             Node(

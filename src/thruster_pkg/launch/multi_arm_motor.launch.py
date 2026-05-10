@@ -4,6 +4,7 @@ from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
 from ament_index_python.packages import get_package_share_directory
 import os
+import yaml
 
 
 def _create_nodes(context, *args, **kwargs):
@@ -14,6 +15,10 @@ def _create_nodes(context, *args, **kwargs):
     i2c_address = int(LaunchConfiguration('i2c_address').perform(context))
     pkg = get_package_share_directory('thruster_pkg')
 
+    config_run_path = os.path.join(pkg, 'config', 'thruster_run_config.yaml')
+    run_config = load_yaml(config_run_path)
+    slew_rate_us_per_s = run_config.get('slew_us_per_s')
+
     nodes = []
     for i in range(count):
         name = f"{base_name}_{i}"
@@ -22,6 +27,7 @@ def _create_nodes(context, *args, **kwargs):
             'i2c_bus': i2c_bus,
             'i2c_address': i2c_address,
             'channel': 8 + i,
+            'slew_rate_us_per_s' : slew_rate_us_per_s,
         }
         nodes.append(
             Node(
