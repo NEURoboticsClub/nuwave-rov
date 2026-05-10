@@ -32,7 +32,7 @@ def controller_node(executor):
     Import here so rclpy.init() has already run.
     """
     # Adjust this import path to match your package layout
-    from controller.new_thruster_controller_node import ThrusterController
+    from controller.controller.thruster_controller_node import ThrusterController
     node = ThrusterController()
     executor.add_node(node)
     yield node

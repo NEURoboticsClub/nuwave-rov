@@ -8,7 +8,7 @@
 thruster_control:
   - axis: "strafe"
     input: 0
-    invert: false
+    invert: true
     sensitivity: 1
     scale: "linear"
 
@@ -26,7 +26,7 @@ thruster_control:
   
   - axis: "pitch"
     input: 4
-    invert: false
+    invert: true
     sensitivity: 1
     scale: "linear"
 
@@ -47,11 +47,11 @@ thruster_control:
     invert: false
 
   - button: "roll_left"
-    input: 9
+    input: 4
     invert: false
 
   - button: "roll_right"
-    input: 10
+    input: 5
     invert: false
 
 

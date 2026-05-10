@@ -1,10 +1,55 @@
+/**
+ * publishes button values to /gui_buttons/
+ *  - scan_crabs: toggles crab scanning mode
+ *  - photogrammetry: toggles photogrammetry mode
+ *  - measure_iceberg: triggers iceberg measurement sequence
+ */
+
+
 const dashboard = {
     meters: new Map(),
+    thrusterMeters: new Map(),
+    armMeters: new Map(),
     sparkline: null,
     cameras: new Map(),
     thrusterViz: null,
     model3d: null,
 };
+
+function publishMessage(topic, data) {
+    if (typeof window.ws !== 'undefined' && window.ws && window.ws.send) {
+        const message = JSON.stringify({ topic, data });
+        window.ws.send(message);
+    }
+}
+
+function downloadAllCameraScreenshots() {
+    const timestamp = Date.now();
+    for (let cameraId = 0; cameraId < 4; cameraId++) {
+        const camera = dashboard.cameras.get(cameraId);
+        if (!camera || !camera.canvas) {
+            console.warn(`Camera ${cameraId} not available for screenshot`);
+            continue;
+        }
+
+        const canvas = camera.canvas;
+        canvas.toBlob((blob) => {
+            if (!blob) {
+                console.error(`Failed to create blob from camera ${cameraId}`);
+                return;
+            }
+
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `camera${cameraId}_${timestamp}.png`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+        }, 'image/png');
+    }
+}
 
 function clamp(value, min, max) {
     return Math.min(max, Math.max(min, value));
@@ -112,6 +157,61 @@ function registerMeter(options) {
         format: options.format,
         lastSeen: 0,
     });
+}
+
+function registerDualMeter(parent, key, label, collection) {
+    const card = document.createElement("div");
+    card.className = "thruster-meter"; // reusing the CSS classes since they fit
+
+    const head = document.createElement("div");
+    head.className = "row__head";
+
+    const name = document.createElement("span");
+    name.className = "row__label";
+    name.textContent = label;
+
+    const targetDisplay = document.createElement("span");
+    targetDisplay.className = "thruster-meter__target-display";
+    targetDisplay.textContent = "TARGET --";
+
+    const value = document.createElement("span");
+    value.className = "row__value";
+    value.textContent = "RESP --";
+
+    head.append(name, targetDisplay, value);
+
+    const track = document.createElement("div");
+    track.className = "thruster-meter__track";
+
+    const responseFill = document.createElement("div");
+    responseFill.className = "thruster-meter__response";
+
+    const targetMarker = document.createElement("div");
+    targetMarker.className = "thruster-meter__target";
+
+    track.append(responseFill, targetMarker);
+
+    card.append(head, track);
+    parent.appendChild(card);
+
+    collection.set(key, {
+        card,
+        value,
+        responseFill,
+        targetMarker,
+        targetDisplay,
+        min: 1000,
+        max: 2000,
+        lastSeen: 0,
+    });
+}
+
+function registerThrusterMeter(parent, key, label) {
+    registerDualMeter(parent, key, label, dashboard.thrusterMeters);
+}
+
+function registerArmMeter(parent, key, label) {
+    registerDualMeter(parent, key, label, dashboard.armMeters);
 }
 
 function registerTableMeter(parent, key, label, format) {
@@ -247,21 +347,13 @@ function registerVerticalMeter(parent, key, label, options) {
 
 function buildThrusterPanel() {
     const panel = createPanel("Thrusters", "/thruster/thruster_i");
+    panel.id = "panel-thrusters";
     const grid = document.createElement("div");
     grid.className = "compact-grid";
     panel.appendChild(grid);
 
     for (let i = 0; i < 8; i++) {
-        registerMeter({
-            parent: grid,
-            key: `thruster_${i}`,
-            label: `T${i}`,
-            min: 1000,
-            max: 2000,
-            bar: true,
-            placeholder: "1500 us",
-            format: (v) => `${v.toFixed(0)} us`,
-        });
+        registerThrusterMeter(grid, `thruster_${i}`, `T${i}`);
     }
 
     const vizCard = document.createElement("div");
@@ -308,6 +400,57 @@ function buildThrusterPanel() {
 
     drawThrusterViz();
     drawUpMotorViz();
+}
+
+function updateDualMeter(meter, kind, rawValue, isThruster = false, key = "") {
+    if (!meter || typeof rawValue !== "number" || Number.isNaN(rawValue)) {
+        return;
+    }
+
+    const range = meter.max - meter.min || 1;
+    const normalised = clamp((rawValue - meter.min) / range, 0, 1);
+
+    meter.lastSeen = Date.now();
+    meter.card.classList.remove("is-stale");
+
+    if (kind === "response") {
+        meter.responseFill.style.width = `${normalised * 100}%`;
+        setText(meter.value, `RESP ${rawValue.toFixed(0)} us`);
+        
+        // Update visualization for response values (which represent actual thrust)
+        if (isThruster && dashboard.thrusterViz) {
+            const thrusterId = Number(key.split("_")[1]);
+            if (!Number.isNaN(thrusterId) && thrusterId >= 0 && thrusterId < 4) {
+                dashboard.thrusterViz.xValues[thrusterId] = rawValue;
+                drawThrusterViz();
+            } else if (!Number.isNaN(thrusterId) && thrusterId >= 4 && thrusterId < 8) {
+                dashboard.thrusterViz.upValues[thrusterId - 4] = rawValue;
+                drawUpMotorViz();
+            }
+        }
+        return;
+    }
+
+    if (kind === "target") {
+        meter.targetMarker.style.left = `${normalised * 100}%`;
+        setText(meter.targetDisplay, `TARGET ${rawValue.toFixed(0)} us`);
+    }
+}
+
+function updateThrusterMeter(key, kind, rawValue) {
+    updateDualMeter(dashboard.thrusterMeters.get(key), kind, rawValue, true, key);
+}
+
+function updateArmMeter(key, kind, rawValue) {
+    updateDualMeter(dashboard.armMeters.get(key), kind, rawValue, false, key);
+}
+
+function updateThrusterMeter(key, kind, rawValue) {
+    updateDualMeter(dashboard.thrusterMeters.get(key), kind, rawValue, true, key);
+}
+
+function updateArmMeter(key, kind, rawValue) {
+    updateDualMeter(dashboard.armMeters.get(key), kind, rawValue, false, key);
 }
 
 function drawThrusterArrow(context, x, y, dx, dy, color) {
@@ -473,6 +616,7 @@ function drawUpMotorViz() {
 
 function buildPowerPanel() {
     const panel = createPanel("Power", "/power_monitor/monitor_i/*");
+    panel.id = "panel-power";
     const grid = document.createElement("div");
     grid.className = "power-grid";
 
@@ -527,27 +671,93 @@ function buildPowerPanel() {
 }
 
 function buildArmPanel() {
-    const panel = createPanel("Arm Motors", "/arm/arm_motor_i");
-    const grid = document.createElement("div");
-    grid.className = "compact-grid";
-    panel.appendChild(grid);
+    const panel = createPanel("", "");
+    panel.id = "panel-arm";
+    const layout = document.createElement("div");
+    layout.className = "arm-layout";
+    panel.appendChild(layout);
+
+    const buttonsSection = document.createElement("div");
+    buttonsSection.className = "arm-section arm-section--buttons";
+
+    const buttonsTitle = document.createElement("div");
+    buttonsTitle.className = "arm-section__title";
+    buttonsTitle.textContent = "Buttons";
+    buttonsSection.appendChild(buttonsTitle);
+
+    const buttonGrid = document.createElement("div");
+    buttonGrid.className = "test-button-grid";
+
+    const buttonConfigs = [
+        { label: "Scan Crabs", toggle: true, topic: "/gui_buttons/scan_crabs" },
+        { label: "Take Screenshot", toggle: false, action: "screenshot" },
+        { label: "Photogrammetry", toggle: true, topic: "/gui_buttons/photogrammetry" },
+        { label: "Measure Iceberg", toggle: false, action: "measure_iceberg" },
+        { label: "Quad Cam", toggle: true, action: "toggle_quad_cam" },
+    ];
+
+    for (const config of buttonConfigs) {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "test-button-grid__button";
+        button.textContent = config.label;
+
+        if (config.toggle && config.topic) {
+            button.classList.add("test-button-grid__button--toggle");
+            button.setAttribute("aria-pressed", "false");
+            button.addEventListener("click", () => {
+                const isPressed = button.classList.toggle("is-active");
+                button.setAttribute("aria-pressed", String(isPressed));
+                publishMessage(config.topic, isPressed);
+            });
+        } else if (config.action === "screenshot") {
+            button.addEventListener("click", downloadAllCameraScreenshots);
+        } else if (config.action === "measure_iceberg") {
+            button.addEventListener("click", () => {
+                publishMessage("/gui_buttons/measure_iceberg", "pressed");
+            });
+        } else if (config.action === "toggle_quad_cam") {
+            button.classList.add("test-button-grid__button--toggle");
+            button.setAttribute("aria-pressed", "false");
+            button.addEventListener("click", () => {
+                const isPressed = button.classList.toggle("is-active");
+                button.setAttribute("aria-pressed", String(isPressed));
+                const dashboardEl = document.getElementById("dashboard");
+                if (isPressed) {
+                    dashboardEl.classList.add("quad-mode");
+                } else {
+                    dashboardEl.classList.remove("quad-mode");
+                }
+            });
+        }
+
+        buttonGrid.appendChild(button);
+    }
+
+    buttonsSection.appendChild(buttonGrid);
+
+    const motorsSection = document.createElement("div");
+    motorsSection.className = "arm-section arm-section--motors";
+
+    const motorsTitle = document.createElement("div");
+    motorsTitle.className = "arm-section__title";
+    motorsTitle.textContent = "Arm Motors";
+    motorsSection.appendChild(motorsTitle);
+
+    const motorsGrid = document.createElement("div");
+    motorsGrid.className = "compact-grid arm-section__grid";
+    motorsSection.appendChild(motorsGrid);
+
+    layout.append(buttonsSection, motorsSection);
 
     for (let i = 0; i < 6; i++) {
-        registerMeter({
-            parent: grid,
-            key: `arm_motor_${i}`,
-            label: `A${i}`,
-            min: 1000,
-            max: 2000,
-            bar: true,
-            placeholder: "1500 us",
-            format: (v) => `${v.toFixed(0)} us`,
-        });
+        registerArmMeter(motorsGrid, `arm_motor_${i}`, `A${i}`);
     }
 }
 
 function buildDepthPanel() {
     const panel = createPanel("Depth", "/depth/*");
+    panel.id = "panel-depth";
     const grid = document.createElement("div");
     grid.className = "depth-grid";
 
@@ -617,44 +827,9 @@ function buildDepthPanel() {
     panel.appendChild(grid);
 }
 
-function buildCommandsPanel() {
-    const panel = createPanel("Commands", "/velocity_commands + /arm_commands");
-    const wrap = document.createElement("div");
-    wrap.className = "commands-wrap";
-
-    const twistCol = document.createElement("div");
-    twistCol.className = "commands-col";
-
-    const twistTitle = document.createElement("div");
-    twistTitle.className = "matrix__head";
-    twistTitle.textContent = "Twist";
-    twistCol.appendChild(twistTitle);
-
-    registerSignedBarMeter(twistCol, "velocity_linear_x", "Lin X");
-    registerSignedBarMeter(twistCol, "velocity_linear_y", "Lin Y");
-    registerSignedBarMeter(twistCol, "velocity_linear_z", "Lin Z");
-    registerSignedBarMeter(twistCol, "velocity_angular_x", "Ang X");
-    registerSignedBarMeter(twistCol, "velocity_angular_y", "Ang Y");
-    registerSignedBarMeter(twistCol, "velocity_angular_z", "Ang Z");
-
-    const armCol = document.createElement("div");
-    armCol.className = "commands-col";
-
-    const armTitle = document.createElement("div");
-    armTitle.className = "matrix__head";
-    armTitle.textContent = "Arm Commands";
-    armCol.appendChild(armTitle);
-
-    for (let i = 0; i < 6; i++) {
-        registerSignedBarMeter(armCol, `arm_commands_${i}`, `Arm ${i}`);
-    }
-
-    wrap.append(twistCol, armCol);
-    panel.appendChild(wrap);
-}
-
 function buildCameraPanel() {
     const panel = createPanel("Cameras", "/camera_0..3/image/compressed");
+    panel.id = "panel-cameras";
     const wrap = document.createElement("div");
     wrap.className = "camera-wrap";
 
@@ -673,6 +848,18 @@ function buildCameraPanel() {
 
         card.append(title, canvas);
         wrap.appendChild(card);
+
+        card.style.cursor = "pointer";
+        card.addEventListener("click", () => {
+            const dashboardEl = document.getElementById("dashboard");
+            if (dashboardEl.classList.contains("cinema-mode")) {
+                dashboardEl.classList.remove("cinema-mode");
+                card.classList.remove("camera-card--cinema");
+            } else {
+                dashboardEl.classList.add("cinema-mode");
+                card.classList.add("camera-card--cinema");
+            }
+        });
 
         dashboard.cameras.set(cameraId, {
             card,
@@ -697,7 +884,7 @@ function normalizeLoadedModel(THREE, root) {
     root.position.y += 0.15;
 }
 
-function loadRovModel(THREE, modelPath = "robot.glb") {
+function loadRovModel(THREE, modelPath = "/static/robot.glb") {
     const GLTFLoader = window.THREE_GLTFLoader;
     if (!GLTFLoader) {
         return Promise.reject(new Error("GLTFLoader not available"));
@@ -911,6 +1098,7 @@ function updateModelOrientation(rollOrOrientation, pitch, yaw, unit = "rad") {
 
 function buildModelPanel() {
     const panel = createPanel("IMU", "/imu");
+    panel.id = "panel-model";
     const wrap = document.createElement("div");
     wrap.className = "model3d-wrap";
 
@@ -1026,15 +1214,15 @@ function buildModelPanel() {
     dashboard.model3d.camera = camera;
     dashboard.model3d.model = null;
 
-    loadRovModel(THREE, "robot.glb")
+    loadRovModel(THREE)
         .then((model) => {
             dashboard.model3d.model = model;
             scene.add(model);
             applyModelOrientation();
         })
         .catch((error) => {
-            setText(dashboard.model3d.readout, "Failed to load robot.glb");
-            console.error("Failed to load robot.glb", error);
+            setText(dashboard.model3d.readout, "Failed to load /static/robot.glb");
+            console.error("Failed to load /static/robot.glb", error);
         });
 
     const renderLoop = () => {
@@ -1057,6 +1245,7 @@ function buildModelPanel() {
 }
 
 window.updateModelOrientation = updateModelOrientation;
+window.updateThrusterMeter = updateThrusterMeter;
 
 function updateMeter(key, rawValue) {
     const meter = dashboard.meters.get(key);
@@ -1068,17 +1257,6 @@ function updateMeter(key, rawValue) {
     setText(meter.value, formatted);
     meter.lastSeen = Date.now();
     meter.row.classList.remove("is-stale");
-
-    if (key.startsWith("thruster_") && dashboard.thrusterViz) {
-        const thrusterId = Number(key.split("_")[1]);
-        if (!Number.isNaN(thrusterId) && thrusterId >= 0 && thrusterId < 4) {
-            dashboard.thrusterViz.xValues[thrusterId] = rawValue;
-            drawThrusterViz();
-        } else if (!Number.isNaN(thrusterId) && thrusterId >= 4 && thrusterId < 8) {
-            dashboard.thrusterViz.upValues[thrusterId - 4] = rawValue;
-            drawUpMotorViz();
-        }
-    }
 
     if (meter.fill) {
         const range = meter.max - meter.min || 1;
@@ -1111,6 +1289,15 @@ function updateSparkline(key, values) {
     }
 
     const canvas = dashboard.sparkline.canvas;
+    const latest = values[values.length - 1];
+
+    if (canvas.clientWidth === 0 || canvas.clientHeight === 0) {
+        setText(dashboard.sparkline.value, `${latest.toFixed(2)} m`);
+        dashboard.sparkline.lastSeen = Date.now();
+        dashboard.sparkline.row.classList.remove("is-stale");
+        return; // Skip rendering and resizing if canvas is hidden
+    }
+
     const context = canvas.getContext("2d");
     const fixedMin = 0;
     const fixedMax = 5;
@@ -1161,7 +1348,6 @@ function updateSparkline(key, values) {
     });
     context.stroke();
 
-    const latest = values[values.length - 1];
     const latestNorm = clamp((latest - fixedMin) / (fixedMax - fixedMin), 0, 1);
     const latestY = topPad + latestNorm * graphH;
 
@@ -1222,6 +1408,16 @@ function refreshStaleState() {
     dashboard.meters.forEach((meter) => {
         if (!meter.lastSeen || now - meter.lastSeen > staleMs) {
             meter.row.classList.add("is-stale");
+        } else {
+            meter.row.classList.remove("is-stale");
+        }
+    });
+
+    dashboard.thrusterMeters.forEach((meter) => {
+        if (!meter.lastSeen || now - meter.lastSeen > staleMs) {
+            meter.card.classList.add("is-stale");
+        } else {
+            meter.card.classList.remove("is-stale");
         }
     });
 
@@ -1252,10 +1448,48 @@ function buildDashboard() {
     buildPowerPanel();
     buildArmPanel();
     buildDepthPanel();
-    // buildCommandsPanel();
     buildCameraPanel();
     buildModelPanel();
 }
 
 buildDashboard();
 setInterval(refreshStaleState, 1000);
+
+document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") {
+        const dashboardEl = document.getElementById("dashboard");
+        if (dashboardEl && dashboardEl.classList.contains("cinema-mode")) {
+            dashboardEl.classList.remove("cinema-mode");
+            document.querySelectorAll(".camera-card--cinema").forEach(card => {
+                card.classList.remove("camera-card--cinema");
+            });
+        }
+        else if (dashboardEl && dashboardEl.classList.contains("quad-mode")) {
+            dashboardEl.classList.remove("quad-mode");
+            // Find the untoggle button and update its state
+            const quadButton = Array.from(document.querySelectorAll(".test-button-grid__button")).find(btn => btn.textContent === "Quad Cam");
+            if (quadButton && quadButton.classList.contains("is-active")) {
+                quadButton.classList.remove("is-active");
+                quadButton.setAttribute("aria-pressed", "false");
+            }
+        }
+    }
+    if (e.key === "q" || e.key === "Q") {
+        const dashboardEl = document.getElementById("dashboard");
+        if (dashboardEl) {
+            dashboardEl.classList.toggle("quad-mode");
+            // Find the toggle button and update its state
+            const quadButton = Array.from(document.querySelectorAll(".test-button-grid__button")).find(btn => btn.textContent === "Quad Cam");
+            if (quadButton) {
+                const isActive = dashboardEl.classList.contains("quad-mode");
+                if (isActive) {
+                    quadButton.classList.add("is-active");
+                } else {
+                    quadButton.classList.remove("is-active");
+                }
+                quadButton.setAttribute("aria-pressed", String(isActive));
+            }
+        }
+    }
+});
+

@@ -12,7 +12,6 @@ setup(
         ('share/' + package_name, ['package.xml']),
         ('share/' + package_name + '/config', [
             'config/thruster_config.yaml',
-            'config/new_thruster_config.yaml',
         ]),
     ],
     install_requires=['setuptools'],
@@ -24,7 +23,7 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-            'thruster_controller_node=controller.new_thruster_controller_node:main'
+            'thruster_controller_node=controller.thruster_controller_node:main'
         ],
     },
 )

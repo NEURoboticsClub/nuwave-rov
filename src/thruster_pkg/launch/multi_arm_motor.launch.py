@@ -4,7 +4,18 @@ from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
 from ament_index_python.packages import get_package_share_directory
 import os
+import yaml
 
+def load_yaml(config_path: str) -> dict:
+    if not os.path.exists(config_path):
+        print(f"[thruster_pkg launch] Config file not found: {config_path}")
+        return {}
+    try:
+        with open(config_path, 'r') as f:
+            return yaml.safe_load(f) or {}
+    except yaml.YAMLError as e:
+        print(f"[thruster_pkg launch] Failed to parse {config_path}: {e}")
+        return {}
 
 def _create_nodes(context, *args, **kwargs):
     # read launch configs
@@ -14,6 +25,12 @@ def _create_nodes(context, *args, **kwargs):
     i2c_address = int(LaunchConfiguration('i2c_address').perform(context))
     pkg = get_package_share_directory('thruster_pkg')
 
+    simulate = LaunchConfiguration('simulate').perform(context).lower() in ('true', '1', 'yes')
+
+    config_run_path = os.path.join(pkg, 'config', 'arm_motor_run_config.yaml')
+    run_config = load_yaml(config_run_path)
+    slew_rate_us_per_s = run_config.get('thruster_node', []).get('ros__parameters', []).get('slew_us_per_s')
+
     nodes = []
     for i in range(count):
         name = f"{base_name}_{i}"
@@ -22,11 +39,13 @@ def _create_nodes(context, *args, **kwargs):
             'i2c_bus': i2c_bus,
             'i2c_address': i2c_address,
             'channel': 8 + i,
+            'simulate': simulate,
+            'slew_rate_us_per_s' : slew_rate_us_per_s,
         }
         nodes.append(
             Node(
                 package='thruster_pkg',
-                executable='new_thruster_node',
+                executable='thruster_node',
                 name=name,
                 parameters=[params],
                 output='screen'
@@ -41,5 +60,6 @@ def generate_launch_description():
         DeclareLaunchArgument('base_name', default_value='arm_motor', description='Base name for thruster nodes'),
         DeclareLaunchArgument('i2c_bus', default_value='7', description='I2C bus number for PCA9685'),
         DeclareLaunchArgument('i2c_address', default_value='64', description='I2C address (decimal) for PCA9685'),
+        DeclareLaunchArgument('simulate', default_value='false', description='If true, skip PCA9685 init'),
         OpaqueFunction(function=_create_nodes)
     ])

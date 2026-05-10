@@ -82,10 +82,20 @@ class Houston(Node):
                 invert = bool(cfg.get("invert", False))
                 sensitivity = float(cfg.get("sensitivity", 1.0))
                 scale = cfg.get("scale", "linear")
+                # Controller is NOISEY! Tune deadzone, so that stick drift still gives us neutral when we have it at rest
+                deadzone = float(cfg.get("deadzone", 0.07))
 
                 raw = msg.axes[axis_index] if axis_index < len(msg.axes) else 0.0
                 if invert:
                     raw *= -1.0
+                
+                # Deadzone processing
+                if abs(raw) < deadzone:
+                    raw = 0.0
+                else:
+                    # Deadzone rescaling, so it is still within the [-1, 1] range
+                    # This is so it doesn't go 0.0 to +- deadzone immediately.
+                    raw = (raw - np.sign(raw) * deadzone) / (1.0 - deadzone)
 
                 val = raw * sensitivity
 
@@ -113,13 +123,14 @@ class Houston(Node):
     def publish_twist(self, axis_values, button_values):
         """Publish the twist velocity command."""
         msg = Twist()
-        msg.angular.y = float(axis_values['pitch'])
+        msg.angular.x = float(axis_values['pitch'])
+        msg.angular.y = float(button_values['roll_right']) - float(button_values['roll_left'])
         msg.angular.z = float(axis_values['yaw'])
-        msg.angular.x = float(button_values['roll_right']) - float(button_values['roll_left'])
 
-        msg.linear.x = float(axis_values['drive_forward'])
-        msg.linear.y = float(axis_values['strafe'])
-        msg.linear.z = float(axis_values['up']) - float(axis_values['down'])
+
+        msg.linear.x = float(axis_values['strafe'])
+        msg.linear.y = float(axis_values['drive_forward'])
+        msg.linear.z = (float(axis_values['up']) - float(axis_values['down'])) * 0.5
 
         self.twist_pub.publish(msg)
 
