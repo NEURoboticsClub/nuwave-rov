@@ -6,6 +6,16 @@ from ament_index_python.packages import get_package_share_directory
 import os
 import yaml
 
+def load_yaml(config_path: str) -> dict:
+    if not os.path.exists(config_path):
+        print(f"[thruster_pkg launch] Config file not found: {config_path}")
+        return {}
+    try:
+        with open(config_path, 'r') as f:
+            return yaml.safe_load(f) or {}
+    except yaml.YAMLError as e:
+        print(f"[thruster_pkg launch] Failed to parse {config_path}: {e}")
+        return {}
 
 def _create_nodes(context, *args, **kwargs):
     # read launch configs
