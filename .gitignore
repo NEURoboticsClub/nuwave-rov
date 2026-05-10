@@ -12,6 +12,7 @@ __pycache__/
 venvs/
 venv/
 .venv/
+venv_old/
 
 *.py[cod]
 *$py.class
