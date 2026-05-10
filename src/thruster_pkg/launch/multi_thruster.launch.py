@@ -29,7 +29,7 @@ def _create_nodes(context, *args, **kwargs):
 
     pkg = get_package_share_directory('thruster_pkg')
 
-    config_path = os.path.join(pkg, 'config', 'thruster_config.yaml')
+    config_path = os.path.join(pkg, 'config', 'thruster_channel_config.yaml')
     config = load_yaml(config_path)
     thrusters = config.get('thrusters', [])
     if (count > len(thrusters)):
