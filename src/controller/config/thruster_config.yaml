@@ -16,6 +16,7 @@ thrusters:
     max_us: 1630
     neutral_us: 1530
     channel: 7
+    topic: /thruster/thruster_fll
 
   - id: 2
     name: front_right_lateral
@@ -25,6 +26,7 @@ thrusters:
     max_us: 1630
     neutral_us: 1530
     channel: 4
+    topic: /thruster/thruster_frl
 
   - id: 3
     name: rear_left_lateral
@@ -34,6 +36,7 @@ thrusters:
     max_us: 1630
     neutral_us: 1530
     channel: 1
+    topic: /thruster/thruster_rll
 
   - id: 4
     name: rear_right_lateral
@@ -43,24 +46,27 @@ thrusters:
     max_us: 1630
     neutral_us: 1530
     channel: 3
+    topic: /thruster/thruster_rrl
 
   - id: 5
-    name: forward_left_vertical
+    name: front_left_vertical
     position_m: [-0.2, 0.2, 0.0]
     direction: [0.0, 0.0, 1.0]
     min_us: 1430
     max_us: 1630
     neutral_us: 1530
     channel: 5
+    topic: /thruster/thruster_flv
 
   - id: 6
-    name: forward_right_vertical
+    name: front_right_vertical
     position_m: [0.2, 0.2, 0.0]
     direction: [0.0, 0.0, 1.0]
     min_us: 1430
     max_us: 1630
     neutral_us: 1530
     channel: 6
+    topic: /thruster/thruster_frv
 
   - id: 7
     name: rear_left_vertical
@@ -70,6 +76,7 @@ thrusters:
     max_us: 1630
     neutral_us: 1530
     channel: 0
+    topic: /thruster/thruster_rlv
 
   - id: 8
     name: rear_right_vertical
@@ -79,3 +86,4 @@ thrusters:
     max_us: 1630
     neutral_us: 1530
     channel: 2
+    topic: /thruster/thruster_rrv
