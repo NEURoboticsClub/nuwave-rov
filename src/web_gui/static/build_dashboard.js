@@ -926,7 +926,11 @@ function applyModelOrientation() {
     if (dashboard.model3d.model) {
         // GLB local axes are rotated relative to IMU axes.
         // Map IMU {roll, pitch, yaw} -> model {x, y, z} as {pitch, yaw, roll}.
-        dashboard.model3d.model.rotation.set(pitch, yaw, roll, "XYZ");
+        dashboard.model3d.model.rotation.set(pitch, 0, roll, "XYZ");
+    }
+
+    if (dashboard.model3d.grid) {
+        dashboard.model3d.grid.rotation.y = -yaw;
     }
 
     const toDeg = (radians) => radians * (180 / Math.PI);
@@ -1171,6 +1175,7 @@ function buildModelPanel() {
         camera: null,
         scene: null,
         model: null,
+        grid: null,
         animationFrame: 0,
     };
 
@@ -1191,13 +1196,13 @@ function buildModelPanel() {
     renderer.setClearColor(0x000000, 0);
 
     const scene = new THREE.Scene();
-    scene.add(new THREE.AmbientLight(0x9dbfdc, 0.55));
+    scene.add(new THREE.AmbientLight(0x9dbfdc, 5.95));
 
-    const keyLight = new THREE.DirectionalLight(0xcce7ff, 1.05);
+    const keyLight = new THREE.DirectionalLight(0xcce7ff, 12.05);
     keyLight.position.set(2.6, 2.2, 1.4);
     scene.add(keyLight);
 
-    const fillLight = new THREE.DirectionalLight(0x7fc2ff, 0.45);
+    const fillLight = new THREE.DirectionalLight(0x7fc2ff, 2.45);
     fillLight.position.set(-2.2, 1.2, -1.8);
     scene.add(fillLight);
 
@@ -1206,12 +1211,13 @@ function buildModelPanel() {
     scene.add(grid);
 
     const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 100);
-    camera.position.set(2.4, 1.8, 2.7);
+    camera.position.set(0, 1.8, -2.7);
     camera.lookAt(0, 0, 0);
 
     dashboard.model3d.renderer = renderer;
     dashboard.model3d.scene = scene;
     dashboard.model3d.camera = camera;
+    dashboard.model3d.grid = grid;
     dashboard.model3d.model = null;
 
     loadRovModel(THREE)
