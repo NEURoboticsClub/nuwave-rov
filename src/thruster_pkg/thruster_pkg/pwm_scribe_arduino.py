@@ -12,9 +12,9 @@ class PWMScribeArduino(PWMScribeBase):
         for pin in self.pin_map:
             self.board.digital[pin].mode = pyfirmata.SERVO
 
-    def set_pwm(self, channel: int, pulse_us: int):
+    def set_pwm(self, channel: int, angle_deg: int):
         pin = self.pin_map[channel]
-        self.board.digital[pin].write(pulse_us)
+        self.board.digital[pin].write(angle_deg)
 
     def shutdown(self):
         if self.board:

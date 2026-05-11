@@ -8,7 +8,7 @@ class PWMScribeHat(PWMScribeBase):
     def setup(self):
         ...
 
-    def set_pwm(self, channel: int, pulse_us: int):
+    def set_pwm(self, channel: int, angle_deg: int):
         ...
 
     def shutdown(self):
