@@ -2,8 +2,7 @@
 # - Direction is a unit vector indicating the force vector applied to the ROV when the motor is active
 # - Position is the location of the thruster relative to the ROV's center of mass, in meters
 
-
-# IMPORTANT!!! 
+# IMPORTANT!!!
 #   Ensure that the min_us and max_us are properly adjusted for to account for the found neutral offsets
 #   It is not automatic!
 
@@ -15,7 +14,7 @@ thrusters:
     min_us: 1130
     max_us: 1930
     neutral_us: 1530
-    channel: 7
+    channel: 2
 
   - id: 2
     name: front_right_lateral
@@ -24,7 +23,7 @@ thrusters:
     min_us: 1130
     max_us: 1930
     neutral_us: 1530
-    channel: 4
+    channel: 3
 
   - id: 3
     name: rear_left_lateral
@@ -33,7 +32,7 @@ thrusters:
     min_us: 1130
     max_us: 1930
     neutral_us: 1530
-    channel: 1
+    channel: 6
 
   - id: 4
     name: rear_right_lateral
@@ -42,7 +41,7 @@ thrusters:
     min_us: 1130
     max_us: 1930
     neutral_us: 1530
-    channel: 3
+    channel: 5
 
   - id: 5
     name: forward_left_vertical
@@ -51,7 +50,7 @@ thrusters:
     min_us: 1130
     max_us: 1930
     neutral_us: 1530
-    channel: 5
+    channel: 1
 
   - id: 6
     name: forward_right_vertical
@@ -60,7 +59,7 @@ thrusters:
     min_us: 1130
     max_us: 1930
     neutral_us: 1530
-    channel: 6
+    channel: 0
 
   - id: 7
     name: rear_left_vertical
@@ -69,7 +68,7 @@ thrusters:
     min_us: 1130
     max_us: 1930
     neutral_us: 1530
-    channel: 0
+    channel: 7
 
   - id: 8
     name: rear_right_vertical
@@ -78,4 +77,4 @@ thrusters:
     min_us: 1130
     max_us: 1930
     neutral_us: 1530
-    channel: 2
+    channel: 4
