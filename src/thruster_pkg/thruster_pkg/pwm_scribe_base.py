@@ -6,7 +6,7 @@ class PWMScribeBase(ABC):
         ...
 
     @abstractmethod
-    def set_pwm(self, channel: int, pulse_us: int) -> None:
+    def set_pwm(self, channel: int, angle_deg: int) -> None:
         ...
 
     @abstractmethod
