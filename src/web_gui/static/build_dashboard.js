@@ -1246,6 +1246,7 @@ function buildModelPanel() {
 
 window.updateModelOrientation = updateModelOrientation;
 window.updateThrusterMeter = updateThrusterMeter;
+window.updateImuTelemetry = updateImuTelemetry;
 
 function updateMeter(key, rawValue) {
     const meter = dashboard.meters.get(key);

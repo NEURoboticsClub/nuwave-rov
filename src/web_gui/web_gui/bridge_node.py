@@ -3,7 +3,7 @@ from rclpy.node import Node
 from rclpy.executors import MultiThreadedExecutor
 from std_msgs.msg import Float32, Float32MultiArray
 from geometry_msgs.msg import Twist
-from sensor_msgs.msg import FluidPressure, Temperature, CompressedImage
+from sensor_msgs.msg import FluidPressure, Temperature, CompressedImage, Imu
 from ament_index_python.packages import get_package_share_directory
 from rclpy.qos import QoSProfile, ReliabilityPolicy, HistoryPolicy
 import asyncio
@@ -112,6 +112,9 @@ class WebBridgeNode(Node):
         self._subs.append(self.create_subscription(Temperature, '/depth/temperature', self._on_temperature, 10))
         self._subs.append(self.create_subscription(Float32MultiArray, '/depth/depth_array', self._on_depth_array, 10))
 
+        # IMU telemetry
+        self._subs.append(self.create_subscription(Imu, '/imu', self._on_imu, 10))
+
         # Command topics
         self._subs.append(self.create_subscription(Twist, '/velocity_commands', self._on_velocity_commands, 10))
         self._subs.append(self.create_subscription(Float32MultiArray, '/arm_commands', self._on_arm_commands, 10))
@@ -165,6 +168,27 @@ class WebBridgeNode(Node):
 
     def _on_depth_array(self, msg: Float32MultiArray):
         self._forward('/depth/depth_array', list(msg.data))
+
+    def _on_imu(self, msg: Imu):
+        payload = {
+            'orientation': {
+                'x': msg.orientation.x,
+                'y': msg.orientation.y,
+                'z': msg.orientation.z,
+                'w': msg.orientation.w,
+            },
+            'angular_velocity': {
+                'x': msg.angular_velocity.x,
+                'y': msg.angular_velocity.y,
+                'z': msg.angular_velocity.z,
+            },
+            'linear_acceleration': {
+                'x': msg.linear_acceleration.x,
+                'y': msg.linear_acceleration.y,
+                'z': msg.linear_acceleration.z,
+            },
+        }
+        self._forward('/imu', payload)
 
     def _on_velocity_commands(self, msg: Twist):
         payload = {

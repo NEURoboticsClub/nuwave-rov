@@ -73,6 +73,10 @@ function processRosMessage(topic, data) {
     }
 
     if ((topic === '/imu' || topic === 'imu' || topic.startsWith('/imu/')) && typeof updateModelOrientation === 'function') {
+        if (typeof window.updateImuTelemetry === 'function') {
+            window.updateImuTelemetry(data);
+        }
+        
         if (data && typeof data === 'object' && data.orientation) {
             updateModelOrientation(data);
         } else if (Array.isArray(data) && data.length >= 3) {
