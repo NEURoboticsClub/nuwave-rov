@@ -924,8 +924,8 @@ function applyModelOrientation() {
 
     const { roll, pitch, yaw } = dashboard.model3d.orientation;
     if (dashboard.model3d.model) {
-        // GLB local axes are rotated relative to IMU axes.
-        // Map IMU {roll, pitch, yaw} -> model {x, y, z} as {pitch, yaw, roll}.
+        // FLU IMU body frame -> Three.js model frame
+        // Model authored with nose along +Z; signs verified in testing
         dashboard.model3d.model.rotation.set(pitch, 0, roll, "XYZ");
     }
 
@@ -933,10 +933,15 @@ function applyModelOrientation() {
         dashboard.model3d.grid.rotation.y = -yaw;
     }
 
+    if (dashboard.model3d.navballCanvas) {
+        drawNavball(dashboard.model3d.navballCanvas, pitch, roll);
+    }
+
     const toDeg = (radians) => radians * (180 / Math.PI);
+    const displayPitch = -pitch;  // show pilot-friendly sign on the HUD
     setText(
         dashboard.model3d.readout,
-        `ROLL ${toDeg(roll).toFixed(1)} deg | PITCH ${toDeg(pitch).toFixed(1)} deg | YAW ${toDeg(yaw).toFixed(1)} deg`
+        `ROLL ${toDeg(roll).toFixed(1)} deg | PITCH ${toDeg(displayPitch).toFixed(1)} deg | YAW ${toDeg(yaw).toFixed(1)} deg`
     );
 }
 
@@ -1100,14 +1105,129 @@ function updateModelOrientation(rollOrOrientation, pitch, yaw, unit = "rad") {
     applyModelOrientation();
 }
 
+function drawNavball(canvas, pitchRad, rollRad) {
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    const { width: w, height: h } = resizeCanvasToDisplaySize(canvas, ctx);
+    const cx = w / 2;
+    const cy = h / 2;
+    const radius = Math.min(w, h) / 2 * 0.85;
+
+    ctx.clearRect(0, 0, w, h);
+
+    // Save and clip to the instrument circle
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.beginPath();
+    ctx.arc(0, 0, radius, 0, Math.PI * 2);
+    ctx.clip();
+
+    // Roll: Horizon rotates opposite to camera/vehicle roll
+    ctx.rotate(-rollRad);
+
+    // Pitch: maps +/- 90 degrees to a scaled radius
+    const maxPitchDeg = 90;
+    const pitchScale = 3;
+    const pitchDeg = pitchRad * (180 / Math.PI);
+    const pitchOffset = -(pitchDeg / maxPitchDeg) * radius * pitchScale;
+
+    // Sky
+    ctx.fillStyle = "#3498db";
+    ctx.fillRect(-radius * 10, -radius * 10 + pitchOffset, radius * 20, radius * 10);
+
+    // Ground
+    ctx.fillStyle = "#8b4513";
+    ctx.fillRect(-radius * 10, pitchOffset, radius * 20, radius * 10);
+
+    // Horizon line
+    ctx.strokeStyle = "white";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(-radius * 10, pitchOffset);
+    ctx.lineTo(radius * 10, pitchOffset);
+    ctx.stroke();
+
+    // Pitch lines
+    ctx.fillStyle = "white";
+    ctx.strokeStyle = "white";
+    ctx.font = "10px sans-serif";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+
+    for (let p = -80; p <= 80; p += 10) {
+        if (p === 0) continue;
+        const lineOffset = pitchOffset - (p / maxPitchDeg) * radius * pitchScale;
+        if (Math.abs(lineOffset) > radius * 0.95) continue; // skip if off ball
+
+        const isMajor = p % 30 === 0;
+        const width = isMajor ? radius * 0.6 : radius * 0.3;
+
+        ctx.beginPath();
+        ctx.moveTo(-width / 2, lineOffset);
+        ctx.lineTo(width / 2, lineOffset);
+        ctx.stroke();
+
+        ctx.fillText(p.toString(), -width / 2 - 12, lineOffset);
+        ctx.fillText(p.toString(), width / 2 + 12, lineOffset);
+    }
+
+    ctx.restore();
+
+    // Fixed ROV reference
+    ctx.strokeStyle = "yellow";
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(cx - radius * 0.4, cy);
+    ctx.lineTo(cx - radius * 0.1, cy);
+    ctx.lineTo(cx, cy + radius * 0.1);
+    ctx.lineTo(cx + radius * 0.1, cy);
+    ctx.lineTo(cx + radius * 0.4, cy);
+    ctx.stroke();
+
+    // Little dot in center
+    ctx.fillStyle = "yellow";
+    ctx.beginPath();
+    ctx.arc(cx, cy, 3, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Outer ring
+    ctx.beginPath();
+    ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+    ctx.lineWidth = 3;
+    ctx.strokeStyle = "#2f5d80";
+    ctx.stroke();
+}
+
 function buildModelPanel() {
     const panel = createPanel("IMU", "/imu");
     panel.id = "panel-model";
     const wrap = document.createElement("div");
     wrap.className = "model3d-wrap";
 
+    const canvasesWrap = document.createElement("div");
+    canvasesWrap.className = "model3d-canvases";
+    canvasesWrap.style.position = "relative";
+    canvasesWrap.style.display = "flex";
+    canvasesWrap.style.flexDirection = "column";
+
     const canvas = document.createElement("canvas");
     canvas.className = "model3d-canvas";
+    canvas.style.flex = "1";
+    canvas.style.minHeight = "180px";
+
+    const navballCanvas = document.createElement("canvas");
+    navballCanvas.className = "navball-canvas";
+    navballCanvas.style.position = "absolute";
+    navballCanvas.style.top = "6px";
+    navballCanvas.style.right = "6px";
+    navballCanvas.style.width = "120px";
+    navballCanvas.style.height = "120px";
+    navballCanvas.style.borderRadius = "50%";
+    navballCanvas.style.border = "2px solid rgba(47, 93, 128, 0.8)";
+    navballCanvas.style.background = "#06101c";
+    navballCanvas.style.zIndex = "10";
+
+    canvasesWrap.append(canvas, navballCanvas);
 
     const readout = document.createElement("div");
     readout.className = "model3d-readout row";
@@ -1154,11 +1274,12 @@ function buildModelPanel() {
     const gyroRow = createTelemetryRow("Angular Vel (rad/s)", "x -- y -- z --");
     const linearVelocityRow = createTelemetryRow("Linear Vel", "x -- y -- z --");
 
-    wrap.append(canvas, readout, details);
+    wrap.append(canvasesWrap, readout, details);
     panel.appendChild(wrap);
 
     dashboard.model3d = {
         canvas,
+        navballCanvas,
         readout: readoutValue,
         rows: [readout, gyroRow.row, linearVelocityRow.row],
         telemetry: {
