@@ -4,7 +4,7 @@ from sensor_msgs.msg import Joy
 from geometry_msgs.msg import Twist
 from std_msgs.msg import Float32MultiArray
 from ament_index_python.packages import get_package_share_directory
-import yaml
+from nuwave_utils_pkg.file_helpers import load_yaml
 import os
 import numpy as np
 
@@ -27,7 +27,7 @@ class Houston(Node):
 
         self.get_logger().info(f"Loading joystick config from: {joy_config_path}")
         # === Load configurations ===
-        self.joy_map = self.load_yaml(joy_config_path)
+        self.joy_map = load_yaml(joy_config_path)
         
         # === Subscribers / Publishers ===
         self.thruster_joy_sub = self.create_subscription(Joy, joy_thruster, self.joy_thruster_callback, 10)
@@ -40,14 +40,6 @@ class Houston(Node):
         self.last_joy_arm_msg = None
 
         self.get_logger().info("Houston Initialized")
-
-    def load_yaml(self, path):
-        """Load a YAML file from a relative or absolute path."""
-        if not os.path.exists(path):
-            self.get_logger().warn(f"Config file not found: {path}")
-            return {}
-        with open(path, 'r') as f:
-            return yaml.safe_load(f)
 
     def joy_arm_callback(self, msg: Joy):
         """Handle arm joystick input"""

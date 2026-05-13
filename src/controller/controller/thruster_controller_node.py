@@ -5,7 +5,7 @@ from geometry_msgs.msg import Twist
 from std_msgs import msg
 from std_msgs.msg import Float32
 from ament_index_python.packages import get_package_share_directory
-import yaml
+from nuwave_utils_pkg.file_helpers import load_yaml
 import os
 import numpy as np
 
@@ -52,7 +52,7 @@ class ThrusterController(Node):
         self.get_logger().info(f"Loading thruster config from: {thruster_config_path}")
 
         # Configure Thrusters and Allocation
-        config = self.load_yaml(thruster_config_path)
+        config = load_yaml(thruster_config_path)
         self.pwm_range_table = self._configure_virtual_thruster_pwm_range(config)
 
         self.allocMatrix = self.compute_thruster_allocation_matrix(config)
@@ -75,15 +75,6 @@ class ThrusterController(Node):
 
         self.create_timer(1.0 / rate, self.publish_thrusters)
         self.get_logger().info("Thruster Controller Initialized")
-
-
-    def load_yaml(self, config_path) -> dict:
-        """Load a YAML file from a relative or absolute path."""
-        if not os.path.exists(config_path):
-            self.get_logger().warn(f"Config file not found: {config_path}")
-            return {}
-        with open(config_path, 'r') as f:
-            return yaml.safe_load(f)
     
     def _configure_virtual_thruster_pwm_range(self, config : dict) -> np.ndarray:
         """

@@ -3,19 +3,8 @@ from launch.actions import DeclareLaunchArgument, OpaqueFunction
 from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
 from ament_index_python.packages import get_package_share_directory
+from nuwave_utils_pkg.file_helpers import load_yaml
 import os
-import yaml
-
-def load_yaml(config_path: str) -> dict:
-    if not os.path.exists(config_path):
-        print(f"[thruster_pkg launch] Config file not found: {config_path}")
-        return {}
-    try:
-        with open(config_path, 'r') as f:
-            return yaml.safe_load(f) or {}
-    except yaml.YAMLError as e:
-        print(f"[thruster_pkg launch] Failed to parse {config_path}: {e}")
-        return {}
 
 def _create_nodes(context, *args, **kwargs):
     # read launch configs
@@ -28,7 +17,7 @@ def _create_nodes(context, *args, **kwargs):
     simulate = LaunchConfiguration('simulate').perform(context).lower() in ('true', '1', 'yes')
 
     config_run_path = os.path.join(pkg, 'config', 'arm_motor_run_config.yaml')
-    run_config = load_yaml(config_run_path)
+    run_config = load_yaml(config_run_path, "[thruster_pkg launch]")
     slew_rate_us_per_s = run_config.get('thruster_node', []).get('ros__parameters', []).get('slew_us_per_s')
 
     nodes = []

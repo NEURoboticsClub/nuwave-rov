@@ -4,7 +4,7 @@ from geometry_msgs.msg import Twist
 from std_msgs import msg
 from std_msgs.msg import Float32, Float32MultiArray
 from ament_index_python.packages import get_package_share_directory
-import yaml
+from nuwave_utils_pkg.file_helpers import load_yaml
 import os
 import numpy as np
 
@@ -30,7 +30,7 @@ class ArmController(Node):
 
         self.get_logger().info(f"Loading arm config from: {arm_config_path}")
 
-        config = self.load_yaml(arm_config_path)
+        config = load_yaml(arm_config_path)
         self.pwm_range_table = self._configure_arm_motor_pwm_range(config)
         self.n_arm_motors = self.pwm_range_table.shape[0]
 
@@ -46,14 +46,6 @@ class ArmController(Node):
 
         self.create_timer(1.0 / rate, self.publish_arm_motors)
         self.get_logger().info("Arm Controller Initialized")
-
-    def load_yaml(self, path):
-        """Load a YAML file from a relative or absolute path."""
-        if not os.path.exists(path):
-            self.get_logger().warn(f"Config file not found: {path}")
-            return {}
-        with open(path, 'r') as f:
-            return yaml.safe_load(f)    
         
     def Status_Callback(self, msg: Float32MultiArray):
         """
