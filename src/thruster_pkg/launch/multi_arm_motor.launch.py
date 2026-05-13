@@ -17,17 +17,23 @@ def _create_nodes(context, *args, **kwargs):
     simulate = LaunchConfiguration('simulate').perform(context).lower() in ('true', '1', 'yes')
 
     config_run_path = os.path.join(pkg, 'config', 'arm_motor_run_config.yaml')
+    config_channel_path = os.path.join(pkg, 'config', 'arm_motor_channel_config.yaml')
+    config = load_yaml(config_channel_path)
+    run_config = load_yaml(config_run_path)
+
+    motors = config.get('arm_motors', [])
     run_config = load_yaml(config_run_path, "[thruster_pkg launch]")
     slew_rate_us_per_s = run_config.get('thruster_node', []).get('ros__parameters', []).get('slew_us_per_s')
 
     nodes = []
-    for i in range(count):
+    for i, mot in enumerate(motors):
+        channel = mot.get('channel')
         name = f"{base_name}_{i}"
         params = {
             'topic': f'/arm/{base_name}_{i}',
             'i2c_bus': i2c_bus,
             'i2c_address': i2c_address,
-            'channel': 8 + i,
+            'channel': 8 + channel,
             'simulate': simulate,
             'slew_rate_us_per_s' : slew_rate_us_per_s,
         }

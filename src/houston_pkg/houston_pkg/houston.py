@@ -138,8 +138,8 @@ class Houston(Node):
             float(axis_values.get('base_pitch_input', 0.0)),
             float(axis_values.get('elbow_pitch_input', 0.0)),
             float(axis_values.get('wrist_yaw_input', 0.0)),
-            (float(button_values.get('wrist_up_input', 0.0)) - float(button_values.get('wrist_down_input', 0.0))),
-            (float(axis_values.get('claw_open_input', 0.0)) - float(axis_values.get('claw_close_input', 0.0))) * 0.5, 
+            (float(axis_values.get('wrist_up_input', 0.0)) - float(axis_values.get('wrist_down_input', 0.0))),
+            (float(button_values.get('claw_open_input', 0.0)) - float(button_values.get('claw_close_input', 0.0))) * 0.5, 
         ]
         self.arm_pub.publish(msg)
 

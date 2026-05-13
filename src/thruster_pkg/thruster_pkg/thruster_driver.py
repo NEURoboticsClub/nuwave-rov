@@ -149,7 +149,7 @@ class ThrusterNode(Node):
         try:
             self.pwm.setRotationAngle(self.channel, angle)
         except Exception as e:
-            self.get_logger().error(f'Falied to send angle: {e}')
+            self.get_logger().error(f'Failed to send angle: {e}')
 
     # Callbacks
     def cmd_callback(self, msg : Float32):

@@ -11,8 +11,8 @@ thrusters:
     name: front_left_lateral
     position_m: [-0.2, 0.2, 0.0]
     direction: [0.7071, 0.7071, 0.0]
-    min_us: 1130
-    max_us: 1930
+    min_us: 1430
+    max_us: 1630
     neutral_us: 1530
     channel: 2
 
@@ -20,8 +20,8 @@ thrusters:
     name: front_right_lateral
     position_m: [0.2, 0.2, 0.0]
     direction: [-0.7071, 0.7071, 0.0]
-    min_us: 1130
-    max_us: 1930
+    min_us: 1430
+    max_us: 1630
     neutral_us: 1530
     channel: 3
 
@@ -29,8 +29,8 @@ thrusters:
     name: rear_left_lateral
     position_m: [-0.2, -0.2, 0.0]
     direction: [-0.7071, 0.7071, 0.0]
-    min_us: 1130
-    max_us: 1930
+    min_us: 1430
+    max_us: 1630
     neutral_us: 1530
     channel: 6
 
@@ -38,8 +38,8 @@ thrusters:
     name: rear_right_lateral
     position_m: [0.2, -0.2, 0.0]
     direction: [0.7071, 0.7071, 0.0]
-    min_us: 1130
-    max_us: 1930
+    min_us: 1430
+    max_us: 1630
     neutral_us: 1530
     channel: 5
 
@@ -47,8 +47,8 @@ thrusters:
     name: forward_left_vertical
     position_m: [-0.2, 0.2, 0.0]
     direction: [0.0, 0.0, 1.0]
-    min_us: 1130
-    max_us: 1930
+    min_us: 1430
+    max_us: 1630
     neutral_us: 1530
     channel: 1
 
@@ -56,8 +56,8 @@ thrusters:
     name: forward_right_vertical
     position_m: [0.2, 0.2, 0.0]
     direction: [0.0, 0.0, 1.0]
-    min_us: 1130
-    max_us: 1930
+    min_us: 1430
+    max_us: 1630
     neutral_us: 1530
     channel: 0
 
@@ -65,8 +65,8 @@ thrusters:
     name: rear_left_vertical
     position_m: [-0.2, -0.2, 0.0]
     direction: [0.0, 0.0, 1.0]
-    min_us: 1130
-    max_us: 1930
+    min_us: 1430
+    max_us: 1630
     neutral_us: 1530
     channel: 7
 
@@ -74,7 +74,7 @@ thrusters:
     name: rear_right_vertical
     position_m: [0.2, -0.2, 0.0]
     direction: [0.0, 0.0, 1.0]
-    min_us: 1130
-    max_us: 1930
+    min_us: 1430
+    max_us: 1630
     neutral_us: 1530
     channel: 4

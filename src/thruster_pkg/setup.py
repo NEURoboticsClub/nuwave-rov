@@ -13,7 +13,8 @@ setup(
         ('share/' + package_name + '/config', [
             'config/thruster_run_config.yaml',
             'config/thruster_channel_config.yaml',
-            'config/arm_motor_run_config.yaml'
+            'config/arm_motor_run_config.yaml',
+            'config/arm_motor_channel_config.yaml'
         ]),
         ('share/' + package_name + '/launch', [
             'launch/thruster.launch.py',
