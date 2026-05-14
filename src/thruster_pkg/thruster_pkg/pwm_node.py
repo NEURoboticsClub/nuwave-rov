@@ -26,7 +26,7 @@ class PWMNode(Node):
         self.declare_parameter('slew_us_per_s', 750.0)        # 0 to disable rate limit; else max change per sec
         self.declare_parameter('simulate', False)
         self.declare_parameter('pwm_hardware', 'arduino')     # 'arduino' or 'hat'
-        pkg_share = get_package_share_directory('controller')
+        pkg_share = get_package_share_directory('thruster_pkg')
         self.declare_parameter(
                 'individual_motor_config', 
                 os.path.join(pkg_share, 'config', 'individual_motor_config.yaml')
@@ -168,7 +168,7 @@ class PWMNode(Node):
         cmd = float(msg.data)
         mot = self.motors_lookup.get(topic)
         
-        mot['target_us'] = max(mot['min_us'], min(mot['max_us'], self.map_dutycycle_to_pwm(cmd, mot)))
+        mot['target_us'] = max(mot['min_us'], min(mot['max_us'], self._map_dutycycle_to_pwm(cmd, mot)))
         mot['last_msg_time'] = self.get_clock().now()
         mot['got_first_cmd'] = True
 
@@ -188,8 +188,8 @@ class PWMNode(Node):
 
             # Slew limiting
             target = mot['target_us']
-            if mot['slew_us_per_s'] > 0.0 and dt > 0.0:
-                max_delta = mot['slew_us_per_s'] * dt
+            if mot['slew_us_per_s'] > 0.0 and dt[i - 1] > 0.0:
+                max_delta = mot['slew_us_per_s'] * dt[i - 1]
                 delta = target - mot['current_us']
                 if abs(delta) > max_delta:
                     target = mot['current_us'] + (max_delta if delta > 0 else -max_delta)
