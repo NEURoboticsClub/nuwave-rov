@@ -2,11 +2,11 @@ from abc import ABC, abstractmethod
 
 class PWMScribeBase(ABC):
     @abstractmethod
-    def setup(self) -> None:
+    def setup(self, pwm_freq : int) -> None:
         ...
 
     @abstractmethod
-    def set_pwm(self, channel: int, angle_deg: int) -> None:
+    def set_pwm(self, channel: int, pwm_us: float) -> None:
         ...
 
     @abstractmethod

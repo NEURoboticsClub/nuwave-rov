@@ -45,7 +45,6 @@ class PWMNode(Node):
         addr = self.get_parameter('i2c_address').value
         self.pwm_freq = self.get_parameter('pwm_freq_hz').value
 
-        self.slew_us_per_s = self.get_parameter('slew_us_per_s').value
         pwm_hardware = self.get_parameter('pwm_hardware').get_parameter_value().string_value
 
         self.update_rate_hz = self.get_parameter('update_rate_hz').value
@@ -53,7 +52,6 @@ class PWMNode(Node):
                 seconds=self.get_parameter('watchdog_timeout_s').value
                 )
         self.simulate = self.get_parameter('simulate').value
-        print("Slew rate (us/s):", self.slew_us_per_s)
         # Derived Vals
         self.period_us = 1_000_000.0 / self.pwm_freq
 
@@ -73,15 +71,13 @@ class PWMNode(Node):
                     port = self.get_parameter("firmata_port").get_parameter_value().string_value # this may be wrong
                     pins = self.get_parameter("firmata_pins").value # this is almost definitely wrong
                     self.pwm = PWMScribeArduino(port, pins)
-                # self.pwm.setPWMFreq(int(self.pwm_freq)) # abstract this out? or just pass frequency to scribe in constructor -- not sure how to set frequency in firmata
-                self._write_us(self.neutral_us)
+                self.pwm.setup(int(self.pwm_freq))
                 self.get_logger().info("Hardware initialized")
             except Exception as e:
                 self.pwm = None
                 self.get_logger().error(f'PCA9685 init failed: {e}') # we should add some retry logic here
         
         individual_motor_config_path = self.get_parameter('individual_motor_config').value
-        general_motor_config_path = self.get_parameter('general_motor_config').value
 
         self.get_logger().info(f"Loading individual thruster config from: {individual_motor_config_path}")
 
@@ -107,8 +103,9 @@ class PWMNode(Node):
             pub = self.create_publisher(Float32, mot.get('topic') + "/response_pwm", 10)
             self.response_pubs.append(pub)
             self.get_logger().info(
-                f'Listening on "{mot.get('topic')}" for Float32 (us), '
-                f'range [{mot.get('min_us'), mot.get('max_us')}], neutral_us={mot.get('neutral_us', 1500)}'
+                f"Listening on {mot.get('topic')} for Float32 (us), "
+                f"range [{mot.get('min_us'), mot.get('max_us')}], neutral_us={mot.get('neutral_us', 1500)}, "
+                f"slew_rate={mot.get('slew_us_per_s')}"
                 )
             now = self.get_clock().now()
             mot['last_msg_time'] = now
@@ -119,7 +116,7 @@ class PWMNode(Node):
 
     
     # takes dutycycle (-1 to 1) and maps that to PWM range for each motor
-    def map_dutycycle_to_pwm(self, dutycycle : float, mot : dict) -> float:
+    def _map_dutycycle_to_pwm(self, dutycycle : float, mot : dict) -> float:
         # These are nx1 vectors for each thrusters configured pwm ranges
         min_us = mot['min_us']
         neutral_us = mot['neutral_us']
@@ -132,6 +129,20 @@ class PWMNode(Node):
         # Same is applied for reverse but with neutral_us being the leading term.
         pwm = neutral_us + normalized * (max_us - neutral_us) if normalized >= 0 else neutral_us + normalized * (neutral_us - min_us)
         return pwm
+    
+    def _map_pwm_to_dutycycle(self, pwm : float, mot : dict) -> float:
+        # These are nx1 vectors for each thrusters configured pwm ranges
+        min_us = mot['min_us']
+        neutral_us = mot['neutral_us']
+        max_us = mot['max_us']
+        
+        # This normalizes the forces to be within -1 and 1
+        normalized = pwm - neutral_us
+        
+        # If normalized >= 0, which is forward we linear interp the pwm to be some point between neutral and max
+        # Same is applied for reverse but with neutral_us being the leading term.
+        dutycycle = normalized / (max_us - neutral_us) if normalized >= 0 else normalized / (neutral_us - min_us)
+        return dutycycle
 
     def _arm(self):
         """Simple arming sequence and set to neutral/stop."""
@@ -144,34 +155,6 @@ class PWMNode(Node):
                     pass
             print(f" -> {mot['neutral_us']} (stop / neutral)")
         time.sleep(2.0)
-        
-    # def _write_us(self, us : float, channel : int):
-    #     """
-    #     Clamp, convert and write to hardware.
-    #     """
-    #     us_centered = us - self.neutral_us
-    #     angle = 0.0
-    #     if us_centered >= 0.0:
-    #         angle = us_centered / (self.max_us - self.neutral_us)
-    #     else:
-    #         angle = us_centered / (self.neutral_us - self.min_us)
-    #     self._write_angle(angle, channel)
-    
-    # def _write_angle(self, val : float, channel : int):
-    #     if val >= 0.0:
-    #         angle = STOP_ANGLE + val * (HIGH_ANGLE - STOP_ANGLE)
-    #     else:
-    #         angle = STOP_ANGLE + val * (STOP_ANGLE - LOW_ANGLE)
-        
-    #     angle = int(max(LOW_ANGLE, min(HIGH_ANGLE, angle)))
-    #     self.get_logger().debug(f'Angle: {angle}')
-
-    #     if self.pwm is None:
-    #         return
-    #     try:
-    #         self.pwm.set_pwm(channel, angle)
-    #     except Exception as e:
-    #         self.get_logger().error(f'Failed to send angle: {e}')
     
     def _write_all_us(self, us: float):
         for mot in self.motors:
@@ -196,7 +179,7 @@ class PWMNode(Node):
         for mot in self.motors:
             mot['prev_time'] = now
         
-        for mot in self.motors:
+        for i, mot in enumerate(self.motors):
             # Watchdog code may need some tweaking
             if mot['got_first_cmd'] and (now - mot['last_msg_time']) > self.watchdog_timeout:
                 if mot['target_us'] != mot['neutral_us']:
@@ -205,43 +188,36 @@ class PWMNode(Node):
 
             # Slew limiting
             target = mot['target_us']
-            if self.slew_us_per_s > 0.0 and dt > 0.0:
-                max_delta = self.slew_us_per_s * dt
+            if mot['slew_us_per_s'] > 0.0 and dt > 0.0:
+                max_delta = mot['slew_us_per_s'] * dt
                 delta = target - mot['current_us']
                 if abs(delta) > max_delta:
                     target = mot['current_us'] + (max_delta if delta > 0 else -max_delta)
 
             mot['current_us'] = target
 
-        # still need to finish this
-        if self.pwm is not None:
-            try:
-                self._write_us(target)
-            except Exception as e:
-                self.get_logger().error(f'PWM write error: {e}')
+            if self.pwm is not None:
+                try:
+                    self.pwm.set_pwm(mot['channel'], target)
+                except Exception as e:
+                    self.get_logger().error(f"PWM write error on channel {mot['channel']}: {e}")
         
-        response_pwm_message = Float32()
-        response_pwm_message.data = float(target)
-        self.response_pub.publish(response_pwm_message)
+            response_dutycycle_message = Float32()
+            response_dutycycle_message.data = float(self._map_pwm_to_dutycycle(target, mot))
+            self.response_pubs[i].publish(response_dutycycle_message)
 
     def destroy_node(self):
-        # also need to change this whole node
         # send neutral and cleanup
         if self.pwm is not None:
-            try:
-                self.pwm.setRotationAngle(self.channel, STOP_ANGLE)
-            except Exception as e:
-                self.get_logger().error(f'Failed to send stop angle on shutdown: {e}')
+            for mot in self.motors:
+                try:
+                    self.pwm.set_pwm(mot['channel'], mot['neutral_us'])
+                except Exception as e:
+                    self.get_logger().error(f"Failed to send stop angle to channel {mot['channel']} on shutdown: {e}")
         try:
-            self.pwm.exit_PCA9685()
+            self.pwm.shutdown()
         except Exception:
             pass
-
-        if GPIO is not None:
-            try:
-                GPIO.cleanup()
-            except Exception:
-                pass
 
         super().destroy_node()
 
