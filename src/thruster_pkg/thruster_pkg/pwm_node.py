@@ -25,7 +25,7 @@ class PWMNode(Node):
         self.declare_parameter('watchdog_timeout_s', 0.5)     # neutral if no msg in this time
         self.declare_parameter('slew_us_per_s', 750.0)        # 0 to disable rate limit; else max change per sec
         self.declare_parameter('simulate', False)
-        self.declare_parameter('pwm_hardware', 'arduino')     # 'arduino' or 'hat'
+        self.declare_parameter('pwm_hardware', 'hat')     # 'arduino' or 'hat'
         pkg_share = get_package_share_directory('thruster_pkg')
         self.declare_parameter(
                 'individual_motor_config', 
