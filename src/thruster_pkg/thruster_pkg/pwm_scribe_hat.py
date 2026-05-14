@@ -14,12 +14,12 @@ class PWMScribeHat(PWMScribeBase):
         angle = ((us_centered / 500.0) * 90.0) + 90.0 # TODO: un-hard code this
         
         angle = int(max(0.0, min(180.0, angle)))
-        self.get_logger().debug(f'Angle: {angle}')
+        print(f'Angle: {angle}')
 
         try:
             self.board.setRotationAngle(channel, angle)
         except Exception as e:
-            self.get_logger().error(f'Failed to send angle to channel {channel}: {e}')
+            print(f'Failed to send angle to channel {channel}: {e}')
 
     def shutdown(self):
         self.board.exit_PCA9685()
