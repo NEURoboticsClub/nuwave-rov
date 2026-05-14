@@ -1,0 +1,9 @@
+imu_stabilization:
+  p: 1
+  i: 0 # unused
+  d: 0.2
+
+depth_stabilization:
+  p: 1
+  i: 0 # unused
+  d: 0.2

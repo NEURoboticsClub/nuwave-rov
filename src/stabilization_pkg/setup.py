@@ -10,6 +10,9 @@ setup(
         ('share/ament_index/resource_index/packages',
             ['resource/' + package_name]),
         ('share/' + package_name, ['package.xml']),
+        ('share/' + package_name + '/config', [
+            'config/stabilization_config.yaml',
+        ]),
     ],
     install_requires=['setuptools'],
     zip_safe=True,
@@ -24,6 +27,7 @@ setup(
     },
     entry_points={
         'console_scripts': [
+            'stabilization_node = stabilization_pkg.stabilization_node:main',
         ],
     },
 )
