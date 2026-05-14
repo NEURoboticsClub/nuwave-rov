@@ -20,10 +20,17 @@ class Houston(Node):
         self.declare_parameter('joy_config', os.path.join(pkg_share, 'config', 'joystick_config.yaml'))
         self.declare_parameter('joy_thruster', '/joy_thruster')
         self.declare_parameter('joy_arm', '/joy_arm')
+        self.declare_parameter('stabilizer_timeout', 0.5)  # seconds before we consider stabilizer data stale and disable stabilization
+        self.declare_parameter('publish_rate_hz', 50.0)    # publish rate of houston twist commands
 
         joy_config_path = self.get_parameter('joy_config').value
         joy_thruster = self.get_parameter('joy_thruster').value
         joy_arm = self.get_parameter('joy_arm').value
+        rate = self.get_parameter('publish_rate_hz').value
+
+        self.stabilizer_timeout = self.get_parameter('stabilizer_timeout').value
+        self.last_stabilizer_time = None
+
 
         self.get_logger().info(f"Loading joystick config from: {joy_config_path}")
         # === Load configurations ===
@@ -32,14 +39,27 @@ class Houston(Node):
         # === Subscribers / Publishers ===
         self.thruster_joy_sub = self.create_subscription(Joy, joy_thruster, self.joy_thruster_callback, 10)
         self.arm_joy_sub = self.create_subscription(Joy, joy_arm, self.joy_arm_callback, 10)
+
+        self.stabilizer_sub = self.create_subscription(Twist, '/stabilizer/commands', self.stabilizer_callback, 10)
+
         self.twist_pub = self.create_publisher(Twist, "velocity_commands", 10)
         self.arm_pub = self.create_publisher(Float32MultiArray, "arm_commands", 10)
         
         # === Internal state ===
         self.last_joy_thruster_msg = None
         self.last_joy_arm_msg = None
+        
+        self.last_stabilizer_twist = Twist()
+        self.stabilize_enabled = False
+        self.prev_stabilize_button = 0
+
+        self.create_timer(1.0 / rate, self._publish_loop)
 
         self.get_logger().info("Houston Initialized")
+
+    def stabilizer_callback(self, msg: Twist):
+        self.last_stabilizer_twist = msg
+        self.last_stabilizer_time = self.get_clock().now()
 
     def joy_arm_callback(self, msg: Joy):
         """Handle arm joystick input"""
@@ -52,11 +72,12 @@ class Houston(Node):
     def joy_thruster_callback(self, msg: Joy):
         """Handle thruster joystick input"""
         self.last_joy_thruster_msg = msg
-        return_map = self.parse_joystick(msg, cfg_type="thruster_control")
-        self.get_logger().info(str(return_map))
 
-        # Publish the result
-        self.publish_twist(return_map["axis"], return_map["button"])
+    def _publish_loop(self):
+        if self.last_joy_thruster_msg is None:
+            return
+        parsed = self.parse_joystick(self.last_joy_thruster_msg, cfg_type="thruster_control")
+        self.publish_twist(parsed["axis"], parsed["button"])
 
     def parse_joystick(self, msg: Joy, cfg_type: str) -> dict:
         cfg_list = self.joy_map.get(cfg_type, [])
@@ -114,15 +135,50 @@ class Houston(Node):
 
     def publish_twist(self, axis_values, button_values):
         """Publish the twist velocity command."""
+        stab_btn = int(button_values.get('stabilize_toggle', 0))
+        if stab_btn == 1 and self.prev_stabilize_button == 0:
+            self.stabilize_enabled = not self.stabilize_enabled
+            self.get_logger().info(f"Stabilization mode: {'ON' if self.stabilize_enabled else 'OFF'}")
+        self.prev_stabilize_button = stab_btn
+
         msg = Twist()
         msg.angular.x = float(axis_values['pitch'])
         msg.angular.y = float(button_values['roll_right']) - float(button_values['roll_left'])
         msg.angular.z = float(axis_values['yaw'])
 
-
         msg.linear.x = float(axis_values['strafe'])
         msg.linear.y = float(axis_values['drive_forward'])
         msg.linear.z = (float(axis_values['up']) - float(axis_values['down'])) * 0.5
+
+        def _scale_to_unit(x, y, z):
+            m = max(abs(x), abs(y), abs(z), 1.0)
+            return x / m, y / m, z / m
+
+        if self.stabilize_enabled:
+            now = self.get_clock().now()
+            stale = (
+                self.last_stabilizer_time is None
+                or (now - self.last_stabilizer_time).nanoseconds * 1e-9 > self.stabilizer_timeout
+            )
+            if stale:
+                self.stabilize_enabled = False
+                self.get_logger().warn(
+                    "Stabilizer messages stale; stabilization disabled"
+                )
+            else:
+                s = self.last_stabilizer_twist
+                lx, ly, lz = _scale_to_unit(
+                    msg.linear.x + s.linear.x,
+                    msg.linear.y + s.linear.y,
+                    msg.linear.z + s.linear.z,
+                )
+                ax, ay, az = _scale_to_unit(
+                    msg.angular.x + s.angular.x,
+                    msg.angular.y + s.angular.y,
+                    msg.angular.z + s.angular.z,
+                )
+                msg.linear.x, msg.linear.y, msg.linear.z = lx, ly, lz
+                msg.angular.x, msg.angular.y, msg.angular.z = ax, ay, az
 
         self.twist_pub.publish(msg)
 
