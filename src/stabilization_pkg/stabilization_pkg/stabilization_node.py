@@ -21,12 +21,10 @@ class StabilizationNode(Node):
                 'stabilization_config', 
                 os.path.join(pkg_share, 'config', 'stabilization_config.yaml')
                 )
-        self.declare_parameter('stabilization_topic', 'stabilization_commands')
 
         rate = float(self.get_parameter('publish_rate_hz').value)
 
         stabilization_config_path = self.get_parameter('stabilization_config').value
-        stabilization_topic = self.get_parameter('stabilization_topic').value
 
         self.get_logger().info(f"Loading stabilization config from: {stabilization_config_path}")
 
@@ -38,7 +36,7 @@ class StabilizationNode(Node):
         # Subscribers / Publishers
         self.imu_sub = self.create_subscription(Imu, '/imu', self.imu_callback, 10)
 
-        self.sta_pub = self.create_publisher(Twist, stabilization_topic, 10)
+        self.sta_pub = self.create_publisher(Twist, '/stabilizer/commands', 10)
 
         self.desired_orientation = Quaternion(x=0.0, y=0.0, z=0.0, w=1.0)
         
