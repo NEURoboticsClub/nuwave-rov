@@ -9,11 +9,10 @@
 Imports
 """
 import rclpy
+import time
 from rclpy.node import Node
-from builtin_interfaces.msg import Time
 from sensor_msgs.msg import Imu
 from imu_pkg.imu_driver import ImuDriver
-from rclpy.clock import Clock
 
 class IMUPublisher(Node):
     def __init__(self):
@@ -21,25 +20,28 @@ class IMUPublisher(Node):
 
         # Declare parameter to ros so we can use it as argument 
         addr = self.declare_parameter('addr', 7).value # change this when change i2c pin (pin 3,4 -> 7, pin 27,28 -> 1)
-        sampling_rate = self.declare_parameter('sampling_rate',4800).value # why sampling rate 4800 lol, this is not baudrate
+        sampling_rate = self.declare_parameter('sampling_rate', 100).value
 
-        # Setup
-        try:
-            self.imu = ImuDriver(addr,sampling_rate)
-        except:
-            self.get_logger().error('Failed to initialize IMU')
+        # Setup (with retry logic)
+        while True:
+            try:
+                self.imu = ImuDriver(addr, sampling_rate)
+                break
+            except Exception as e:
+                self.get_logger().error(f'IMU init failed: {e}')
+                time.sleep(1.0)
 
-        self.get_logger().info(f"IMU initialized")
+        self.get_logger().info('IMU initialized')
 
-        self.publisher_ = self.create_publisher(Imu,'imu',10)
+        self.publisher_ = self.create_publisher(Imu, 'imu', 10)
 
-        timer_period = 1/sampling_rate
-        self.timer = self.create_timer(timer_period,self.timer_callback)
+        timer_period = 1 / sampling_rate
+        self.timer = self.create_timer(timer_period, self.timer_callback)
 
     def timer_callback(self):
         """
-            Reads data from IMU and publishes it to the /imu topic
-            Based on whatever control loop freq is provided
+        Reads data from IMU and publishes it to the /imu topic
+        Based on whatever control loop freq is provided
         """
 
         values = self.imu.read_data()
@@ -51,12 +53,9 @@ class IMUPublisher(Node):
         imu_msg = Imu()
 
         # Parse header with frame id and timestamp
-        imu_msg.header.frame_id = 'IMU_Frame'
+        imu_msg.header.frame_id = 'imu_link'
         # Get current system time
-        clock = Clock()
-        now = clock.now()
-        imu_msg.header.stamp.sec = now.seconds_nanoseconds()[0]
-        imu_msg.header.stamp.nanosec = now.seconds_nanoseconds()[1]
+        imu_msg.header.stamp = self.get_clock().now().to_msg()
 
         # Parse imu data
         imu_msg.angular_velocity.x = angular_velocity['gyro_x']
