@@ -4,12 +4,13 @@ let rosFlushScheduled = false;
 function processRosMessage(topic, data) {
     if (topic.startsWith('/thruster/')) {
         const parts = topic.split('/');
-        const thrusterId = parts[2]?.split('_')[1];
-        if (!Number.isNaN(Number(thrusterId))) {
+        const thrusterName = parts[2];
+
+        if (thrusterName) {
             if (parts[3] === 'response_pwm') {
-                updateThrusterMeter(`thruster_${thrusterId}`, 'response', data);
+                updateThrusterMeter(thrusterName, 'response', data);
             } else {
-                updateThrusterMeter(`thruster_${thrusterId}`, 'target', data);
+                updateThrusterMeter(thrusterName, 'target', data);
             }
         }
         return;
@@ -24,12 +25,13 @@ function processRosMessage(topic, data) {
 
     if (topic.startsWith('/arm/')) {
         const parts = topic.split('/');
-        const armMotorId = parts[2]?.split('_')[2];
-        if (!Number.isNaN(Number(armMotorId))) {
+        const armMotorName = parts[2];
+
+        if (armMotorName) {
             if (parts[3] === 'response_pwm') {
-                updateArmMeter(`arm_motor_${armMotorId}`, 'response', data);
+                updateArmMeter(armMotorName, 'response', data);
             } else {
-                updateArmMeter(`arm_motor_${armMotorId}`, 'target', data);
+                updateArmMeter(armMotorName, 'target', data);
             }
         }
         return;

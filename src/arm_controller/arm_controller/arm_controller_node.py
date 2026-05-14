@@ -59,52 +59,6 @@ class ArmController(Node):
         for mot in self.motors:
             mot['dutycycle'] = arm_velocities[mot['id'] - 1]
 
-        # self.pwm_commands = self.map_val_to_dutycycle(arm_velocities)
-
-    # def _configure_arm_motor_pwm_range(self, config : dict) -> np.ndarray:
-    #     """
-    #     Each arm motor has a neutral_us, min_us, max_us configured.
-    #     When we get the force each arm motor should be outputting we want to map it along the bounds of that, specific arm motor.
-    #     Returns: A list of bounds for the arm motor at index i
-    #     """
-        
-    #     arm_motors = config.get('arm_motors', [])
-    #     if not arm_motors:
-    #         raise ValueError(f"No arm_motors found in config")
-    #     table = np.zeros((len(arm_motors), 3))
-    #     for indx, arm_motor in enumerate(arm_motors):
-    #         try:
-    #             table[indx, 0] = float(arm_motor['min_us'])
-    #             table[indx, 1] = float(arm_motor['neutral_us'])
-    #             table[indx, 2] = float(arm_motor['max_us'])
-    #         except KeyError as e:
-    #             raise ValueError(
-    #                     f"Arm motor {indx} is missing required PWM field {e}. "
-    #                     f"Each arm motor needs min_us, neutral_us, and max_us. "
-    #                     )
-        
-    #     return table
-
-    
-    # takes normalized game controller input (-1 to 1) and maps that to PWM range for each motor
-    # def map_val_to_dutycycle(self, arm_velocities) -> np.ndarray:
-    #     # These are nx1 vectors for each thrusters configured pwm ranges
-    #     min_us = self.pwm_range_table[:, 0] 
-    #     neutral_us = self.pwm_range_table[:, 1]
-    #     max_us = self.pwm_range_table[:, 2]
-        
-    #     # This normalizes the forces to be within -1 and 1
-    #     normalized = np.clip(arm_velocities, -1, 1)
-        
-    #     # If normalized >= 0, which is forward we linear interp the pwm to be some point between neutral and max
-    #     # Same is applied for reverse but with neutral_us being the leading term.
-    #     pwm = np.where(
-    #         normalized >= 0,
-    #         neutral_us + normalized * (max_us - neutral_us),
-    #         neutral_us + normalized * (neutral_us - min_us)
-    #     )
-    #     return pwm
-
     def publish_arm_motors(self):
         """
         Publish current PWM commands to each arm motor

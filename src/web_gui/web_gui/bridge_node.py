@@ -35,9 +35,19 @@ class WebBridgeNode(Node):
         self._loop = loop
         self._subs = []
 
-        # Thruster telemetry: /thruster/thruster_0..7
-        for thruster_id in range(8):
-            topic = f'/thruster/thruster_{thruster_id}'
+        # Thruster telemetry topics
+        thruster_topics = [
+            '/thruster/thruster_fll',
+            '/thruster/thruster_frl',
+            '/thruster/thruster_rll',
+            '/thruster/thruster_rrl',
+            '/thruster/thruster_flv',
+            '/thruster/thruster_frv',
+            '/thruster/thruster_rlv',
+            '/thruster/thruster_rrv',
+        ]
+
+        for topic in thruster_topics:
             self._subs.append(
                 self.create_subscription(
                     Float32,
@@ -47,7 +57,7 @@ class WebBridgeNode(Node):
                 )
             )
 
-            response_topic = f'/thruster/thruster_{thruster_id}/response_pwm'
+            response_topic = f'{topic}/response_pwm'
             self._subs.append(
                 self.create_subscription(
                     Float32,
@@ -84,9 +94,17 @@ class WebBridgeNode(Node):
                 )
             )
 
-        # Arm motor telemetry: /arm/arm_motor_0..5
-        for arm_motor_id in range(6):
-            topic = f'/arm/arm_motor_{arm_motor_id}'
+        # Arm motor telemetry topics
+        arm_motor_topics = [
+            '/arm/motor_base_yaw',
+            '/arm/motor_base_pitch',
+            '/arm/motor_elbow_pitch',
+            '/arm/motor_wrist_yaw',
+            '/arm/motor_wrist_pitch',
+            '/arm/motor_claw',
+        ]
+
+        for topic in arm_motor_topics:
             self._subs.append(
                 self.create_subscription(
                     Float32,
@@ -96,7 +114,7 @@ class WebBridgeNode(Node):
                 )
             )
 
-            response_topic = f'/arm/arm_motor_{arm_motor_id}/response_pwm'
+            response_topic = f'{topic}/response_pwm'
             self._subs.append(
                 self.create_subscription(
                     Float32,

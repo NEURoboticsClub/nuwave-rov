@@ -91,7 +91,7 @@ motors:
     min_us: 1300
     max_us: 1700
     neutral_us: 1500
-    channel: 9
+    channel: 13
     topic: "/arm/motor_base_pitch"
     slew_us_per_s: 0.0
 
@@ -123,6 +123,6 @@ motors:
     min_us: 1300
     max_us: 1700
     neutral_us: 1500
-    channel: 13
+    channel: 9
     topic: "/arm/motor_claw"
     slew_us_per_s: 0.0
