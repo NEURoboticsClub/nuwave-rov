@@ -132,7 +132,7 @@ class StabilizationNode(Node):
         self.publish_stabilization_commands(self._imu_to_twist_control(msg))
 
     def capture_callback(self, msg: Empty):
-        if (self.imu_stabilization_params.get('use_setpoints', False) is not True):
+        if not self.imu_stabilization_params.get('use_setpoints', False):
             return
 
         if self.last_imu_orientation is None:
