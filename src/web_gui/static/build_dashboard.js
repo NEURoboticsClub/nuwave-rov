@@ -922,7 +922,10 @@ function applyModelOrientation() {
         return;
     }
 
-    const { roll, pitch, yaw } = dashboard.model3d.orientation;
+    const orientation = dashboard.model3d.orientation;
+    const pitch = -orientation.roll;
+    const roll = orientation.pitch;
+    const yaw = orientation.yaw;
     if (dashboard.model3d.model) {
         // FLU IMU body frame -> Three.js model frame
         // Model authored with nose along +Z; signs verified in testing
