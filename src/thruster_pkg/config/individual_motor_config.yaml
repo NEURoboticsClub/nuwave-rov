@@ -6,83 +6,109 @@
 #   Ensure that the min_us and max_us are properly adjusted for to account for the found neutral offsets
 #   It is not automatic!
 
-thrusters:
+motors:
   - id: 1
     name: front_left_lateral
-    position_m: [-0.2, 0.2, 0.0]
-    direction: [0.7071, 0.7071, 0.0]
     min_us: 1430
     max_us: 1630
     neutral_us: 1530
     channel: 2
-    topic: /thruster/thruster_fll
+    topic: "/thruster/thruster_fll"
 
   - id: 2
     name: front_right_lateral
-    position_m: [0.2, 0.2, 0.0]
-    direction: [-0.7071, 0.7071, 0.0]
     min_us: 1430
     max_us: 1630
     neutral_us: 1530
     channel: 3
-    topic: /thruster/thruster_frl
+    topic: "/thruster/thruster_frl"
 
   - id: 3
     name: rear_left_lateral
-    position_m: [-0.2, -0.2, 0.0]
-    direction: [-0.7071, 0.7071, 0.0]
     min_us: 1430
     max_us: 1630
     neutral_us: 1530
     channel: 6
-    topic: /thruster/thruster_rll
+    topic: "/thruster/thruster_rll"
 
   - id: 4
     name: rear_right_lateral
-    position_m: [0.2, -0.2, 0.0]
-    direction: [0.7071, 0.7071, 0.0]
     min_us: 1430
     max_us: 1630
     neutral_us: 1530
     channel: 5
-    topic: /thruster/thruster_rrl
+    topic: "/thruster/thruster_rrl"
 
   - id: 5
     name: forward_left_vertical
-    position_m: [-0.2, 0.2, 0.0]
-    direction: [0.0, 0.0, 1.0]
     min_us: 1430
     max_us: 1630
     neutral_us: 1530
     channel: 1
-    topic: /thruster/thruster_flv
+    topic: "/thruster/thruster_flv"
 
   - id: 6
     name: forward_right_vertical
-    position_m: [0.2, 0.2, 0.0]
-    direction: [0.0, 0.0, 1.0]
     min_us: 1430
     max_us: 1630
     neutral_us: 1530
     channel: 0
-    topic: /thruster/thruster_frv
+    topic: "/thruster/thruster_frv"
 
   - id: 7
     name: rear_left_vertical
-    position_m: [-0.2, -0.2, 0.0]
-    direction: [0.0, 0.0, 1.0]
     min_us: 1430
     max_us: 1630
     neutral_us: 1530
     channel: 7
-    topic: /thruster/thruster_rlv
+    topic: "/thruster/thruster_rlv"
 
   - id: 8
     name: rear_right_vertical
-    position_m: [0.2, -0.2, 0.0]
-    direction: [0.0, 0.0, 1.0]
     min_us: 1430
     max_us: 1630
     neutral_us: 1530
     channel: 4
-    topic: /thruster/thruster_rrv
+    topic: "/thruster/thruster_rrv"
+
+  - id: 9
+    min_us: 1300
+    max_us: 1700
+    neutral_us: 1500
+    channel: 8
+    topic: "/arm/motor_base_yaw"
+
+  - id: 10
+    min_us: 1300
+    max_us: 1700
+    neutral_us: 1500
+    channel: 9
+    topic: "/arm/motor_base_pitch"
+
+  - id: 11
+    min_us: 1300
+    max_us: 1700
+    neutral_us: 1500
+    channel: 10
+    topic: "/arm/motor_elbow_pitch"
+
+  - id: 12
+    min_us: 1300
+    max_us: 1700
+    neutral_us: 1500
+    channel: 11
+    topic: "/arm/motor_wrist_yaw"
+
+  - id: 13
+    min_us: 1300
+    max_us: 1700
+    neutral_us: 1500
+    channel: 12
+    topic: "/arm/motor_wrist_pitch"
+
+  - id: 14
+    min_us: 1300
+    max_us: 1700
+    neutral_us: 1500
+    channel: 13
+    topic: "/arm/motor_claw"

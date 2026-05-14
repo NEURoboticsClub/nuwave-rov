@@ -41,7 +41,7 @@ class ThrusterController(Node):
                 'thruster_config', 
                 os.path.join(pkg_share, 'config', 'thruster_config.yaml')
                 )
-        self.declare_parameter('thruster_topic', '/thruster')
+        self.declare_parameter('thruster_topic', 'velocity_commands')
 
         self.max_force = float(self.get_parameter('max_force_n').value)
         rate = float(self.get_parameter('publish_rate_hz').value)
@@ -53,49 +53,51 @@ class ThrusterController(Node):
 
         # Configure Thrusters and Allocation
         config = load_yaml(thruster_config_path)
-        self.pwm_range_table = self._configure_virtual_thruster_pwm_range(config)
+        # self.pwm_range_table = self._configure_virtual_thruster_pwm_range(config)
+        self.thrusters = config.get('thrusters', [])
 
         self.allocMatrix = self.compute_thruster_allocation_matrix(config)
-        self.n_thrusters = self.allocMatrix.shape[1]
+        # self.n_thrusters = self.allocMatrix.shape[1]
         self.allocMatrix_inverse = np.linalg.pinv(self.allocMatrix)
 
         # Subscribers / Publishers
-        self.status_sub = self.create_subscription(Twist, "velocity_commands", self.Status_Callback, 10)
-        self.thruster_pubs = [] 
-        for indx in range(self.n_thrusters):
-            pub = self.create_publisher(Float32, f'thruster/thruster_{indx}', 10)
+        self.status_sub = self.create_subscription(Twist, thruster_topic, self.Status_Callback, 10)
+        self.thruster_pubs = []
+        for thrust in self.thrusters:
+            pub = self.create_publisher(Float32, thrust.get('topic'), 10)
             self.thruster_pubs.append(pub)
+            thrust['dutycycle'] = 0
 
         # State
         self.lastest_twist = Twist()
         # Init command send neutral to all thrusters
-        self.pwm_commands = self.pwm_range_table[:,1]
+        # self.pwm_commands = self.pwm_range_table[:,1]
         # Listen to state
         # Scream to thrusters
 
         self.create_timer(1.0 / rate, self.publish_thrusters)
         self.get_logger().info("Thruster Controller Initialized")
     
-    def _configure_virtual_thruster_pwm_range(self, config : dict) -> np.ndarray:
-        """
-        Each thruster has a neutral_us, min_us, max_us configured.
-        When we get the force each thruster should be outputting we want to map it along the bounds of that, specific thruster.
-        Returns: A list of bounds for the thruster at index i
-        """
+    # def _configure_virtual_thruster_pwm_range(self, config : dict) -> np.ndarray:
+    #     """
+    #     Each thruster has a neutral_us, min_us, max_us configured.
+    #     When we get the force each thruster should be outputting we want to map it along the bounds of that, specific thruster.
+    #     Returns: A list of bounds for the thruster at index i
+    #     """
         
-        thrusters = config.get('thrusters', [])
-        table = np.zeros((len(thrusters), 3))
-        for indx, thruster in enumerate(thrusters):
-            try:
-                table[indx, 0] = float(thruster['min_us'])
-                table[indx, 1] = float(thruster['neutral_us'])
-                table[indx, 2] = float(thruster['max_us'])
-            except KeyError as e:
-                raise ValueError(
-                        f"Thruster {indx} is missing required PWM field {e}. "
-                        f"Each thruster needs min_us, neutral_us, and max_us. "
-                        )
-        return table
+    #     thrusters = config.get('thrusters', [])
+    #     table = np.zeros((len(thrusters), 3))
+    #     for indx, thruster in enumerate(thrusters):
+    #         try:
+    #             table[indx, 0] = float(thruster['min_us'])
+    #             table[indx, 1] = float(thruster['neutral_us'])
+    #             table[indx, 2] = float(thruster['max_us'])
+    #         except KeyError as e:
+    #             raise ValueError(
+    #                     f"Thruster {indx} is missing required PWM field {e}. "
+    #                     f"Each thruster needs min_us, neutral_us, and max_us. "
+    #                     )
+    #     return table
     
     def compute_thruster_allocation_matrix(self, config : dict) -> np.ndarray:
 
@@ -129,7 +131,9 @@ class ThrusterController(Node):
         
         torqueList = self.map_twist_to_toque(linearVel, angularVel)
         # Publish PWM data
-        self.pwm_commands = self.map_torque_to_PWM(torqueList)
+        dutycycles = self.map_torque_to_dutycycles(torqueList)
+        for i, thrust in enumerate(self.thrusters):
+            thrust['dutycycle'] = dutycycles[i]
 
     def map_twist_to_toque(self, linear : np.ndarray, angular : np.ndarray) -> np.ndarray:
         """
@@ -139,35 +143,36 @@ class ThrusterController(Node):
         tau = tau_norm * self.wrench_scale
         forces = self.allocMatrix_inverse @ tau
         return forces
-    def map_torque_to_PWM(self, forces : np.ndarray) -> np.ndarray:
+    
+    def map_torque_to_dutycycles(self, forces : np.ndarray) -> np.ndarray:
         """
         Turns a list of torques -> to a list of PWM signals
         """
         # These are nx1 vectors for each thrusters configured pwm ranges
-        min_us = self.pwm_range_table[:, 0] 
-        neutral_us = self.pwm_range_table[:, 1]
-        max_us = self.pwm_range_table[:, 2]
+        # min_us = self.pwm_range_table[:, 0] 
+        # neutral_us = self.pwm_range_table[:, 1]
+        # max_us = self.pwm_range_table[:, 2]
         
         # This normalizes the forces to be within -1 and 1
         normalized = np.clip(forces / self.max_force, -1, 1)
         
         # If normalized >= 0, which is forward we linear interp the pwm to be some point between neutral and max
         # Same is applied for reverse but with neutral_us being the leading term.
-        pwm = np.where(
-            normalized >= 0,
-            neutral_us + normalized * (max_us - neutral_us),
-            neutral_us + normalized * (neutral_us - min_us)
-        )
-        return pwm
+        # pwm = np.where(
+        #     normalized >= 0,
+        #     neutral_us + normalized * (max_us - neutral_us),
+        #     neutral_us + normalized * (neutral_us - min_us)
+        # )
+        return normalized
 
     def publish_thrusters(self):
         """
         Publish current PWM commands to each thruster
         """
-        for indx, pub in enumerate(self.thruster_pubs):
+        for indx, thrust in enumerate(self.thrusters):
             msg = Float32()
-            msg.data = float(self.pwm_commands[indx])
-            pub.publish(msg)
+            msg.data = float(thrust.get('dutycycle', 0.0))
+            self.thruster_pubs[indx].publish(msg)
 
 def main(args=None):
     rclpy.init(args=args)

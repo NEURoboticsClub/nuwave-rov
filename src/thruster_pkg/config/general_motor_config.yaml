@@ -1,0 +1,7 @@
+thruster_node:
+  ros__parameters:
+    i2c_bus: 7
+    i2c_address: 64
+    pwm_freq_hz: 50
+    slew_us_per_s: 750.0
+    watchdog_timeout_s: 0.5

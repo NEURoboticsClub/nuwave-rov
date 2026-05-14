@@ -6,11 +6,10 @@ from rclpy.duration import Duration
 from .pwm_scribe_base import PWMScribeBase
 from .pwm_scribe_arduino import PWMScribeArduino
 from .pwm_scribe_hat import PWMScribeHat
-
-# ---- CONFIG ----
-LOW_ANGLE = 0
-HIGH_ANGLE = 180
-STOP_ANGLE = 90
+from nuwave_utils_pkg.file_helpers import load_yaml
+import os
+from ament_index_python.packages import get_package_share_directory
+import numpy as np
 
 class PWMNode(Node):
     """
@@ -21,40 +20,34 @@ class PWMNode(Node):
     def __init__(self, node_name='pwm_node', **kwargs):
         super().__init__(node_name, **kwargs)
         # Params
-        self.declare_parameter('topic', '')
-        self.declare_parameter('channel', 0)
         self.declare_parameter('pwm_freq_hz', 50)             # ESC expects ~50 Hz
-        self.declare_parameter('neutral_us', 1500.0)          # stop
-        self.declare_parameter('min_us', 1000.0)              # full reverse (or forward, see invert)
-        self.declare_parameter('max_us', 2000.0)              # full forward (or reverse)
-        self.declare_parameter('deadband_us', 0.0)            # optional neutral deadband half-width
-        self.declare_parameter('invert_direction', False)     # flip sign if needed
-        self.declare_parameter('max_abs_cmd', 0.8)            # safety clamp
         self.declare_parameter('update_rate_hz', 50.0)        # write rate to the hat
         self.declare_parameter('watchdog_timeout_s', 0.5)     # neutral if no msg in this time
         self.declare_parameter('slew_us_per_s', 750.0)        # 0 to disable rate limit; else max change per sec
         self.declare_parameter('simulate', False)
         self.declare_parameter('pwm_hardware', 'arduino')     # 'arduino' or 'hat'
+        pkg_share = get_package_share_directory('controller')
+        self.declare_parameter(
+                'individual_motor_config', 
+                os.path.join(pkg_share, 'config', 'individual_motor_config.yaml')
+                )
+        # self.declare_parameter(
+        #         'general_motor_config', 
+        #         os.path.join(pkg_share, 'config', 'general_motor_config.yaml')
+        #         )
         # hardware-specific
         self.declare_parameter('i2c_bus', 7)
         self.declare_parameter('i2c_address', 0x40)
         port = self.declare_parameter("firmata_port", "/dev/ttyACM0")
         pins = self.declare_parameter("firmata_pins", [9,10,11,12])
         # Read Params
-        topic = self.get_parameter('topic').get_parameter_value().string_value
         bus = self.get_parameter('i2c_bus').value
         addr = self.get_parameter('i2c_address').value
-        self.channel = self.get_parameter('channel').value
         self.pwm_freq = self.get_parameter('pwm_freq_hz').value
 
         self.slew_us_per_s = self.get_parameter('slew_us_per_s').value
         pwm_hardware = self.get_parameter('pwm_hardware').get_parameter_value().string_value
-        
-        self.neutral_us = self.get_parameter('neutral_us').value
-        self.min_us = self.get_parameter('min_us').value
-        self.max_us = self.get_parameter('max_us').value
 
-        self.deadband_us = self.get_parameter('deadband_us').value
         self.update_rate_hz = self.get_parameter('update_rate_hz').value
         self.watchdog_timeout = Duration(
                 seconds=self.get_parameter('watchdog_timeout_s').value
@@ -63,17 +56,6 @@ class PWMNode(Node):
         print("Slew rate (us/s):", self.slew_us_per_s)
         # Derived Vals
         self.period_us = 1_000_000.0 / self.pwm_freq
-
-        if not topic: 
-            topic = f"thruster_{self.channel}"
-
-        # State
-        self.target_us = self.neutral_us
-        self.current_us = self.neutral_us
-        now = self.get_clock().now()
-        self.last_msg_time = now
-        self._prev_time = now
-        self._got_first_cmd = False
 
         # PCA stuff
         # Adding a simulation flag, so we can see the driver code work without the PCA9865 needing to be connected
@@ -97,98 +79,141 @@ class PWMNode(Node):
             except Exception as e:
                 self.pwm = None
                 self.get_logger().error(f'PCA9685 init failed: {e}') # we should add some retry logic here
+        
+        individual_motor_config_path = self.get_parameter('individual_motor_config').value
+        general_motor_config_path = self.get_parameter('general_motor_config').value
+
+        self.get_logger().info(f"Loading individual thruster config from: {individual_motor_config_path}")
+
+        # Configure Thrusters and Allocation
+        individual_config = load_yaml(individual_motor_config_path)
+
+        self.motors = individual_config.get('motors', [])
+        self.motors_lookup = {mot['topic']: mot for mot in self.motors}
+
+        if not self.motors:
+            raise ValueError(f"No motors found in config")
 
         self._arm()
 
         # Ros Wiring
-        self.sub = self.create_subscription(Float32, topic, self.cmd_callback, 10)
-        self.response_pub = self.create_publisher(Float32, topic + "/response_pwm", 10)
+        self.motor_subs = []
+        self.response_pubs = []
+        for mot in self.motors:
+            sub = self.create_subscription(Float32, mot.get('topic'), lambda msg: self.cmd_callback(msg, mot.get('topic')), 10)
+            self.motor_subs.append(sub)
+            mot['target_us'] = mot.get('neutral_us', 1500)
+            mot['current_us'] = mot.get('neutral_us', 1500)
+            pub = self.create_publisher(Float32, mot.get('topic') + "/response_pwm", 10)
+            self.response_pubs.append(pub)
+            self.get_logger().info(
+                f'Listening on "{mot.get('topic')}" for Float32 (us), '
+                f'range [{mot.get('min_us'), mot.get('max_us')}], neutral_us={mot.get('neutral_us', 1500)}'
+                )
+            now = self.get_clock().now()
+            mot['last_msg_time'] = now
+            mot['prev_time'] = now
+            mot['got_first_cmd'] = False
+        
         self.timer = self.create_timer(1.0 / self.update_rate_hz, self.update)
 
-        self.get_logger().info(
-                f'Listening on "{topic}" for Float32 (us), '
-                f'range [{self.min_us, self.max_us}], neutral_us={self.neutral_us}'
-                )
+    
+    # takes dutycycle (-1 to 1) and maps that to PWM range for each motor
+    def map_dutycycle_to_pwm(self, dutycycle : float, mot : dict) -> float:
+        # These are nx1 vectors for each thrusters configured pwm ranges
+        min_us = mot['min_us']
+        neutral_us = mot['neutral_us']
+        max_us = mot['max_us']
+        
+        # This normalizes the forces to be within -1 and 1
+        normalized = np.clip(dutycycle, -1.0, 1.0)
+        
+        # If normalized >= 0, which is forward we linear interp the pwm to be some point between neutral and max
+        # Same is applied for reverse but with neutral_us being the leading term.
+        pwm = neutral_us + normalized * (max_us - neutral_us) if normalized >= 0 else neutral_us + normalized * (neutral_us - min_us)
+        return pwm
 
     def _arm(self):
         """Simple arming sequence and set to neutral/stop."""
-        print("Arming thruster on channel", self.channel)
         if self.pwm is not None:
-            try:
-                self.pwm.setRotationAngle(self.channel, STOP_ANGLE)
-            except Exception:
-                pass
-        print(f" -> {STOP_ANGLE} (stop / neutral)")
+            for mot in self.motors:
+                print("Arming thruster on channel", mot['channel'])
+                try:
+                    self.pwm.set_pwm(mot['channel'], mot['neutral_us'])
+                except Exception:
+                    pass
+            print(f" -> {mot['neutral_us']} (stop / neutral)")
         time.sleep(2.0)
         
-    def _write_us(self, us : float, channel : int):
-        """
-        Clamp, convert and write to hardware.
-        """
-        # Clamp signal between min_us and max_us
-        us = max(self.min_us, min(self.max_us, us))
-
-        # Give a deadband around neutral (force exact neutral if within band)
-        if self.deadband_us > 0.0 and abs(us - self.neutral_us) <= self.deadband_us:
-            us = self.neutral_us
-
-        us_centered = us - self.neutral_us
-        angle = 0.0
-        if us_centered >= 0.0:
-            angle = us_centered / (self.max_us - self.neutral_us)
-        else:
-            angle = us_centered / (self.neutral_us - self.min_us)
-        self._write_angle(angle, channel)
+    # def _write_us(self, us : float, channel : int):
+    #     """
+    #     Clamp, convert and write to hardware.
+    #     """
+    #     us_centered = us - self.neutral_us
+    #     angle = 0.0
+    #     if us_centered >= 0.0:
+    #         angle = us_centered / (self.max_us - self.neutral_us)
+    #     else:
+    #         angle = us_centered / (self.neutral_us - self.min_us)
+    #     self._write_angle(angle, channel)
     
-    def _write_angle(self, val : float, channel : int):
-        if val >= 0.0:
-            angle = STOP_ANGLE + val * (HIGH_ANGLE - STOP_ANGLE)
-        else:
-            angle = STOP_ANGLE + val * (STOP_ANGLE - LOW_ANGLE)
+    # def _write_angle(self, val : float, channel : int):
+    #     if val >= 0.0:
+    #         angle = STOP_ANGLE + val * (HIGH_ANGLE - STOP_ANGLE)
+    #     else:
+    #         angle = STOP_ANGLE + val * (STOP_ANGLE - LOW_ANGLE)
         
-        angle = int(max(LOW_ANGLE, min(HIGH_ANGLE, angle)))
-        self.get_logger().debug(f'Angle: {angle}')
+    #     angle = int(max(LOW_ANGLE, min(HIGH_ANGLE, angle)))
+    #     self.get_logger().debug(f'Angle: {angle}')
 
-        if self.pwm is None:
-            return
-        try:
-            self.pwm.set_pwm(channel, angle)
-        except Exception as e:
-            self.get_logger().error(f'Failed to send angle: {e}')
+    #     if self.pwm is None:
+    #         return
+    #     try:
+    #         self.pwm.set_pwm(channel, angle)
+    #     except Exception as e:
+    #         self.get_logger().error(f'Failed to send angle: {e}')
+    
+    def _write_all_us(self, us: float):
+        for mot in self.motors:
+            self.pwm.set_pwm(mot['channel'], us)
 
     # Callbacks
-    def cmd_callback(self, msg : Float32):
+    def cmd_callback(self, msg : Float32, topic : str):
         """
         Signal to SPIN BABY SPIN
         """
         cmd = float(msg.data)
+        mot = self.motors_lookup.get(topic)
         
-        self.target_us = max(self.min_us, min(self.max_us, cmd))
-        self.last_msg_time = self.get_clock().now()
-        self._got_first_cmd = True
+        mot['target_us'] = max(mot['min_us'], min(mot['max_us'], self.map_dutycycle_to_pwm(cmd, mot)))
+        mot['last_msg_time'] = self.get_clock().now()
+        mot['got_first_cmd'] = True
 
     # TODO: reintegrate updates independent of callback if possible to allow different publishing and update rates
     def update(self):
         now = self.get_clock().now()
-        dt = (now - self._prev_time).nanoseconds / 1e9
-        self._prev_time = now
+        dt = [(now - mot['prev_time']).nanoseconds / 1e9 for mot in self.motors]
+        for mot in self.motors:
+            mot['prev_time'] = now
         
-        # Watchdog code may need some tweaking
-        if self._got_first_cmd and (now - self.last_msg_time) > self.watchdog_timeout:
-            if self.target_us != self.neutral_us:
-                self.get_logger().warn('Watchdog timeout: ramping to neutral.')
-            self.target_us = self.neutral_us
+        for mot in self.motors:
+            # Watchdog code may need some tweaking
+            if mot['got_first_cmd'] and (now - mot['last_msg_time']) > self.watchdog_timeout:
+                if mot['target_us'] != mot['neutral_us']:
+                    self.get_logger().warn('Watchdog timeout: ramping to neutral.')
+                mot['target_us'] = mot['neutral_us']
 
-        # Slew limiting
-        target = self.target_us
-        if self.slew_us_per_s > 0.0 and dt > 0.0:
-            max_delta = self.slew_us_per_s * dt
-            delta = target - self.current_us
-            if abs(delta) > max_delta:
-                target = self.current_us + (max_delta if delta > 0 else -max_delta)
+            # Slew limiting
+            target = mot['target_us']
+            if self.slew_us_per_s > 0.0 and dt > 0.0:
+                max_delta = self.slew_us_per_s * dt
+                delta = target - mot['current_us']
+                if abs(delta) > max_delta:
+                    target = mot['current_us'] + (max_delta if delta > 0 else -max_delta)
 
-        self.current_us = target
+            mot['current_us'] = target
 
+        # still need to finish this
         if self.pwm is not None:
             try:
                 self._write_us(target)
@@ -200,6 +225,7 @@ class PWMNode(Node):
         self.response_pub.publish(response_pwm_message)
 
     def destroy_node(self):
+        # also need to change this whole node
         # send neutral and cleanup
         if self.pwm is not None:
             try:
@@ -222,7 +248,7 @@ class PWMNode(Node):
 
 def main(args=None):
     rclpy.init()
-    node = ThrusterNode()
+    node = PWMNode()
 
     try:
         rclpy.spin(node)
