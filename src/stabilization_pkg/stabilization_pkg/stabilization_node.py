@@ -112,6 +112,16 @@ class StabilizationNode(Node):
         twist.angular.x = float(p * err_vec[0] - d * gyro.x)
         twist.angular.y = float(p * err_vec[1] - d * gyro.y)
         twist.angular.z = float(p * err_vec[2] - d * gyro.z)
+
+        max_influence = float(self.imu_stabilization_params.get('max_stabilization_influence', 1.0))
+        v = np.array([twist.angular.x, twist.angular.y, twist.angular.z])
+        norm = np.linalg.norm(v)
+        if norm > max_influence:
+            v *= max_influence / norm
+            twist.angular.x = float(v[0])
+            twist.angular.y = float(v[1])
+            twist.angular.z = float(v[2])
+
         return twist
 
     def imu_callback(self, msg: Imu):
@@ -122,6 +132,9 @@ class StabilizationNode(Node):
         self.publish_stabilization_commands(self._imu_to_twist_control(msg))
 
     def capture_callback(self, msg: Empty):
+        if (self.imu_stabilization_params.get('use_setpoints', False) is not True):
+            return
+
         if self.last_imu_orientation is None:
             self.get_logger().warn("Capture requested but no IMU received yet; setpoint unchanged")
             return
