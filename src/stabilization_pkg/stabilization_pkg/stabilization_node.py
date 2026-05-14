@@ -1,7 +1,7 @@
 import rclpy
 from rclpy.node import Node
 from geometry_msgs.msg import Twist, Quaternion
-from std_msgs.msg import Float32
+from std_msgs.msg import Float32, Empty
 from sensor_msgs.msg import Imu
 from ament_index_python.packages import get_package_share_directory
 from nuwave_utils_pkg.file_helpers import load_yaml
@@ -35,6 +35,9 @@ class StabilizationNode(Node):
 
         # Subscribers / Publishers
         self.imu_sub = self.create_subscription(Imu, '/imu', self.imu_callback, 10)
+
+        self.capture_sub = self.create_subscription(Empty, '/stabilizer/capture', self.capture_callback, 10)
+        self.last_imu_orientation = None
 
         self.sta_pub = self.create_publisher(Twist, '/stabilizer/commands', 10)
 
@@ -115,7 +118,15 @@ class StabilizationNode(Node):
         """
         Callback for IMU data.
         """
+        self.last_imu_orientation = msg.orientation
         self.publish_stabilization_commands(self._imu_to_twist_control(msg))
+
+    def capture_callback(self, msg: Empty):
+        if self.last_imu_orientation is None:
+            self.get_logger().warn("Capture requested but no IMU received yet; setpoint unchanged")
+            return
+        if self.set_desired_orientation(self.last_imu_orientation):
+            self.get_logger().info("Captured current orientation as setpoint")
 
     def publish_stabilization_commands(self, msg: Twist):
         """

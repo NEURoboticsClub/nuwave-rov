@@ -2,7 +2,7 @@ import rclpy
 from rclpy.node import Node
 from sensor_msgs.msg import Joy
 from geometry_msgs.msg import Twist
-from std_msgs.msg import Float32MultiArray
+from std_msgs.msg import Float32MultiArray, Empty
 from ament_index_python.packages import get_package_share_directory
 from nuwave_utils_pkg.file_helpers import load_yaml
 import os
@@ -44,6 +44,7 @@ class Houston(Node):
 
         self.twist_pub = self.create_publisher(Twist, "velocity_commands", 10)
         self.arm_pub = self.create_publisher(Float32MultiArray, "arm_commands", 10)
+        self.capture_pub = self.create_publisher(Empty, '/stabilizer/capture', 10)
         
         # === Internal state ===
         self.last_joy_thruster_msg = None
@@ -139,6 +140,8 @@ class Houston(Node):
         if stab_btn == 1 and self.prev_stabilize_button == 0:
             self.stabilize_enabled = not self.stabilize_enabled
             self.get_logger().info(f"Stabilization mode: {'ON' if self.stabilize_enabled else 'OFF'}")
+            if self.stabilize_enabled:  # send message to capture orientation as setpoint
+                self.capture_pub.publish(Empty())
         self.prev_stabilize_button = stab_btn
 
         msg = Twist()
