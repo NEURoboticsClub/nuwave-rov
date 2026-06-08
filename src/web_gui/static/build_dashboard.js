@@ -172,7 +172,7 @@ function registerDualMeter(parent, key, label, collection) {
 
     const targetDisplay = document.createElement("span");
     targetDisplay.className = "thruster-meter__target-display";
-    targetDisplay.textContent = "TARGET --";
+    targetDisplay.textContent = "--";
 
     const value = document.createElement("span");
     value.className = "row__value";
@@ -430,7 +430,7 @@ function updateDualMeter(meter, kind, rawValue, isThruster = false, key = "") {
 
     if (kind === "response") {
         meter.responseFill.style.width = `${normalised * 100}%`;
-        setText(meter.value, `RESP ${rawValue.toFixed(2)} us`);
+        setText(meter.value, `RESP ${rawValue.toFixed(2)}`);
         
         // Update visualization for response values (which represent actual thrust)
         if (isThruster && dashboard.thrusterViz) {
@@ -462,7 +462,7 @@ function updateDualMeter(meter, kind, rawValue, isThruster = false, key = "") {
 
     if (kind === "target") {
         meter.targetMarker.style.left = `${normalised * 100}%`;
-        setText(meter.targetDisplay, `TARGET ${rawValue.toFixed(2)} us`);
+        setText(meter.targetDisplay, `${rawValue.toFixed(2)}`);
     }
 }
 
@@ -555,8 +555,8 @@ function drawThrusterViz() {
     const maxLen = Math.min(w, h) * 0.2;
 
     for (let i = 0; i < 4; i++) {
-        const pwm = viz.xValues[i] ?? 1500;
-        const force = clamp((pwm - 1500) / 500, -1, 1);
+        const pwm = viz.xValues[i] ?? 0;
+        const force = clamp(pwm, -1, 1);
         const mag = Math.abs(force);
 
         const ux = dirs[i].x * norm;
@@ -616,7 +616,7 @@ function drawUpMotorViz() {
     const maxLen = Math.min(w, h) * 0.18;
     for (let i = 0; i < 4; i++) {
         const pwm = viz.upValues[i] ?? 1500;
-        const force = clamp((pwm - 1500) / 500, -1, 1);
+        const force = clamp(pwm, -1, 1);
         const dy = -maxLen * force;
         const pos = corners[i];
 
@@ -691,9 +691,9 @@ function buildPowerPanel() {
     panel.appendChild(grid);
 }
 
-function buildArmPanel() {
+function buildButtonPanel() {
     const panel = createPanel("", "");
-    panel.id = "panel-arm";
+    panel.id = "panel-buttons";
     const layout = document.createElement("div");
     layout.className = "arm-layout";
     panel.appendChild(layout);
@@ -757,6 +757,16 @@ function buildArmPanel() {
 
     buttonsSection.appendChild(buttonGrid);
 
+    layout.append(buttonsSection);
+}
+
+function buildArmPanel() {
+    const panel = createPanel("", "");
+    panel.id = "panel-arm";
+    const layout = document.createElement("div");
+    layout.className = "arm-layout";
+    panel.appendChild(layout);
+
     const motorsSection = document.createElement("div");
     motorsSection.className = "arm-section arm-section--motors";
 
@@ -769,7 +779,7 @@ function buildArmPanel() {
     motorsGrid.className = "compact-grid arm-section__grid";
     motorsSection.appendChild(motorsGrid);
 
-    layout.append(buttonsSection, motorsSection);
+    layout.append(motorsSection);
 
     const armMotors = [
         { key: "motor_base_yaw", label: "Base Yaw" },
@@ -1607,8 +1617,9 @@ function refreshStaleState() {
 
 function buildDashboard() {
     buildThrusterPanel();
-    buildPowerPanel();
+    // buildPowerPanel();
     buildArmPanel();
+    buildButtonPanel();
     buildDepthPanel();
     buildCameraPanel();
     buildModelPanel();

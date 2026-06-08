@@ -115,7 +115,6 @@ body.test-mode {
     display: flex;
     flex-direction: column;
     gap: 6px;
-    flex: 1;
     min-height: 0;
 }
 
@@ -131,9 +130,9 @@ body.test-mode {
     gap: 6px;
 }
 
-.arm-section--buttons {
+/* .arm-section--buttons {
     flex: 0 0 48%;
-}
+} */
 
 .arm-section--motors {
     flex: 1 1 52%;
@@ -229,6 +228,7 @@ body.test-mode {
     flex-direction: column;
     gap: 5px;
     min-height: 0;
+    max-height: fit-content;
 }
 
 .thruster-meter__track {
@@ -745,6 +745,7 @@ body.test-mode {
 /* Quad Mode overrides */
 .dashboard.quad-mode #panel-thrusters,
 .dashboard.quad-mode #panel-power,
+.dashboard.quad-mode #panel-arm,
 .dashboard.quad-mode #panel-depth {
     display: none;
 }
@@ -755,6 +756,11 @@ body.test-mode {
 }
 
 .dashboard.quad-mode #panel-arm {
+    grid-column: 3;
+    grid-row: 1;
+}
+
+.dashboard.quad-mode #panel-buttons {
     grid-column: 3;
     grid-row: 1;
 }
@@ -779,6 +785,7 @@ body.test-mode {
 /* Cinema Mode overrides */
 .dashboard.cinema-mode #panel-thrusters,
 .dashboard.cinema-mode #panel-power,
+.dashboard.cinema-mode #panel-arm,
 .dashboard.cinema-mode #panel-depth {
     display: none !important;
 }
