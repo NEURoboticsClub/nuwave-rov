@@ -96,7 +96,7 @@ class PWMNode(Node):
         self.motor_subs = []
         self.response_pubs = []
         for mot in self.motors:
-            sub = self.create_subscription(Float32, mot.get('topic'), lambda msg: self.cmd_callback(msg, mot.get('topic')), 10)
+            sub = self.create_subscription(Float32, mot.get('topic'), lambda msg, m=mot: self.cmd_callback(msg, m.get('topic')), 10)
             self.motor_subs.append(sub)
             mot['target_us'] = mot.get('neutral_us', 1500)
             mot['current_us'] = mot.get('neutral_us', 1500)
