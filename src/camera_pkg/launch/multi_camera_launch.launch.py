@@ -1,5 +1,5 @@
 from launch import LaunchDescription
-from launch.actions import DeclareLaunchArgument, Shutdown
+from launch.actions import DeclareLaunchArgument, LogInfo
 from launch.conditions import IfCondition
 from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
@@ -49,13 +49,15 @@ def generate_launch_description():
     try:
         camera_ports = _discover_working_ports()
     except Exception as e:
+        msg = f'Camera discovery failed ({e}); shutting down camera launch.'
         return LaunchDescription([
-            Shutdown(reason=f'Camera discovery failed ({e}); not starting any camera nodes.')
+            LogInfo(msg=msg),
         ])
 
     if not camera_ports:
+        msg = 'No working cameras found; shutting down camera launch.'
         return LaunchDescription([
-            Shutdown(reason='No working cameras found; not starting any camera nodes.')
+            LogInfo(msg=msg),
         ])
 
     actions = []
