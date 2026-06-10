@@ -24,17 +24,31 @@ class IMUPublisher(Node):
         sampling_rate = self.declare_parameter('sampling_rate',4800).value # why sampling rate 4800 lol, this is not baudrate
 
         # Setup
-        try:
-            self.imu = ImuDriver(addr,sampling_rate)
-        except:
-            self.get_logger().error('Failed to initialize IMU')
-
-        self.get_logger().info(f"IMU initialized")
+        self.addr = addr
+        self.sampling_rate = sampling_rate
+        self.imu = None
+        self._init_imu()
 
         self.publisher_ = self.create_publisher(Imu,'imu',10)
 
         timer_period = 1/sampling_rate
         self.timer = self.create_timer(timer_period,self.timer_callback)
+        # Retry IMU init every second until it succeeds
+        self.imu_retry_timer = self.create_timer(1.0, self._retry_imu)
+
+    def _init_imu(self):
+        """Try to initialize the IMU driver. Leaves self.imu as None on failure."""
+        try:
+            self.imu = ImuDriver(self.addr, self.sampling_rate)
+            self.get_logger().info("IMU initialized")
+        except Exception as e:
+            self.imu = None
+            self.get_logger().error(f'Failed to initialize IMU: {e} - retrying in 1s')
+
+    def _retry_imu(self):
+        if self.imu is not None:
+            return
+        self._init_imu()
 
     def timer_callback(self):
         """
@@ -42,12 +56,20 @@ class IMUPublisher(Node):
             Based on whatever control loop freq is provided
         """
 
-        values = self.imu.read_data()
-        linear_acceleration = values['linear_acceleration']
-        linear_velocity = values['linear_velocity']
-        angular_velocity = values['angular_velocity']
-        magnetometer = values['magnetometer']
-        quaternion = values['game_quaternion']
+        if self.imu is None:
+            return
+
+        try:
+            values = self.imu.read_data()
+            linear_acceleration = values['linear_acceleration']
+            linear_velocity = values['linear_velocity']
+            angular_velocity = values['angular_velocity']
+            magnetometer = values['magnetometer']
+            quaternion = values['game_quaternion']
+        except Exception as e:
+            self.get_logger().error(f'IMU read failed, skipping this cycle: {e}')
+            return
+
         imu_msg = Imu()
 
         # Parse header with frame id and timestamp
@@ -85,10 +107,13 @@ def main(args=None):
 
     imu_publisher = IMUPublisher()
 
-    rclpy.spin(imu_publisher)
-
-    imu_publisher.destroy_node()
-    rclpy.shutdown()
+    try:
+        rclpy.spin(imu_publisher)
+    except KeyboardInterrupt:
+        pass
+    finally:
+        imu_publisher.destroy_node()
+        rclpy.shutdown()
 
 
 if __name__ == '__main__':

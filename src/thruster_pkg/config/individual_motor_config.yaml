@@ -1,0 +1,128 @@
+# Position and direction of each thruster on the ROV
+# - Direction is a unit vector indicating the force vector applied to the ROV when the motor is active
+# - Position is the location of the thruster relative to the ROV's center of mass, in meters
+
+# IMPORTANT!!!
+#   Ensure that the min_us and max_us are properly adjusted for to account for the found neutral offsets
+#   It is not automatic!
+
+motors:
+  - id: 1
+    name: front_left_lateral
+    min_us: 1430
+    max_us: 1630
+    neutral_us: 1530
+    channel: 2
+    topic: "/thruster/thruster_fll"
+    slew_us_per_s: 750.0
+
+  - id: 2
+    name: front_right_lateral
+    min_us: 1430
+    max_us: 1630
+    neutral_us: 1530
+    channel: 3
+    topic: "/thruster/thruster_frl"
+    slew_us_per_s: 750.0
+
+  - id: 3
+    name: rear_left_lateral
+    min_us: 1430
+    max_us: 1630
+    neutral_us: 1530
+    channel: 6
+    topic: "/thruster/thruster_rll"
+    slew_us_per_s: 750.0
+
+  - id: 4
+    name: rear_right_lateral
+    min_us: 1430
+    max_us: 1630
+    neutral_us: 1530
+    channel: 5
+    topic: "/thruster/thruster_rrl"
+    slew_us_per_s: 750.0
+
+  - id: 5
+    name: forward_left_vertical
+    min_us: 1430
+    max_us: 1630
+    neutral_us: 1530
+    channel: 1
+    topic: "/thruster/thruster_flv"
+    slew_us_per_s: 750.0
+
+  - id: 6
+    name: forward_right_vertical
+    min_us: 1430
+    max_us: 1630
+    neutral_us: 1530
+    channel: 0
+    topic: "/thruster/thruster_frv"
+    slew_us_per_s: 750.0
+
+  - id: 7
+    name: rear_left_vertical
+    min_us: 1430
+    max_us: 1630
+    neutral_us: 1530
+    channel: 7
+    topic: "/thruster/thruster_rlv"
+    slew_us_per_s: 750.0
+
+  - id: 8
+    name: rear_right_vertical
+    min_us: 1430
+    max_us: 1630
+    neutral_us: 1530
+    channel: 4
+    topic: "/thruster/thruster_rrv"
+    slew_us_per_s: 750.0
+
+  - id: 9
+    min_us: 1300
+    max_us: 1700
+    neutral_us: 1500
+    channel: 8
+    topic: "/arm/motor_base_yaw"
+    slew_us_per_s: 0.0
+
+  - id: 10
+    min_us: 1300
+    max_us: 1700
+    neutral_us: 1500
+    channel: 13
+    topic: "/arm/motor_base_pitch"
+    slew_us_per_s: 0.0
+
+  - id: 11
+    min_us: 1300
+    max_us: 1700
+    neutral_us: 1500
+    channel: 10
+    topic: "/arm/motor_elbow_pitch"
+    slew_us_per_s: 0.0
+
+  - id: 12
+    min_us: 1300
+    max_us: 1700
+    neutral_us: 1500
+    channel: 11
+    topic: "/arm/motor_wrist_yaw"
+    slew_us_per_s: 0.0
+
+  - id: 13
+    min_us: 1300
+    max_us: 1700
+    neutral_us: 1500
+    channel: 12
+    topic: "/arm/motor_wrist_pitch"
+    slew_us_per_s: 0.0
+
+  - id: 14
+    min_us: 1300
+    max_us: 1700
+    neutral_us: 1500
+    channel: 9
+    topic: "/arm/motor_claw"
+    slew_us_per_s: 0.0

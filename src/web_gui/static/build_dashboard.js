@@ -172,7 +172,7 @@ function registerDualMeter(parent, key, label, collection) {
 
     const targetDisplay = document.createElement("span");
     targetDisplay.className = "thruster-meter__target-display";
-    targetDisplay.textContent = "TARGET --";
+    targetDisplay.textContent = "--";
 
     const value = document.createElement("span");
     value.className = "row__value";
@@ -200,9 +200,9 @@ function registerDualMeter(parent, key, label, collection) {
         responseFill,
         targetMarker,
         targetDisplay,
-        min: 1000,
-        max: 2000,
-        lastSeen: 0,
+        min: -1.0,
+        max: 1.0,
+        lastSeen: 0.0,
     });
 }
 
@@ -352,9 +352,24 @@ function buildThrusterPanel() {
     grid.className = "compact-grid";
     panel.appendChild(grid);
 
-    for (let i = 0; i < 8; i++) {
-        registerThrusterMeter(grid, `thruster_${i}`, `T${i}`);
-    }
+    const thrusters = [
+        { key: "thruster_fll", label: "Front Left Lateral" },
+        { key: "thruster_frl", label: "Front Right Lateral" },
+        { key: "thruster_rll", label: "Rear Left Lateral" },
+        { key: "thruster_rrl", label: "Rear Right Lateral" },
+        { key: "thruster_flv", label: "Front Left Vertical" },
+        { key: "thruster_frv", label: "Front Right Vertical" },
+        { key: "thruster_rlv", label: "Rear Left Vertical" },
+        { key: "thruster_rrv", label: "Rear Right Vertical" },
+    ];
+
+    thrusters.forEach((thruster) => {
+        registerThrusterMeter(
+            grid,
+            thruster.key,
+            thruster.label
+        );
+    });
 
     const vizCard = document.createElement("div");
     vizCard.className = "thruster-viz-card";
@@ -415,16 +430,30 @@ function updateDualMeter(meter, kind, rawValue, isThruster = false, key = "") {
 
     if (kind === "response") {
         meter.responseFill.style.width = `${normalised * 100}%`;
-        setText(meter.value, `RESP ${rawValue.toFixed(0)} us`);
+        setText(meter.value, `RESP ${rawValue.toFixed(2)}`);
         
         // Update visualization for response values (which represent actual thrust)
         if (isThruster && dashboard.thrusterViz) {
-            const thrusterId = Number(key.split("_")[1]);
-            if (!Number.isNaN(thrusterId) && thrusterId >= 0 && thrusterId < 4) {
-                dashboard.thrusterViz.xValues[thrusterId] = rawValue;
+            const lateralMap = {
+                thruster_fll: 0,
+                thruster_frl: 1,
+                thruster_rll: 2,
+                thruster_rrl: 3,
+            };
+
+            const verticalMap = {
+                thruster_flv: 0,
+                thruster_frv: 1,
+                thruster_rlv: 2,
+                thruster_rrv: 3,
+            };
+
+            if (key in lateralMap) {
+                dashboard.thrusterViz.xValues[lateralMap[key]] = rawValue;
                 drawThrusterViz();
-            } else if (!Number.isNaN(thrusterId) && thrusterId >= 4 && thrusterId < 8) {
-                dashboard.thrusterViz.upValues[thrusterId - 4] = rawValue;
+            }
+            else if (key in verticalMap) {
+                dashboard.thrusterViz.upValues[verticalMap[key]] = rawValue;
                 drawUpMotorViz();
             }
         }
@@ -433,16 +462,8 @@ function updateDualMeter(meter, kind, rawValue, isThruster = false, key = "") {
 
     if (kind === "target") {
         meter.targetMarker.style.left = `${normalised * 100}%`;
-        setText(meter.targetDisplay, `TARGET ${rawValue.toFixed(0)} us`);
+        setText(meter.targetDisplay, `${rawValue.toFixed(2)}`);
     }
-}
-
-function updateThrusterMeter(key, kind, rawValue) {
-    updateDualMeter(dashboard.thrusterMeters.get(key), kind, rawValue, true, key);
-}
-
-function updateArmMeter(key, kind, rawValue) {
-    updateDualMeter(dashboard.armMeters.get(key), kind, rawValue, false, key);
 }
 
 function updateThrusterMeter(key, kind, rawValue) {
@@ -534,8 +555,8 @@ function drawThrusterViz() {
     const maxLen = Math.min(w, h) * 0.2;
 
     for (let i = 0; i < 4; i++) {
-        const pwm = viz.xValues[i] ?? 1500;
-        const force = clamp((pwm - 1500) / 500, -1, 1);
+        const pwm = viz.xValues[i] ?? 0;
+        const force = clamp(pwm, -1, 1);
         const mag = Math.abs(force);
 
         const ux = dirs[i].x * norm;
@@ -595,7 +616,7 @@ function drawUpMotorViz() {
     const maxLen = Math.min(w, h) * 0.18;
     for (let i = 0; i < 4; i++) {
         const pwm = viz.upValues[i] ?? 1500;
-        const force = clamp((pwm - 1500) / 500, -1, 1);
+        const force = clamp(pwm, -1, 1);
         const dy = -maxLen * force;
         const pos = corners[i];
 
@@ -670,9 +691,9 @@ function buildPowerPanel() {
     panel.appendChild(grid);
 }
 
-function buildArmPanel() {
+function buildButtonPanel() {
     const panel = createPanel("", "");
-    panel.id = "panel-arm";
+    panel.id = "panel-buttons";
     const layout = document.createElement("div");
     layout.className = "arm-layout";
     panel.appendChild(layout);
@@ -736,6 +757,16 @@ function buildArmPanel() {
 
     buttonsSection.appendChild(buttonGrid);
 
+    layout.append(buttonsSection);
+}
+
+function buildArmPanel() {
+    const panel = createPanel("", "");
+    panel.id = "panel-arm";
+    const layout = document.createElement("div");
+    layout.className = "arm-layout";
+    panel.appendChild(layout);
+
     const motorsSection = document.createElement("div");
     motorsSection.className = "arm-section arm-section--motors";
 
@@ -748,11 +779,24 @@ function buildArmPanel() {
     motorsGrid.className = "compact-grid arm-section__grid";
     motorsSection.appendChild(motorsGrid);
 
-    layout.append(buttonsSection, motorsSection);
+    layout.append(motorsSection);
 
-    for (let i = 0; i < 6; i++) {
-        registerArmMeter(motorsGrid, `arm_motor_${i}`, `A${i}`);
-    }
+    const armMotors = [
+        { key: "motor_base_yaw", label: "Base Yaw" },
+        { key: "motor_base_pitch", label: "Base Pitch" },
+        { key: "motor_elbow_pitch", label: "Elbow Pitch" },
+        { key: "motor_wrist_yaw", label: "Wrist Yaw" },
+        { key: "motor_wrist_pitch", label: "Wrist Pitch" },
+        { key: "motor_claw", label: "Claw" },
+    ];
+
+    armMotors.forEach((motor) => {
+        registerArmMeter(
+            motorsGrid,
+            motor.key,
+            motor.label
+        );
+    });
 }
 
 function buildDepthPanel() {
@@ -924,15 +968,24 @@ function applyModelOrientation() {
 
     const { roll, pitch, yaw } = dashboard.model3d.orientation;
     if (dashboard.model3d.model) {
-        // GLB local axes are rotated relative to IMU axes.
-        // Map IMU {roll, pitch, yaw} -> model {x, y, z} as {pitch, yaw, roll}.
-        dashboard.model3d.model.rotation.set(pitch, yaw, roll, "XYZ");
+        // FLU IMU body frame -> Three.js model frame
+        // Model authored with nose along +Z; signs verified in testing
+        dashboard.model3d.model.rotation.set(pitch, 0, roll, "XYZ");
+    }
+
+    if (dashboard.model3d.grid) {
+        dashboard.model3d.grid.rotation.y = -yaw;
+    }
+
+    if (dashboard.model3d.navballCanvas) {
+        drawNavball(dashboard.model3d.navballCanvas, pitch, roll);
     }
 
     const toDeg = (radians) => radians * (180 / Math.PI);
+    const displayPitch = -pitch;  // show pilot-friendly sign on the HUD
     setText(
         dashboard.model3d.readout,
-        `ROLL ${toDeg(roll).toFixed(1)} deg | PITCH ${toDeg(pitch).toFixed(1)} deg | YAW ${toDeg(yaw).toFixed(1)} deg`
+        `ROLL ${toDeg(roll).toFixed(1)} deg | PITCH ${toDeg(displayPitch).toFixed(1)} deg | YAW ${toDeg(yaw).toFixed(1)} deg`
     );
 }
 
@@ -1096,14 +1149,129 @@ function updateModelOrientation(rollOrOrientation, pitch, yaw, unit = "rad") {
     applyModelOrientation();
 }
 
+function drawNavball(canvas, pitchRad, rollRad) {
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    const { width: w, height: h } = resizeCanvasToDisplaySize(canvas, ctx);
+    const cx = w / 2;
+    const cy = h / 2;
+    const radius = Math.min(w, h) / 2 * 0.85;
+
+    ctx.clearRect(0, 0, w, h);
+
+    // Save and clip to the instrument circle
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.beginPath();
+    ctx.arc(0, 0, radius, 0, Math.PI * 2);
+    ctx.clip();
+
+    // Roll: Horizon rotates opposite to camera/vehicle roll
+    ctx.rotate(-rollRad);
+
+    // Pitch: maps +/- 90 degrees to a scaled radius
+    const maxPitchDeg = 90;
+    const pitchScale = 3;
+    const pitchDeg = pitchRad * (180 / Math.PI);
+    const pitchOffset = -(pitchDeg / maxPitchDeg) * radius * pitchScale;
+
+    // Sky
+    ctx.fillStyle = "#3498db";
+    ctx.fillRect(-radius * 10, -radius * 10 + pitchOffset, radius * 20, radius * 10);
+
+    // Ground
+    ctx.fillStyle = "#8b4513";
+    ctx.fillRect(-radius * 10, pitchOffset, radius * 20, radius * 10);
+
+    // Horizon line
+    ctx.strokeStyle = "white";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(-radius * 10, pitchOffset);
+    ctx.lineTo(radius * 10, pitchOffset);
+    ctx.stroke();
+
+    // Pitch lines
+    ctx.fillStyle = "white";
+    ctx.strokeStyle = "white";
+    ctx.font = "10px sans-serif";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+
+    for (let p = -80; p <= 80; p += 10) {
+        if (p === 0) continue;
+        const lineOffset = pitchOffset - (p / maxPitchDeg) * radius * pitchScale;
+        if (Math.abs(lineOffset) > radius * 0.95) continue; // skip if off ball
+
+        const isMajor = p % 30 === 0;
+        const width = isMajor ? radius * 0.6 : radius * 0.3;
+
+        ctx.beginPath();
+        ctx.moveTo(-width / 2, lineOffset);
+        ctx.lineTo(width / 2, lineOffset);
+        ctx.stroke();
+
+        ctx.fillText(p.toString(), -width / 2 - 12, lineOffset);
+        ctx.fillText(p.toString(), width / 2 + 12, lineOffset);
+    }
+
+    ctx.restore();
+
+    // Fixed ROV reference
+    ctx.strokeStyle = "yellow";
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(cx - radius * 0.4, cy);
+    ctx.lineTo(cx - radius * 0.1, cy);
+    ctx.lineTo(cx, cy + radius * 0.1);
+    ctx.lineTo(cx + radius * 0.1, cy);
+    ctx.lineTo(cx + radius * 0.4, cy);
+    ctx.stroke();
+
+    // Little dot in center
+    ctx.fillStyle = "yellow";
+    ctx.beginPath();
+    ctx.arc(cx, cy, 3, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Outer ring
+    ctx.beginPath();
+    ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+    ctx.lineWidth = 3;
+    ctx.strokeStyle = "#2f5d80";
+    ctx.stroke();
+}
+
 function buildModelPanel() {
     const panel = createPanel("IMU", "/imu");
     panel.id = "panel-model";
     const wrap = document.createElement("div");
     wrap.className = "model3d-wrap";
 
+    const canvasesWrap = document.createElement("div");
+    canvasesWrap.className = "model3d-canvases";
+    canvasesWrap.style.position = "relative";
+    canvasesWrap.style.display = "flex";
+    canvasesWrap.style.flexDirection = "column";
+
     const canvas = document.createElement("canvas");
     canvas.className = "model3d-canvas";
+    canvas.style.flex = "1";
+    canvas.style.minHeight = "180px";
+
+    const navballCanvas = document.createElement("canvas");
+    navballCanvas.className = "navball-canvas";
+    navballCanvas.style.position = "absolute";
+    navballCanvas.style.top = "6px";
+    navballCanvas.style.right = "6px";
+    navballCanvas.style.width = "120px";
+    navballCanvas.style.height = "120px";
+    navballCanvas.style.borderRadius = "50%";
+    navballCanvas.style.border = "2px solid rgba(47, 93, 128, 0.8)";
+    navballCanvas.style.background = "#06101c";
+    navballCanvas.style.zIndex = "10";
+
+    canvasesWrap.append(canvas, navballCanvas);
 
     const readout = document.createElement("div");
     readout.className = "model3d-readout row";
@@ -1150,11 +1318,12 @@ function buildModelPanel() {
     const gyroRow = createTelemetryRow("Angular Vel (rad/s)", "x -- y -- z --");
     const linearVelocityRow = createTelemetryRow("Linear Vel", "x -- y -- z --");
 
-    wrap.append(canvas, readout, details);
+    wrap.append(canvasesWrap, readout, details);
     panel.appendChild(wrap);
 
     dashboard.model3d = {
         canvas,
+        navballCanvas,
         readout: readoutValue,
         rows: [readout, gyroRow.row, linearVelocityRow.row],
         telemetry: {
@@ -1171,6 +1340,7 @@ function buildModelPanel() {
         camera: null,
         scene: null,
         model: null,
+        grid: null,
         animationFrame: 0,
     };
 
@@ -1191,13 +1361,13 @@ function buildModelPanel() {
     renderer.setClearColor(0x000000, 0);
 
     const scene = new THREE.Scene();
-    scene.add(new THREE.AmbientLight(0x9dbfdc, 0.55));
+    scene.add(new THREE.AmbientLight(0x9dbfdc, 5.95));
 
-    const keyLight = new THREE.DirectionalLight(0xcce7ff, 1.05);
+    const keyLight = new THREE.DirectionalLight(0xcce7ff, 12.05);
     keyLight.position.set(2.6, 2.2, 1.4);
     scene.add(keyLight);
 
-    const fillLight = new THREE.DirectionalLight(0x7fc2ff, 0.45);
+    const fillLight = new THREE.DirectionalLight(0x7fc2ff, 2.45);
     fillLight.position.set(-2.2, 1.2, -1.8);
     scene.add(fillLight);
 
@@ -1206,12 +1376,13 @@ function buildModelPanel() {
     scene.add(grid);
 
     const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 100);
-    camera.position.set(2.4, 1.8, 2.7);
+    camera.position.set(0, 1.8, -2.7);
     camera.lookAt(0, 0, 0);
 
     dashboard.model3d.renderer = renderer;
     dashboard.model3d.scene = scene;
     dashboard.model3d.camera = camera;
+    dashboard.model3d.grid = grid;
     dashboard.model3d.model = null;
 
     loadRovModel(THREE)
@@ -1246,6 +1417,7 @@ function buildModelPanel() {
 
 window.updateModelOrientation = updateModelOrientation;
 window.updateThrusterMeter = updateThrusterMeter;
+window.updateImuTelemetry = updateImuTelemetry;
 
 function updateMeter(key, rawValue) {
     const meter = dashboard.meters.get(key);
@@ -1445,8 +1617,9 @@ function refreshStaleState() {
 
 function buildDashboard() {
     buildThrusterPanel();
-    buildPowerPanel();
+    // buildPowerPanel();
     buildArmPanel();
+    buildButtonPanel();
     buildDepthPanel();
     buildCameraPanel();
     buildModelPanel();

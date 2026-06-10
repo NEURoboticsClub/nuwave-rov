@@ -4,7 +4,7 @@ from sensor_msgs.msg import Joy
 from geometry_msgs.msg import Twist
 from std_msgs.msg import Float32MultiArray
 from ament_index_python.packages import get_package_share_directory
-import yaml
+from nuwave_utils_pkg.file_helpers import load_yaml
 import os
 import numpy as np
 
@@ -27,7 +27,7 @@ class Houston(Node):
 
         self.get_logger().info(f"Loading joystick config from: {joy_config_path}")
         # === Load configurations ===
-        self.joy_map = self.load_yaml(joy_config_path)
+        self.joy_map = load_yaml(joy_config_path)
         
         # === Subscribers / Publishers ===
         self.thruster_joy_sub = self.create_subscription(Joy, joy_thruster, self.joy_thruster_callback, 10)
@@ -41,36 +41,34 @@ class Houston(Node):
 
         self.get_logger().info("Houston Initialized")
 
-    def load_yaml(self, path):
-        """Load a YAML file from a relative or absolute path."""
-        if not os.path.exists(path):
-            self.get_logger().warn(f"Config file not found: {path}")
-            return {}
-        with open(path, 'r') as f:
-            return yaml.safe_load(f)
-
     def joy_arm_callback(self, msg: Joy):
         """Handle arm joystick input"""
-        self.last_joy_arm_msg = msg
-        return_map = self.parse_joystick(msg, cfg_type="arm_control")
-        self.get_logger().info(str(return_map))
+        try:
+            self.last_joy_arm_msg = msg
+            return_map = self.parse_joystick(msg, cfg_type="arm_control")
+            self.get_logger().info(str(return_map))
 
-        self.publish_arm_commands(return_map["axis"], return_map["button"])
+            self.publish_arm_commands(return_map["axis"], return_map["button"])
+        except Exception as e:
+            self.get_logger().error(f"Error processing arm joystick input: {e}")
 
     def joy_thruster_callback(self, msg: Joy):
         """Handle thruster joystick input"""
-        self.last_joy_thruster_msg = msg
-        return_map = self.parse_joystick(msg, cfg_type="thruster_control")
-        self.get_logger().info(str(return_map))
+        try:
+            self.last_joy_thruster_msg = msg
+            return_map = self.parse_joystick(msg, cfg_type="thruster_control")
+            self.get_logger().info(str(return_map))
 
-        # Publish the result
-        self.publish_twist(return_map["axis"], return_map["button"])
+            # Publish the result
+            self.publish_twist(return_map["axis"], return_map["button"])
+        except Exception as e:
+            self.get_logger().error(f"Error processing thruster joystick input: {e}")
 
     def parse_joystick(self, msg: Joy, cfg_type: str) -> dict:
         cfg_list = self.joy_map.get(cfg_type, [])
 
         if not isinstance(cfg_list, list):
-            return {} # config malformed
+            return {"axis": {}, "button": {}} # config malformed
 
         axis_values = {}
         button_values = {}
@@ -83,7 +81,8 @@ class Houston(Node):
                 sensitivity = float(cfg.get("sensitivity", 1.0))
                 scale = cfg.get("scale", "linear")
                 # Controller is NOISEY! Tune deadzone, so that stick drift still gives us neutral when we have it at rest
-                deadzone = float(cfg.get("deadzone", 0.07))
+                # Clamp below 1.0 so the rescaling can't divide by zero
+                deadzone = min(max(float(cfg.get("deadzone", 0.07)), 0.0), 0.99)
 
                 raw = msg.axes[axis_index] if axis_index < len(msg.axes) else 0.0
                 if invert:
@@ -123,14 +122,14 @@ class Houston(Node):
     def publish_twist(self, axis_values, button_values):
         """Publish the twist velocity command."""
         msg = Twist()
-        msg.angular.x = float(axis_values['pitch'])
-        msg.angular.y = float(button_values['roll_right']) - float(button_values['roll_left'])
-        msg.angular.z = float(axis_values['yaw'])
+        msg.angular.x = float(axis_values.get('pitch', 0.0))
+        msg.angular.y = float(button_values.get('roll_right', 0.0)) - float(button_values.get('roll_left', 0.0))
+        msg.angular.z = float(axis_values.get('yaw', 0.0))
 
 
-        msg.linear.x = float(axis_values['strafe'])
-        msg.linear.y = float(axis_values['drive_forward'])
-        msg.linear.z = (float(axis_values['up']) - float(axis_values['down'])) * 0.5
+        msg.linear.x = float(axis_values.get('strafe', 0.0))
+        msg.linear.y = float(axis_values.get('drive_forward', 0.0))
+        msg.linear.z = (float(axis_values.get('up', 0.0)) - float(axis_values.get('down', 0.0))) * 0.5
 
         self.twist_pub.publish(msg)
 
@@ -146,8 +145,8 @@ class Houston(Node):
             float(axis_values.get('base_pitch_input', 0.0)),
             float(axis_values.get('elbow_pitch_input', 0.0)),
             float(axis_values.get('wrist_yaw_input', 0.0)),
-            (float(button_values.get('wrist_up_input', 0.0)) - float(button_values.get('wrist_down_input', 0.0))),
-            (float(axis_values.get('claw_open_input', 0.0)) - float(axis_values.get('claw_close_input', 0.0))) * 0.5, 
+            (float(axis_values.get('wrist_up_input', 0.0)) - float(axis_values.get('wrist_down_input', 0.0))) * 0.5,
+            (float(button_values.get('claw_open_input', 0.0)) - float(button_values.get('claw_close_input', 0.0))), 
         ]
         self.arm_pub.publish(msg)
 

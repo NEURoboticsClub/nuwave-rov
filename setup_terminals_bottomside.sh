@@ -1,8 +1,7 @@
 #!/bin/bash
 
 # Runs the following commands in seperate terminals:
-# - ros2 launch thruster_pkg multi_thruster.launch.py
-# - ros2 launch thruster_pkg multi_arm_motor.launch.py
+# - ros2 run thruster_pkg pwm_node
 # - ros2 launch power_monitor_pkg multi_power_monitor.launch.py
 # - ros2 run rov_depth_sensor depth_sensor_node
 # - ros2 run camera_pkg camera_publisher --ros-args -p camera_id:=0
@@ -38,8 +37,7 @@ Usage: ./$(basename "$0") [-d] [-s] [-h]
 Spawns all ROS2 nodes for bottomside (ROV) in a terminator window.
 
 Panes:
-  Multi-Thruster   ros2 launch thruster_pkg multi_thruster.launch.py
-  Multi-Arm        ros2 launch thruster_pkg multi_arm_motor.launch.py
+  Thruster + Arm   ros2 run thruster_pkg pwm_node
   Power Monitor    ros2 launch power_monitor_pkg multi_power_monitor.launch.py
   Depth Sensor     ros2 run rov_depth_sensor depth_sensor_node
   IMU              ros2 run imu_pkg imu_pub
@@ -100,8 +98,7 @@ if [ "$USE_SSH" = true ]; then
 
     wrap_ssh() { echo "ssh -t $SSH_OPTS $REMOTE_HOST \"$1; exec bash -i\""; }
 
-    MULTI_THRUSTER_LAUNCH=$(wrap_ssh "$SETUP && ros2 launch thruster_pkg multi_thruster.launch.py")
-    MULTI_ARM_LAUNCH=$(wrap_ssh      "$SETUP && ros2 launch thruster_pkg multi_arm_motor.launch.py")
+    THRUSTER_ARM_LAUNCH=$(wrap_ssh   "$SETUP && ros2 run thruster_pkg pwm_node")
     POWER_MONITOR_LAUNCH=$(wrap_ssh  "$SETUP && ros2 launch power_monitor_pkg multi_power_monitor.launch.py")
     DEPTH_SENSOR_LAUNCH=$(wrap_ssh   "$SETUP && ros2 run rov_depth_sensor depth_sensor_node")
     CAMERA_LAUNCH=$(wrap_ssh         "$SETUP && ros2 launch camera_pkg multi_camera_launch.launch.py")
@@ -126,11 +123,10 @@ else
         && export ROS_DOMAIN_ID=$ROS_DOMAIN_ID \
         && export ROS_LOCALHOST_ONLY=$ROS_LOCALHOST_ONLY"
 
-    MULTI_THRUSTER_LAUNCH="$SETUP && ros2 launch thruster_pkg multi_thruster.launch.py"
-    MULTI_ARM_LAUNCH="$SETUP && ros2 launch thruster_pkg multi_arm_motor.launch.py"
+    THRUSTER_ARM_LAUNCH="$SETUP && ros2 run thruster_pkg pwm_node"
     POWER_MONITOR_LAUNCH="$SETUP && ros2 launch power_monitor_pkg multi_power_monitor.launch.py"
     DEPTH_SENSOR_LAUNCH="$SETUP && ros2 run rov_depth_sensor depth_sensor_node"
-    CAMERA_LAUNCH="$SETUP && ros2 run camera_pkg camera_publisher --ros-args -p camera_id:=0"
+    CAMERA_LAUNCH="$SETUP && ros2 launch camera_pkg multi_camera_launch.launch.py"
     IMU_LAUNCH="$SETUP && ros2 run imu_pkg imu_pub"
 fi
 
@@ -164,8 +160,8 @@ cat > "$LAYOUT_FILE" <<EOF
     [[[top-left]]]
       type = Terminal
       parent = vpane_left_top
-      title = Multi-Thruster
-      command = bash -c '$MULTI_THRUSTER_LAUNCH; exec bash'
+      title = Thruster + Arm
+      command = bash -c '$THRUSTER_ARM_LAUNCH; exec bash'
     [[[middle-left]]]
       type = Terminal
       parent = vpane_left_bottom
@@ -179,18 +175,18 @@ cat > "$LAYOUT_FILE" <<EOF
     [[[top-right]]]
       type = Terminal
       parent = vpane_right_top
-      title = Multi-Arm
-      command = bash -c '$MULTI_ARM_LAUNCH; exec bash'
-    [[[middle-right]]]
-      type = Terminal
-      parent = vpane_right_bottom
       title = IMU
       command = bash -c '$IMU_LAUNCH; exec bash'
-    [[[bottom-right]]]
+    [[[middle-right]]]
       type = Terminal
       parent = vpane_right_bottom
       title = Camera
       command = bash -c '$CAMERA_LAUNCH; exec bash'
+    [[[bottom-right]]]
+      type = Terminal
+      parent = vpane_right_bottom
+      title = Bonus Terminal
+      command = bash -c '$SETUP; exec bash'
 [plugins]
 EOF
 

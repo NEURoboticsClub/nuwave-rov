@@ -24,7 +24,13 @@ class DepthSensorNode(Node):
         self.sensor = ms5837.MS5837_02BA(i2c_bus)
         
         # Keep trying to initialize sensor (like your while loop)
-        while not self.sensor.init():
+        # init() can also raise (e.g. I2C bus unavailable), so catch and retry instead of crashing
+        while True:
+            try:
+                if self.sensor.init():
+                    break
+            except Exception as e:
+                self.get_logger().error(f"Depth sensor init raised: {e}")
             self.get_logger().error("Error: depth sensor could not be initialized")
             time.sleep(1.0)
         

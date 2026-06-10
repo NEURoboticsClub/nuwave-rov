@@ -22,15 +22,15 @@ class FastCameraPublisher(Node):
         self.declare_parameter('fps', 30)
         self.declare_parameter('jpeg_quality', 70)
 
-        cam_id = self.get_parameter('camera_id').value
-        cam_device_path = str(self.get_parameter('camera_device_path').value).strip()
-        width = self.get_parameter('width').value
-        height = self.get_parameter('height').value
-        fps = self.get_parameter('fps').value
+        self.cam_id = self.get_parameter('camera_id').value
+        self.cam_device_path = str(self.get_parameter('camera_device_path').value).strip()
+        self.width = self.get_parameter('width').value
+        self.height = self.get_parameter('height').value
+        self.fps = self.get_parameter('fps').value
         self.jpeg_quality = self.get_parameter('jpeg_quality').value
-        self.frame_id = f'camera_{cam_id}'
+        self.frame_id = f'camera_{self.cam_id}'
 
-        topic = f'/camera_{cam_id}/image/compressed'
+        self.topic = f'/camera_{self.cam_id}/image/compressed'
 
         # ---------------- QoS (LOW LATENCY) ----------------
         qos = QoSProfile(
@@ -41,24 +41,12 @@ class FastCameraPublisher(Node):
 
         self.publisher = self.create_publisher(
             CompressedImage,
-            topic,
+            self.topic,
             qos
         )
 
-        # ---------------- CAMERA SETUP ----------------
-        self.cap = cv2.VideoCapture(cam_device_path, cv2.CAP_V4L2)
-        if not self.cap.isOpened():
-            raise RuntimeError(
-                f"Failed to open camera {cam_id} using source {cam_device_path}"
-            )
-
-        # Force MJPEG (HUGE performance win)
-        self.cap.set(cv2.CAP_PROP_FOURCC,
-                     cv2.VideoWriter_fourcc(*'MJPG'))
-        self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, width)
-        self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, height)
-        self.cap.set(cv2.CAP_PROP_FPS, fps)
-        self.cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
+        self.cap = None
+        self.setup_camera()
 
         # ---------------- THREADING ----------------
         self.frame = None
@@ -73,24 +61,56 @@ class FastCameraPublisher(Node):
         self.capture_thread.start()
 
         self.timer = self.create_timer(
-            1.0 / fps,
+            1.0 / self.fps,
             self.publish_frame
         )
 
         self.get_logger().info(
-            f"Camera {cam_id} using source {cam_device_path} streaming on {topic} "
-            f"({width}x{height} @ {fps} FPS)"
+            f"Camera {self.cam_id} using source {self.cam_device_path} streaming on {self.topic} "
+            f"({self.width}x{self.height} @ {self.fps} FPS)"
         )
 
-    # ------------------------------------------------
+    def setup_camera(self):
+        while True:
+            if self.cap is not None:
+                try:
+                    self.cap.release()
+                except Exception:
+                    self.get_logger().warning("Could not release video capture despite capture object != None.")
+                self.cap = None
+            try:
+                self.cap = cv2.VideoCapture(self.cam_device_path, cv2.CAP_V4L2)
+                if self.cap.isOpened():
+                    break
+            except Exception as e:
+                self.get_logger().warning(f"Failed to open camera {self.cam_device_path}: {e}")
+            time.sleep(0.1)
+
+        self.cap.set(cv2.CAP_PROP_FOURCC,
+                     cv2.VideoWriter_fourcc(*'MJPG'))
+        self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, self.width)
+        self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, self.height)
+        self.cap.set(cv2.CAP_PROP_FPS, self.fps)
+        self.cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
 
     def capture_loop(self):
         """Continuously grab frames, overwrite old ones"""
+        fail_count = 0
         while self.running:
-            ret, frame = self.cap.read()
+            try:
+                ret, frame = self.cap.read()
+            except Exception as e:
+                self.get_logger().warning(f"Camera read raised: {e}")
+                ret, frame = False, None
             if not ret:
+                fail_count += 1
+                if (fail_count > 10):
+                    self.setup_camera()
+                    fail_count = 0
+                    continue
                 time.sleep(0.01)
                 continue
+            fail_count = 0
 
             stamp = self.get_clock().now().to_msg()
             with self.lock:
@@ -98,35 +118,43 @@ class FastCameraPublisher(Node):
                 self.frame_stamp = stamp
 
     def publish_frame(self):
-        with self.lock:
-            if self.frame is None:
+        try:
+            with self.lock:
+                if self.frame is None:
+                    return
+                frame = self.frame.copy()
+                stamp = self.frame_stamp
+
+            encode_params = [
+                int(cv2.IMWRITE_JPEG_QUALITY),
+                self.jpeg_quality
+            ]
+            success, encoded = cv2.imencode('.jpg', frame, encode_params)
+            if not success:
                 return
-            frame = self.frame.copy()
 
-        encode_params = [
-            int(cv2.IMWRITE_JPEG_QUALITY),
-            self.jpeg_quality
-        ]
-        success, encoded = cv2.imencode('.jpg', frame, encode_params)
-        if not success:
-            return
+            msg = CompressedImage()
 
-        msg = CompressedImage()
+            msg.header.stamp = stamp
+            msg.header.frame_id = self.frame_id
 
-        msg.header.stamp = self.frame_stamp
-        msg.header.frame_id = self.frame_id
+            msg.format = 'jpeg'
+            msg.data = encoded.tobytes()
 
-        msg.format = 'jpeg'
-        msg.data = encoded.tobytes()
-
-        self.publisher.publish(msg)
+            self.publisher.publish(msg)
+        except Exception as e:
+            self.get_logger().warning(f"Failed to encode/publish frame: {e}")
 
     # ------------------------------------------------
 
     def destroy_node(self):
         self.running = False
         self.capture_thread.join(timeout=1.0)
-        self.cap.release()
+        if self.cap is not None:
+            try:
+                self.cap.release()
+            except Exception:
+                pass
         super().destroy_node()
 
 

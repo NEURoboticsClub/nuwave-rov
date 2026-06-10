@@ -11,14 +11,11 @@ setup(
             ['resource/' + package_name]),
         ('share/' + package_name, ['package.xml']),
         ('share/' + package_name + '/config', [
-            'config/thruster_run_config.yaml',
-            'config/thruster_channel_config.yaml',
-            'config/arm_motor_run_config.yaml'
+            'config/general_motor_config.yaml',
+            'config/individual_motor_config.yaml',
         ]),
         ('share/' + package_name + '/launch', [
-            'launch/thruster.launch.py',
-            'launch/multi_thruster.launch.py',
-            'launch/multi_arm_motor.launch.py'
+            'launch/pwm.launch.py',
         ])
     ],
     install_requires=['setuptools'],
@@ -34,10 +31,7 @@ setup(
     },
     entry_points={
         'console_scripts': [
-            'thruster_node = '+package_name+'.thruster_driver:main',
-            'thruster_sub = '+package_name+'.thruster_sub:main',
-            'thruster_test = '+package_name+'.thruster_test:main',
-            'thrusters_full_test = '+package_name+'.thrusters_full_test:main',
+            'pwm_node = '+package_name+'.pwm_node:main',
             'PCA9685 = '+package_name+'.PCA9685:main'
         ],
     },

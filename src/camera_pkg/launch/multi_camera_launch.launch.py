@@ -1,23 +1,10 @@
 from launch import LaunchDescription
-from launch.actions import DeclareLaunchArgument
+from launch.actions import DeclareLaunchArgument, LogInfo
 from launch.conditions import IfCondition
 from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
 from cv2_enumerate_cameras import enumerate_cameras
 import cv2
-
-
-DEFAULT_PORTS = [0, 4, 8, 12]
-
-
-def _path_to_index(path):
-    marker = '/dev/video'
-    if not isinstance(path, str) or not path.startswith(marker):
-        return None
-    suffix = path[len(marker):]
-    if suffix.isdigit():
-        return int(suffix)
-    return None
 
 
 def _is_working_path(path):
@@ -31,69 +18,55 @@ def _is_working_path(path):
     return bool(read)
 
 
-def _enumerated_cameras():
-    try:
-        return list(enumerate_cameras())
-    except Exception:
-        return []
-
-
-def _discover_working_ports(max_cameras=4):
+def _discover_working_ports():
     # Group by camera display name so each physical camera can try all of 
     # its enumerated paths, then keep the first readable one.
-    groups = {}
-    for cam_idx, cam in enumerate(_enumerated_cameras()):
-        name = getattr(cam, 'name', None)
-        group_key = name.strip() if isinstance(name, str) and name.strip() else f'camera_{cam_idx}'
-        path = getattr(cam, 'path', None)
-        index = _path_to_index(path)
-        if index is None:
-            raw_index = getattr(cam, 'index', None)
-            if isinstance(raw_index, int):
-                index = raw_index
+    idx_list = []
+    for cam in enumerate_cameras():
+        vid = getattr(cam, 'vid', None)
+        pid = getattr(cam, 'pid', None)
+        if (vid == 3141 and pid == 25446):
+            index = getattr(cam, 'index', None)
+            if index % 100 not in idx_list:
+                idx_list.append(index % 100)
+    
+    print("index list: ", idx_list)
 
-        if index is None:
-            continue
+    camera_list = []
+    
+    for candidate in idx_list:
+        path = f'/dev/video{candidate}'
+        if _is_working_path(path):
+            camera_list.append(candidate)
 
-        groups.setdefault(group_key, [])
-        if index not in groups[group_key]:
-            groups[group_key].append(index)
-
-    selected = []
-    for _, candidates in groups.items():
-        for index in candidates:
-            path = f'/dev/video{index}'
-            if _is_working_path(path):
-                selected.append(index)
-                break
-        if len(selected) >= max_cameras:
-            return selected
-
-    # Fallback to default ports if enumeration fails or finds no working cameras
-    if not selected:
-        selected = DEFAULT_PORTS.copy()
-
-    return selected[:max_cameras]
+    return camera_list
 
 
 def generate_launch_description():
-    camera_ports = _discover_working_ports(max_cameras=4)
+    # Raising from generate_launch_description() makes the launch frontend dump
+    # unrelated tracebacks (InvalidFrontendLaunchFileError), so on failure we
+    # return a single clear log message instead.
+    try:
+        camera_ports = _discover_working_ports()
+    except Exception as e:
+        msg = f'Camera discovery failed ({e}); shutting down camera launch.'
+        return LaunchDescription([
+            LogInfo(msg=msg),
+        ])
 
-    cam0_enabled = LaunchConfiguration('cam0_enabled')
-    cam1_enabled = LaunchConfiguration('cam1_enabled')
-    cam2_enabled = LaunchConfiguration('cam2_enabled')
-    cam3_enabled = LaunchConfiguration('cam3_enabled')
+    if not camera_ports:
+        msg = 'No working cameras found; shutting down camera launch.'
+        return LaunchDescription([
+            LogInfo(msg=msg),
+        ])
 
-    actions = [
-        DeclareLaunchArgument('cam0_enabled', default_value='true'),
-        DeclareLaunchArgument('cam1_enabled', default_value='true'),
-        DeclareLaunchArgument('cam2_enabled', default_value='true'),
-        DeclareLaunchArgument('cam3_enabled', default_value='true'),
-    ]
+    actions = []
 
-    enabled_flags = [cam0_enabled, cam1_enabled, cam2_enabled, cam3_enabled]
+    enabled_flags = []
 
     for camera_id, camera_port in enumerate(camera_ports):
+        enabled_flags.append(LaunchConfiguration(f'cam{camera_id}_enabled'))
+        actions.append(DeclareLaunchArgument(f'cam{camera_id}_enabled', default_value='true'))
         actions.append(
             Node(
                 package='camera_pkg',

@@ -4,7 +4,7 @@ from geometry_msgs.msg import Twist
 from std_msgs import msg
 from std_msgs.msg import Float32, Float32MultiArray
 from ament_index_python.packages import get_package_share_directory
-import yaml
+from nuwave_utils_pkg.file_helpers import load_yaml
 import os
 import numpy as np
 
@@ -30,93 +30,73 @@ class ArmController(Node):
 
         self.get_logger().info(f"Loading arm config from: {arm_config_path}")
 
-        config = self.load_yaml(arm_config_path)
-        self.pwm_range_table = self._configure_arm_motor_pwm_range(config)
-        self.n_arm_motors = self.pwm_range_table.shape[0]
+        config = load_yaml(arm_config_path)
+        # self.pwm_range_table = self._configure_arm_motor_pwm_range(config)
+        self.motors = config.get('arm_motors', [])
 
         # Subscribers / Publishers
         self.status_sub = self.create_subscription(Float32MultiArray, arm_topic, self.Status_Callback, 10)
-        self.arm_motor_pubs = [] 
-        for indx in range(self.n_arm_motors):
-            pub = self.create_publisher(Float32, f'arm/arm_motor_{indx}', 10)
+        self.arm_motor_pubs = []
+        for mot in self.motors:
+            pub = self.create_publisher(Float32, mot.get('topic'), 10)
             self.arm_motor_pubs.append(pub)
+            mot['pub'] = pub
+            mot['dutycycle'] = 0
         
         # Init command send neutral to all arm motors
-        self.pwm_commands = self.pwm_range_table[:,1]
+        # self.pwm_commands = self.pwm_range_table[:,1]
+
+        # Watchdog: zero outputs if no command received within timeout
+        self.declare_parameter('watchdog_timeout_s', 0.5)
+        self.watchdog_timeout_s = float(self.get_parameter('watchdog_timeout_s').value)
+        self.last_msg_time = None
+        self.watchdog_tripped = False
 
         self.create_timer(1.0 / rate, self.publish_arm_motors)
         self.get_logger().info("Arm Controller Initialized")
-
-    def load_yaml(self, path):
-        """Load a YAML file from a relative or absolute path."""
-        if not os.path.exists(path):
-            self.get_logger().warn(f"Config file not found: {path}")
-            return {}
-        with open(path, 'r') as f:
-            return yaml.safe_load(f)    
         
     def Status_Callback(self, msg: Float32MultiArray):
         """
         Process a new velocity vector and turns them into PWM signals for the Arm Motors.
         """
         self.last_state_msg = msg
-     
+        self.last_msg_time = self.get_clock().now()
+
         arm_velocities = np.array(msg.data, dtype=float)
 
-        self.pwm_commands = self.map_val_to_PWM(arm_velocities)
-
-    def _configure_arm_motor_pwm_range(self, config : dict) -> np.ndarray:
-        """
-        Each arm motor has a neutral_us, min_us, max_us configured.
-        When we get the force each arm motor should be outputting we want to map it along the bounds of that, specific arm motor.
-        Returns: A list of bounds for the arm motor at index i
-        """
-        
-        arm_motors = config.get('arm_motors', [])
-        if not arm_motors:
-            raise ValueError(f"No arm_motors found in config")
-        table = np.zeros((len(arm_motors), 3))
-        for indx, arm_motor in enumerate(arm_motors):
-            try:
-                table[indx, 0] = float(arm_motor['min_us'])
-                table[indx, 1] = float(arm_motor['neutral_us'])
-                table[indx, 2] = float(arm_motor['max_us'])
-            except KeyError as e:
-                raise ValueError(
-                        f"Arm motor {indx} is missing required PWM field {e}. "
-                        f"Each arm motor needs min_us, neutral_us, and max_us. "
-                        )
-        
-        return table
-
-    
-    # takes normalized game controller input (-1 to 1) and maps that to PWM range for each motor
-    def map_val_to_PWM(self, arm_velocities) -> np.ndarray:
-        # These are nx1 vectors for each thrusters configured pwm ranges
-        min_us = self.pwm_range_table[:, 0] 
-        neutral_us = self.pwm_range_table[:, 1]
-        max_us = self.pwm_range_table[:, 2]
-        
-        # This normalizes the forces to be within -1 and 1
-        normalized = np.clip(arm_velocities, -1, 1)
-        
-        # If normalized >= 0, which is forward we linear interp the pwm to be some point between neutral and max
-        # Same is applied for reverse but with neutral_us being the leading term.
-        pwm = np.where(
-            normalized >= 0,
-            neutral_us + normalized * (max_us - neutral_us),
-            neutral_us + normalized * (neutral_us - min_us)
-        )
-        return pwm
+        for mot in self.motors:
+            idx = mot.get('id', 0) - 1
+            if 0 <= idx < len(arm_velocities):
+                vel = arm_velocities[idx]
+                mot['dutycycle'] = vel if np.isfinite(vel) else 0.0
+            else:
+                self.get_logger().warn(
+                    f"Arm command array has {len(arm_velocities)} elements; "
+                    f"no value for motor id {mot.get('id')}; holding zero"
+                )
+                mot['dutycycle'] = 0.0
 
     def publish_arm_motors(self):
         """
         Publish current PWM commands to each arm motor
         """
-        for indx, pub in enumerate(self.arm_motor_pubs):
+        timed_out = (
+            self.last_msg_time is None or
+            (self.get_clock().now() - self.last_msg_time).nanoseconds * 1e-9 > self.watchdog_timeout_s
+        )
+        # Log once per timeout event
+        if timed_out:
+            if self.last_msg_time is not None and not self.watchdog_tripped:
+                self.get_logger().warn(
+                    f"Watchdog timeout: no arm command in {self.watchdog_timeout_s}s, zeroing arm motor outputs."
+                )
+                self.watchdog_tripped = True
+        else:
+            self.watchdog_tripped = False
+        for mot in self.motors:
             msg = Float32()
-            msg.data = float(self.pwm_commands[indx])
-            pub.publish(msg)
+            msg.data = 0.0 if timed_out else float(mot.get('dutycycle', 0.0))
+            mot['pub'].publish(msg)
 
 def main(args=None):
     rclpy.init(args=args)

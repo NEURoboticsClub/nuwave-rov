@@ -3,7 +3,7 @@ from rclpy.node import Node
 from rclpy.executors import MultiThreadedExecutor
 from std_msgs.msg import Float32, Float32MultiArray
 from geometry_msgs.msg import Twist
-from sensor_msgs.msg import FluidPressure, Temperature, CompressedImage
+from sensor_msgs.msg import FluidPressure, Temperature, CompressedImage, Imu
 from ament_index_python.packages import get_package_share_directory
 from rclpy.qos import QoSProfile, ReliabilityPolicy, HistoryPolicy
 import asyncio
@@ -35,9 +35,19 @@ class WebBridgeNode(Node):
         self._loop = loop
         self._subs = []
 
-        # Thruster telemetry: /thruster/thruster_0..7
-        for thruster_id in range(8):
-            topic = f'/thruster/thruster_{thruster_id}'
+        # Thruster telemetry topics
+        thruster_topics = [
+            '/thruster/thruster_fll',
+            '/thruster/thruster_frl',
+            '/thruster/thruster_rll',
+            '/thruster/thruster_rrl',
+            '/thruster/thruster_flv',
+            '/thruster/thruster_frv',
+            '/thruster/thruster_rlv',
+            '/thruster/thruster_rrv',
+        ]
+
+        for topic in thruster_topics:
             self._subs.append(
                 self.create_subscription(
                     Float32,
@@ -47,7 +57,7 @@ class WebBridgeNode(Node):
                 )
             )
 
-            response_topic = f'/thruster/thruster_{thruster_id}/response_pwm'
+            response_topic = f'{topic}/response_pwm'
             self._subs.append(
                 self.create_subscription(
                     Float32,
@@ -84,9 +94,17 @@ class WebBridgeNode(Node):
                 )
             )
 
-        # Arm motor telemetry: /arm/arm_motor_0..5
-        for arm_motor_id in range(6):
-            topic = f'/arm/arm_motor_{arm_motor_id}'
+        # Arm motor telemetry topics
+        arm_motor_topics = [
+            '/arm/motor_base_yaw',
+            '/arm/motor_base_pitch',
+            '/arm/motor_elbow_pitch',
+            '/arm/motor_wrist_yaw',
+            '/arm/motor_wrist_pitch',
+            '/arm/motor_claw',
+        ]
+
+        for topic in arm_motor_topics:
             self._subs.append(
                 self.create_subscription(
                     Float32,
@@ -96,7 +114,7 @@ class WebBridgeNode(Node):
                 )
             )
 
-            response_topic = f'/arm/arm_motor_{arm_motor_id}/response_pwm'
+            response_topic = f'{topic}/response_pwm'
             self._subs.append(
                 self.create_subscription(
                     Float32,
@@ -111,6 +129,9 @@ class WebBridgeNode(Node):
         self._subs.append(self.create_subscription(FluidPressure, '/depth/pressure', self._on_pressure, 10))
         self._subs.append(self.create_subscription(Temperature, '/depth/temperature', self._on_temperature, 10))
         self._subs.append(self.create_subscription(Float32MultiArray, '/depth/depth_array', self._on_depth_array, 10))
+
+        # IMU telemetry
+        self._subs.append(self.create_subscription(Imu, '/imu', self._on_imu, 10))
 
         # Command topics
         self._subs.append(self.create_subscription(Twist, '/velocity_commands', self._on_velocity_commands, 10))
@@ -165,6 +186,27 @@ class WebBridgeNode(Node):
 
     def _on_depth_array(self, msg: Float32MultiArray):
         self._forward('/depth/depth_array', list(msg.data))
+
+    def _on_imu(self, msg: Imu):
+        payload = {
+            'orientation': {
+                'x': msg.orientation.x,
+                'y': msg.orientation.y,
+                'z': msg.orientation.z,
+                'w': msg.orientation.w,
+            },
+            'angular_velocity': {
+                'x': msg.angular_velocity.x,
+                'y': msg.angular_velocity.y,
+                'z': msg.angular_velocity.z,
+            },
+            'linear_acceleration': {
+                'x': msg.linear_acceleration.x,
+                'y': msg.linear_acceleration.y,
+                'z': msg.linear_acceleration.z,
+            },
+        }
+        self._forward('/imu', payload)
 
     def _on_velocity_commands(self, msg: Twist):
         payload = {
