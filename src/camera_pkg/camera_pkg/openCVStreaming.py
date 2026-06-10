@@ -72,15 +72,18 @@ class FastCameraPublisher(Node):
 
     def setup_camera(self):
         while True:
-            if not self.cap == None:
+            if self.cap is not None:
                 try:
                     self.cap.release()
-                except:
+                except Exception:
                     self.get_logger().warning("Could not release video capture despite capture object != None.")
                 self.cap = None
-            self.cap = cv2.VideoCapture(self.cam_device_path, cv2.CAP_V4L2)
-            if self.cap.isOpened():
-                break
+            try:
+                self.cap = cv2.VideoCapture(self.cam_device_path, cv2.CAP_V4L2)
+                if self.cap.isOpened():
+                    break
+            except Exception as e:
+                self.get_logger().warning(f"Failed to open camera {self.cam_device_path}: {e}")
             time.sleep(0.1)
 
         self.cap.set(cv2.CAP_PROP_FOURCC,
@@ -94,7 +97,11 @@ class FastCameraPublisher(Node):
         """Continuously grab frames, overwrite old ones"""
         fail_count = 0
         while self.running:
-            ret, frame = self.cap.read()
+            try:
+                ret, frame = self.cap.read()
+            except Exception as e:
+                self.get_logger().warning(f"Camera read raised: {e}")
+                ret, frame = False, None
             if not ret:
                 fail_count += 1
                 if (fail_count > 10):
@@ -111,35 +118,43 @@ class FastCameraPublisher(Node):
                 self.frame_stamp = stamp
 
     def publish_frame(self):
-        with self.lock:
-            if self.frame is None:
+        try:
+            with self.lock:
+                if self.frame is None:
+                    return
+                frame = self.frame.copy()
+                stamp = self.frame_stamp
+
+            encode_params = [
+                int(cv2.IMWRITE_JPEG_QUALITY),
+                self.jpeg_quality
+            ]
+            success, encoded = cv2.imencode('.jpg', frame, encode_params)
+            if not success:
                 return
-            frame = self.frame.copy()
 
-        encode_params = [
-            int(cv2.IMWRITE_JPEG_QUALITY),
-            self.jpeg_quality
-        ]
-        success, encoded = cv2.imencode('.jpg', frame, encode_params)
-        if not success:
-            return
+            msg = CompressedImage()
 
-        msg = CompressedImage()
+            msg.header.stamp = stamp
+            msg.header.frame_id = self.frame_id
 
-        msg.header.stamp = self.frame_stamp
-        msg.header.frame_id = self.frame_id
+            msg.format = 'jpeg'
+            msg.data = encoded.tobytes()
 
-        msg.format = 'jpeg'
-        msg.data = encoded.tobytes()
-
-        self.publisher.publish(msg)
+            self.publisher.publish(msg)
+        except Exception as e:
+            self.get_logger().warning(f"Failed to encode/publish frame: {e}")
 
     # ------------------------------------------------
 
     def destroy_node(self):
         self.running = False
         self.capture_thread.join(timeout=1.0)
-        self.cap.release()
+        if self.cap is not None:
+            try:
+                self.cap.release()
+            except Exception:
+                pass
         super().destroy_node()
 
 

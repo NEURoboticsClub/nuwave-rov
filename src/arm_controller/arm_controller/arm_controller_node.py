@@ -36,10 +36,11 @@ class ArmController(Node):
 
         # Subscribers / Publishers
         self.status_sub = self.create_subscription(Float32MultiArray, arm_topic, self.Status_Callback, 10)
-        self.arm_motor_pubs = [] 
+        self.arm_motor_pubs = []
         for mot in self.motors:
             pub = self.create_publisher(Float32, mot.get('topic'), 10)
             self.arm_motor_pubs.append(pub)
+            mot['pub'] = pub
             mot['dutycycle'] = 0
         
         # Init command send neutral to all arm motors
@@ -63,7 +64,16 @@ class ArmController(Node):
         arm_velocities = np.array(msg.data, dtype=float)
 
         for mot in self.motors:
-            mot['dutycycle'] = arm_velocities[mot['id'] - 1]
+            idx = mot.get('id', 0) - 1
+            if 0 <= idx < len(arm_velocities):
+                vel = arm_velocities[idx]
+                mot['dutycycle'] = vel if np.isfinite(vel) else 0.0
+            else:
+                self.get_logger().warn(
+                    f"Arm command array has {len(arm_velocities)} elements; "
+                    f"no value for motor id {mot.get('id')}; holding zero"
+                )
+                mot['dutycycle'] = 0.0
 
     def publish_arm_motors(self):
         """
@@ -76,7 +86,7 @@ class ArmController(Node):
         for mot in self.motors:
             msg = Float32()
             msg.data = 0.0 if timed_out else float(mot.get('dutycycle', 0.0))
-            self.arm_motor_pubs[mot['id'] - 1].publish(msg)
+            mot['pub'].publish(msg)
 
 def main(args=None):
     rclpy.init(args=args)

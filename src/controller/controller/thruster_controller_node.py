@@ -113,7 +113,10 @@ class ThrusterController(Node):
             pos_m = np.array(thruster['position_m'], dtype=float)
             dir = np.array(thruster['direction'], dtype=float)
 
-            dir = dir / np.linalg.norm(dir) # normalize the direction vector
+            norm = np.linalg.norm(dir)
+            if norm == 0.0:
+                raise ValueError(f"Thruster {indx} has a zero-length direction vector in config")
+            dir = dir / norm # normalize the direction vector
 
             # Linear Force Contribution
             AllocMatrix[0:3, indx] = dir
@@ -129,17 +132,22 @@ class ThrusterController(Node):
         """
         self.last_state_msg = msg
         self.last_msg_time = self.get_clock().now()
-        # Get twist msg
-        # Twist -> msg -> force -> PWM
-        # Convert to Numpy vectors, so easier to work with
-        linearVel = np.array([msg.linear.x, msg.linear.y, msg.linear.z])
-        angularVel = np.array([msg.angular.x, msg.angular.y, msg.angular.z])
-        
-        torqueList = self.map_twist_to_toque(linearVel, angularVel)
-        # Publish PWM data
-        dutycycles = self.map_torque_to_dutycycles(torqueList)
-        for i, thrust in enumerate(self.thrusters):
-            thrust['dutycycle'] = dutycycles[i]
+        try:
+            # Get twist msg
+            # Twist -> msg -> force -> PWM
+            # Convert to Numpy vectors, so easier to work with
+            linearVel = np.array([msg.linear.x, msg.linear.y, msg.linear.z])
+            angularVel = np.array([msg.angular.x, msg.angular.y, msg.angular.z])
+
+            torqueList = self.map_twist_to_toque(linearVel, angularVel)
+            # Publish PWM data
+            dutycycles = self.map_torque_to_dutycycles(torqueList)
+            # Drop non-finite values so a bad twist can't propagate NaN to the thrusters
+            dutycycles = np.nan_to_num(dutycycles, nan=0.0, posinf=0.0, neginf=0.0)
+            for i, thrust in enumerate(self.thrusters):
+                thrust['dutycycle'] = dutycycles[i]
+        except Exception as e:
+            self.get_logger().error(f"Error processing velocity command: {e}")
 
     def map_twist_to_toque(self, linear : np.ndarray, angular : np.ndarray) -> np.ndarray:
         """

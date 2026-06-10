@@ -90,6 +90,19 @@ class PWMNode(Node):
         if not self.motors:
             raise ValueError(f"No motors found in config")
 
+        # Validate PWM config ranges up front: min < neutral < max is required, otherwise
+        # the dutycycle <-> pwm mapping divides by zero at runtime
+        for mot in self.motors:
+            min_us = mot.get('min_us')
+            neutral_us = mot.get('neutral_us', 1500)
+            max_us = mot.get('max_us')
+            if min_us is None or max_us is None or not (min_us < neutral_us < max_us):
+                raise ValueError(
+                    f"Motor {mot.get('topic')} has invalid PWM range: "
+                    f"min_us={min_us}, neutral_us={neutral_us}, max_us={max_us} "
+                    f"(need min_us < neutral_us < max_us)"
+                )
+
         self._arm()
 
         # Ros Wiring
@@ -165,9 +178,16 @@ class PWMNode(Node):
         """
         Signal to SPIN BABY SPIN
         """
-        cmd = float(msg.data)
         mot = self.motors_lookup.get(topic)
-        
+        if mot is None:
+            self.get_logger().warn(f"Received command for unknown motor topic: {topic}")
+            return
+
+        cmd = float(msg.data)
+        if not np.isfinite(cmd):
+            self.get_logger().warn(f"Ignoring non-finite command on {topic}: {cmd}")
+            return
+
         mot['target_us'] = max(mot['min_us'], min(mot['max_us'], self._map_dutycycle_to_pwm(cmd, mot)))
         mot['last_msg_time'] = self.get_clock().now()
         mot['got_first_cmd'] = True
@@ -180,31 +200,35 @@ class PWMNode(Node):
             mot['prev_time'] = now
         
         for i, mot in enumerate(self.motors):
-            # Watchdog code may need some tweaking
-            if mot['got_first_cmd'] and (now - mot['last_msg_time']) > self.watchdog_timeout:
-                if mot['target_us'] != mot['neutral_us']:
-                    self.get_logger().warn('Watchdog timeout: ramping to neutral.')
-                mot['target_us'] = mot['neutral_us']
+            try:
+                # Watchdog code may need some tweaking
+                if mot['got_first_cmd'] and (now - mot['last_msg_time']) > self.watchdog_timeout:
+                    if mot['target_us'] != mot['neutral_us']:
+                        self.get_logger().warn('Watchdog timeout: ramping to neutral.')
+                    mot['target_us'] = mot['neutral_us']
 
-            # Slew limiting
-            target = mot['target_us']
-            if mot['slew_us_per_s'] > 0.0 and dt[i - 1] > 0.0:
-                max_delta = mot['slew_us_per_s'] * dt[i - 1]
-                delta = target - mot['current_us']
-                if abs(delta) > max_delta:
-                    target = mot['current_us'] + (max_delta if delta > 0 else -max_delta)
+                # Slew limiting
+                target = mot['target_us']
+                slew_us_per_s = mot.get('slew_us_per_s', 0.0)
+                if slew_us_per_s > 0.0 and dt[i] > 0.0:
+                    max_delta = slew_us_per_s * dt[i]
+                    delta = target - mot['current_us']
+                    if abs(delta) > max_delta:
+                        target = mot['current_us'] + (max_delta if delta > 0 else -max_delta)
 
-            mot['current_us'] = target
+                mot['current_us'] = target
 
-            if self.pwm is not None:
-                try:
-                    self.pwm.set_pwm(mot['channel'], target)
-                except Exception as e:
-                    self.get_logger().error(f"PWM write error on channel {mot['channel']}: {e}")
-        
-            response_dutycycle_message = Float32()
-            response_dutycycle_message.data = float(self._map_pwm_to_dutycycle(target, mot))
-            self.response_pubs[i].publish(response_dutycycle_message)
+                if self.pwm is not None:
+                    try:
+                        self.pwm.set_pwm(mot['channel'], target)
+                    except Exception as e:
+                        self.get_logger().error(f"PWM write error on channel {mot['channel']}: {e}")
+
+                response_dutycycle_message = Float32()
+                response_dutycycle_message.data = float(self._map_pwm_to_dutycycle(target, mot))
+                self.response_pubs[i].publish(response_dutycycle_message)
+            except Exception as e:
+                self.get_logger().error(f"Error updating motor {mot.get('topic')}: {e}")
 
     def destroy_node(self):
         # send neutral and cleanup
