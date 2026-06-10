@@ -75,6 +75,11 @@ class ThrusterController(Node):
         # Listen to state
         # Scream to thrusters
 
+        # Watchdog: zero outputs if no command received within timeout
+        self.declare_parameter('watchdog_timeout_s', 0.5)
+        self.watchdog_timeout_s = float(self.get_parameter('watchdog_timeout_s').value)
+        self.last_msg_time = None
+
         self.create_timer(1.0 / rate, self.publish_thrusters)
         self.get_logger().info("Thruster Controller Initialized")
     
@@ -123,6 +128,7 @@ class ThrusterController(Node):
         Process a new velocity vector and turns them into PWM signals for the Thrusters.
         """
         self.last_state_msg = msg
+        self.last_msg_time = self.get_clock().now()
         # Get twist msg
         # Twist -> msg -> force -> PWM
         # Convert to Numpy vectors, so easier to work with
@@ -169,9 +175,13 @@ class ThrusterController(Node):
         """
         Publish current PWM commands to each thruster
         """
+        timed_out = (
+            self.last_msg_time is None or
+            (self.get_clock().now() - self.last_msg_time).nanoseconds * 1e-9 > self.watchdog_timeout_s
+        )
         for indx, thrust in enumerate(self.thrusters):
             msg = Float32()
-            msg.data = float(thrust.get('dutycycle', 0.0))
+            msg.data = 0.0 if timed_out else float(thrust.get('dutycycle', 0.0))
             self.thruster_pubs[indx].publish(msg)
 
 def main(args=None):

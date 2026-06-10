@@ -45,6 +45,11 @@ class ArmController(Node):
         # Init command send neutral to all arm motors
         # self.pwm_commands = self.pwm_range_table[:,1]
 
+        # Watchdog: zero outputs if no command received within timeout
+        self.declare_parameter('watchdog_timeout_s', 0.5)
+        self.watchdog_timeout_s = float(self.get_parameter('watchdog_timeout_s').value)
+        self.last_msg_time = None
+
         self.create_timer(1.0 / rate, self.publish_arm_motors)
         self.get_logger().info("Arm Controller Initialized")
         
@@ -53,7 +58,8 @@ class ArmController(Node):
         Process a new velocity vector and turns them into PWM signals for the Arm Motors.
         """
         self.last_state_msg = msg
-     
+        self.last_msg_time = self.get_clock().now()
+
         arm_velocities = np.array(msg.data, dtype=float)
 
         for mot in self.motors:
@@ -63,9 +69,13 @@ class ArmController(Node):
         """
         Publish current PWM commands to each arm motor
         """
+        timed_out = (
+            self.last_msg_time is None or
+            (self.get_clock().now() - self.last_msg_time).nanoseconds * 1e-9 > self.watchdog_timeout_s
+        )
         for mot in self.motors:
             msg = Float32()
-            msg.data = float(mot.get('dutycycle', 0.0))
+            msg.data = 0.0 if timed_out else float(mot.get('dutycycle', 0.0))
             self.arm_motor_pubs[mot['id'] - 1].publish(msg)
 
 def main(args=None):
