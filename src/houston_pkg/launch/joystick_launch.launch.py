@@ -40,7 +40,7 @@ def detect_joysticks():
 
 
 def generate_launch_description():
-    rov_joy_id, arm_joy_id = detect_joysticks()
+    # rov_joy_id, arm_joy_id = detect_joysticks()
     return LaunchDescription([
         Node(
             package='joy',
@@ -50,8 +50,8 @@ def generate_launch_description():
                 ('/joy', '/joy_thruster')
             ],
             parameters=[{
-                # 'device_name': 'PowerA Xbox Series X Controller',
-                'device_id': rov_joy_id
+                'device_name': 'PowerA Xbox Series X Controller',
+                # 'device_id': rov_joy_id
             }]
 
         ),
@@ -63,8 +63,8 @@ def generate_launch_description():
                 ('/joy', '/joy_arm')
             ],
             parameters=[{
-                # 'device_name': 'X360 Controller',
-                'device_id': arm_joy_id
+                'device_name': 'Xbox 360 Controller',
+                # 'device_id': arm_joy_id
             }]
         ),
     ])
