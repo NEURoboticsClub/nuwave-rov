@@ -48,7 +48,6 @@ class IMUPublisher(Node):
     def _retry_imu(self):
         if self.imu is not None:
             return
-        self.get_logger().warn('Retrying IMU initialization...')
         self._init_imu()
 
     def timer_callback(self):
