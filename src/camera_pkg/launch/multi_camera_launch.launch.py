@@ -1,5 +1,5 @@
 from launch import LaunchDescription
-from launch.actions import DeclareLaunchArgument
+from launch.actions import DeclareLaunchArgument, Shutdown
 from launch.conditions import IfCondition
 from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
@@ -39,15 +39,24 @@ def _discover_working_ports():
         if _is_working_path(path):
             camera_list.append(candidate)
 
-    # Fallback to default ports if enumeration fails or finds no working cameras
-    if not camera_list:
-        raise RuntimeError("No camera ports found")
-
     return camera_list
 
 
 def generate_launch_description():
-    camera_ports = _discover_working_ports()
+    # Raising from generate_launch_description() makes the launch frontend dump
+    # unrelated tracebacks (InvalidFrontendLaunchFileError), so on failure we
+    # return a single clear log message instead.
+    try:
+        camera_ports = _discover_working_ports()
+    except Exception as e:
+        return LaunchDescription([
+            Shutdown(reason=f'Camera discovery failed ({e}); not starting any camera nodes.')
+        ])
+
+    if not camera_ports:
+        return LaunchDescription([
+            Shutdown(reason='No working cameras found; not starting any camera nodes.')
+        ])
 
     actions = []
 
