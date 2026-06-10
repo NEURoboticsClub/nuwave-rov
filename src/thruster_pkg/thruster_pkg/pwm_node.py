@@ -124,6 +124,7 @@ class PWMNode(Node):
             mot['last_msg_time'] = now
             mot['prev_time'] = now
             mot['got_first_cmd'] = False
+            mot['watchdog_tripped'] = False
         
         self.timer = self.create_timer(1.0 / self.update_rate_hz, self.update)
 
@@ -201,11 +202,17 @@ class PWMNode(Node):
         
         for i, mot in enumerate(self.motors):
             try:
-                # Watchdog code may need some tweaking
-                if mot['got_first_cmd'] and (now - mot['last_msg_time']) > self.watchdog_timeout:
-                    if mot['target_us'] != mot['neutral_us']:
-                        self.get_logger().warn('Watchdog timeout: ramping to neutral.')
+                # Watchdog: ramp to neutral if commands stop arriving; log once per timeout event
+                timed_out = mot['got_first_cmd'] and (now - mot['last_msg_time']) > self.watchdog_timeout
+                if timed_out:
+                    if not mot.get('watchdog_tripped', False):
+                        self.get_logger().warn(
+                            f"Watchdog timeout on {mot.get('topic')}: no command received, ramping to neutral."
+                        )
+                        mot['watchdog_tripped'] = True
                     mot['target_us'] = mot['neutral_us']
+                else:
+                    mot['watchdog_tripped'] = False
 
                 # Slew limiting
                 target = mot['target_us']

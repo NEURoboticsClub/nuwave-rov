@@ -79,6 +79,7 @@ class ThrusterController(Node):
         self.declare_parameter('watchdog_timeout_s', 0.5)
         self.watchdog_timeout_s = float(self.get_parameter('watchdog_timeout_s').value)
         self.last_msg_time = None
+        self.watchdog_tripped = False
 
         self.create_timer(1.0 / rate, self.publish_thrusters)
         self.get_logger().info("Thruster Controller Initialized")
@@ -187,6 +188,15 @@ class ThrusterController(Node):
             self.last_msg_time is None or
             (self.get_clock().now() - self.last_msg_time).nanoseconds * 1e-9 > self.watchdog_timeout_s
         )
+        # Log once per timeout event
+        if timed_out:
+            if self.last_msg_time is not None and not self.watchdog_tripped:
+                self.get_logger().warn(
+                    f"Watchdog timeout: no velocity command in {self.watchdog_timeout_s}s, zeroing thruster outputs."
+                )
+                self.watchdog_tripped = True
+        else:
+            self.watchdog_tripped = False
         for indx, thrust in enumerate(self.thrusters):
             msg = Float32()
             msg.data = 0.0 if timed_out else float(thrust.get('dutycycle', 0.0))
