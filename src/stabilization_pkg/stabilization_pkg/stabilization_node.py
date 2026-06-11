@@ -65,7 +65,14 @@ class StabilizationNode(Node):
         """
         Update the attitude setpoint; Input is normalized
         """
-        n = (q.w * q.w + q.x * q.x + q.y * q.y + q.z * q.z) ** 0.5
+        vals = np.array([q.w, q.x, q.y, q.z])
+        if not np.all(np.isfinite(vals)):
+            self.get_logger().warn(
+                "Rejected desired orientation: quaternion has non-finite components"
+            )
+            return False
+
+        n = float(np.linalg.norm(vals))
         if n < 1e-6:
             self.get_logger().warn(
                 "Rejected desired orientation: quaternion has near-zero norm"

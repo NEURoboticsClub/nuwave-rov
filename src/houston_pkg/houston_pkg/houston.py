@@ -194,36 +194,6 @@ class Houston(Node):
                 msg.linear.x, msg.linear.y, msg.linear.z = lx, ly, lz
                 msg.angular.x, msg.angular.y, msg.angular.z = ax, ay, az
 
-        def _scale_to_unit(x, y, z):
-            m = max(abs(x), abs(y), abs(z), 1.0)
-            return x / m, y / m, z / m
-
-        if self.stabilize_enabled:
-            now = self.get_clock().now()
-            stale = (
-                self.last_stabilizer_time is None
-                or (now - self.last_stabilizer_time).nanoseconds * 1e-9 > self.stabilizer_timeout
-            )
-            if stale:
-                self.stabilize_enabled = False
-                self.get_logger().warn(
-                    "Stabilizer messages stale; stabilization disabled"
-                )
-            else:
-                s = self.last_stabilizer_twist
-                lx, ly, lz = _scale_to_unit(
-                    msg.linear.x + s.linear.x,
-                    msg.linear.y + s.linear.y,
-                    msg.linear.z + s.linear.z,
-                )
-                ax, ay, az = _scale_to_unit(
-                    msg.angular.x + s.angular.x,
-                    msg.angular.y + s.angular.y,
-                    msg.angular.z + s.angular.z,
-                )
-                msg.linear.x, msg.linear.y, msg.linear.z = lx, ly, lz
-                msg.angular.x, msg.angular.y, msg.angular.z = ax, ay, az
-
         self.twist_pub.publish(msg)
 
 

@@ -2,10 +2,11 @@
 
 # Runs the following commands in seperate terminals:
 # - ros2 run thruster_pkg pwm_node
-# - ros2 launch power_monitor_pkg multi_power_monitor.launch.py
+# - ros2 run stabilization_pkg stabilization_node
 # - ros2 run rov_depth_sensor depth_sensor_node
 # - ros2 run camera_pkg camera_publisher --ros-args -p camera_id:=0
 # - ros2 run imu_pkg imu_pub
+# (power monitor launch kept below for future use, currently removed)
 
 # Usage: setup_terminals_bottomside.sh [-d] [-s]
 #   -d: skip colcon build step
@@ -38,7 +39,7 @@ Spawns all ROS2 nodes for bottomside (ROV) in a terminator window.
 
 Panes:
   Thruster + Arm   ros2 run thruster_pkg pwm_node
-  Power Monitor    ros2 launch power_monitor_pkg multi_power_monitor.launch.py
+  Stabilization    ros2 run stabilization_pkg stabilization_node
   Depth Sensor     ros2 run rov_depth_sensor depth_sensor_node
   IMU              ros2 run imu_pkg imu_pub
   Camera           ros2 run camera_pkg camera_publisher --ros-args -p camera_id:=0
@@ -99,6 +100,8 @@ if [ "$USE_SSH" = true ]; then
     wrap_ssh() { echo "ssh -t $SSH_OPTS $REMOTE_HOST \"$1; exec bash -i\""; }
 
     THRUSTER_ARM_LAUNCH=$(wrap_ssh   "$SETUP && ros2 run thruster_pkg pwm_node")
+    STABILIZATION_LAUNCH=$(wrap_ssh  "$SETUP && ros2 run stabilization_pkg stabilization_node")
+    # Power monitor pane is disabled for now; kept for future use
     POWER_MONITOR_LAUNCH=$(wrap_ssh  "$SETUP && ros2 launch power_monitor_pkg multi_power_monitor.launch.py")
     DEPTH_SENSOR_LAUNCH=$(wrap_ssh   "$SETUP && ros2 run rov_depth_sensor depth_sensor_node")
     CAMERA_LAUNCH=$(wrap_ssh         "$SETUP && ros2 launch camera_pkg multi_camera_launch.launch.py")
@@ -124,6 +127,8 @@ else
         && export ROS_LOCALHOST_ONLY=$ROS_LOCALHOST_ONLY"
 
     THRUSTER_ARM_LAUNCH="$SETUP && ros2 run thruster_pkg pwm_node"
+    STABILIZATION_LAUNCH="$SETUP && ros2 run stabilization_pkg stabilization_node"
+    # Power monitor pane is disabled for now; kept for future use
     POWER_MONITOR_LAUNCH="$SETUP && ros2 launch power_monitor_pkg multi_power_monitor.launch.py"
     DEPTH_SENSOR_LAUNCH="$SETUP && ros2 run rov_depth_sensor depth_sensor_node"
     CAMERA_LAUNCH="$SETUP && ros2 launch camera_pkg multi_camera_launch.launch.py"
@@ -165,8 +170,8 @@ cat > "$LAYOUT_FILE" <<EOF
     [[[middle-left]]]
       type = Terminal
       parent = vpane_left_bottom
-      title = Power Monitor
-      command = bash -c '$POWER_MONITOR_LAUNCH; exec bash'
+      title = Stabilization
+      command = bash -c '$STABILIZATION_LAUNCH; exec bash'
     [[[bottom-left]]]
       type = Terminal
       parent = vpane_left_bottom
