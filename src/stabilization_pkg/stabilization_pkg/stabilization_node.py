@@ -29,9 +29,14 @@ class StabilizationNode(Node):
         self.get_logger().info(f"Loading stabilization config from: {stabilization_config_path}")
 
         config = load_yaml(stabilization_config_path)
+        if not isinstance(config, dict):
+            self.get_logger().error(
+                "Stabilization config is not a mapping; falling back to defaults"
+            )
+            config = {}
 
-        self.imu_stabilization_params = config.get('imu_stabilization', {})
-        self.depth_stabilization_params = config.get('depth_stabilization', {})
+        self.imu_stabilization_params = config.get('imu_stabilization', {}) or {}
+        self.depth_stabilization_params = config.get('depth_stabilization', {}) or {}
 
         # Subscribers / Publishers
         self.imu_sub = self.create_subscription(Imu, '/imu', self.imu_callback, 10)
@@ -93,6 +98,15 @@ class StabilizationNode(Node):
 
         q_cur = np.array([cur.w, cur.x, cur.y, cur.z])
         q_des = np.array([des.w, des.x, des.y, des.z])
+        gyro_vec = np.array([gyro.x, gyro.y, gyro.z])
+
+        # Reject malformed IMU data to never publish NaN/inf thruster
+        if not (np.all(np.isfinite(q_cur)) and np.all(np.isfinite(gyro_vec))):
+            self.get_logger().warn(
+                "Ignoring IMU sample with non-finite orientation/gyro",
+                throttle_duration_sec=5.0,
+            )
+            return Twist()
 
         n = np.linalg.norm(q_cur)
         if n < 1e-6:
@@ -129,7 +143,13 @@ class StabilizationNode(Node):
         Callback for IMU data.
         """
         self.last_imu_orientation = msg.orientation
-        self.publish_stabilization_commands(self._imu_to_twist_control(msg))
+        try:
+            self.publish_stabilization_commands(self._imu_to_twist_control(msg))
+        except Exception as e:
+            self.get_logger().error(
+                f"Failed to process IMU message: {e}",
+                throttle_duration_sec=5.0,
+            )
 
     def capture_callback(self, msg: Empty):
         if not self.imu_stabilization_params.get('use_setpoints', False):
