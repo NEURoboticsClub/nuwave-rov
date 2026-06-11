@@ -172,7 +172,7 @@ function registerDualMeter(parent, key, label, collection) {
 
     const targetDisplay = document.createElement("span");
     targetDisplay.className = "thruster-meter__target-display";
-    targetDisplay.textContent = "TARGET --";
+    targetDisplay.textContent = "--";
 
     const value = document.createElement("span");
     value.className = "row__value";
@@ -200,9 +200,9 @@ function registerDualMeter(parent, key, label, collection) {
         responseFill,
         targetMarker,
         targetDisplay,
-        min: 1000,
-        max: 2000,
-        lastSeen: 0,
+        min: -1.0,
+        max: 1.0,
+        lastSeen: 0.0,
     });
 }
 
@@ -352,9 +352,24 @@ function buildThrusterPanel() {
     grid.className = "compact-grid";
     panel.appendChild(grid);
 
-    for (let i = 0; i < 8; i++) {
-        registerThrusterMeter(grid, `thruster_${i}`, `T${i}`);
-    }
+    const thrusters = [
+        { key: "thruster_fll", label: "Front Left Lateral" },
+        { key: "thruster_frl", label: "Front Right Lateral" },
+        { key: "thruster_rll", label: "Rear Left Lateral" },
+        { key: "thruster_rrl", label: "Rear Right Lateral" },
+        { key: "thruster_flv", label: "Front Left Vertical" },
+        { key: "thruster_frv", label: "Front Right Vertical" },
+        { key: "thruster_rlv", label: "Rear Left Vertical" },
+        { key: "thruster_rrv", label: "Rear Right Vertical" },
+    ];
+
+    thrusters.forEach((thruster) => {
+        registerThrusterMeter(
+            grid,
+            thruster.key,
+            thruster.label
+        );
+    });
 
     const vizCard = document.createElement("div");
     vizCard.className = "thruster-viz-card";
@@ -415,16 +430,30 @@ function updateDualMeter(meter, kind, rawValue, isThruster = false, key = "") {
 
     if (kind === "response") {
         meter.responseFill.style.width = `${normalised * 100}%`;
-        setText(meter.value, `RESP ${rawValue.toFixed(0)} us`);
+        setText(meter.value, `RESP ${rawValue.toFixed(2)}`);
         
         // Update visualization for response values (which represent actual thrust)
         if (isThruster && dashboard.thrusterViz) {
-            const thrusterId = Number(key.split("_")[1]);
-            if (!Number.isNaN(thrusterId) && thrusterId >= 0 && thrusterId < 4) {
-                dashboard.thrusterViz.xValues[thrusterId] = rawValue;
+            const lateralMap = {
+                thruster_fll: 0,
+                thruster_frl: 1,
+                thruster_rll: 2,
+                thruster_rrl: 3,
+            };
+
+            const verticalMap = {
+                thruster_flv: 0,
+                thruster_frv: 1,
+                thruster_rlv: 2,
+                thruster_rrv: 3,
+            };
+
+            if (key in lateralMap) {
+                dashboard.thrusterViz.xValues[lateralMap[key]] = rawValue;
                 drawThrusterViz();
-            } else if (!Number.isNaN(thrusterId) && thrusterId >= 4 && thrusterId < 8) {
-                dashboard.thrusterViz.upValues[thrusterId - 4] = rawValue;
+            }
+            else if (key in verticalMap) {
+                dashboard.thrusterViz.upValues[verticalMap[key]] = rawValue;
                 drawUpMotorViz();
             }
         }
@@ -433,16 +462,8 @@ function updateDualMeter(meter, kind, rawValue, isThruster = false, key = "") {
 
     if (kind === "target") {
         meter.targetMarker.style.left = `${normalised * 100}%`;
-        setText(meter.targetDisplay, `TARGET ${rawValue.toFixed(0)} us`);
+        setText(meter.targetDisplay, `${rawValue.toFixed(2)}`);
     }
-}
-
-function updateThrusterMeter(key, kind, rawValue) {
-    updateDualMeter(dashboard.thrusterMeters.get(key), kind, rawValue, true, key);
-}
-
-function updateArmMeter(key, kind, rawValue) {
-    updateDualMeter(dashboard.armMeters.get(key), kind, rawValue, false, key);
 }
 
 function updateThrusterMeter(key, kind, rawValue) {
@@ -534,8 +555,8 @@ function drawThrusterViz() {
     const maxLen = Math.min(w, h) * 0.2;
 
     for (let i = 0; i < 4; i++) {
-        const pwm = viz.xValues[i] ?? 1500;
-        const force = clamp((pwm - 1500) / 500, -1, 1);
+        const pwm = viz.xValues[i] ?? 0;
+        const force = clamp(pwm, -1, 1);
         const mag = Math.abs(force);
 
         const ux = dirs[i].x * norm;
@@ -595,7 +616,7 @@ function drawUpMotorViz() {
     const maxLen = Math.min(w, h) * 0.18;
     for (let i = 0; i < 4; i++) {
         const pwm = viz.upValues[i] ?? 1500;
-        const force = clamp((pwm - 1500) / 500, -1, 1);
+        const force = clamp(pwm, -1, 1);
         const dy = -maxLen * force;
         const pos = corners[i];
 
@@ -670,9 +691,9 @@ function buildPowerPanel() {
     panel.appendChild(grid);
 }
 
-function buildArmPanel() {
+function buildButtonPanel() {
     const panel = createPanel("", "");
-    panel.id = "panel-arm";
+    panel.id = "panel-buttons";
     const layout = document.createElement("div");
     layout.className = "arm-layout";
     panel.appendChild(layout);
@@ -736,6 +757,16 @@ function buildArmPanel() {
 
     buttonsSection.appendChild(buttonGrid);
 
+    layout.append(buttonsSection);
+}
+
+function buildArmPanel() {
+    const panel = createPanel("", "");
+    panel.id = "panel-arm";
+    const layout = document.createElement("div");
+    layout.className = "arm-layout";
+    panel.appendChild(layout);
+
     const motorsSection = document.createElement("div");
     motorsSection.className = "arm-section arm-section--motors";
 
@@ -748,11 +779,24 @@ function buildArmPanel() {
     motorsGrid.className = "compact-grid arm-section__grid";
     motorsSection.appendChild(motorsGrid);
 
-    layout.append(buttonsSection, motorsSection);
+    layout.append(motorsSection);
 
-    for (let i = 0; i < 6; i++) {
-        registerArmMeter(motorsGrid, `arm_motor_${i}`, `A${i}`);
-    }
+    const armMotors = [
+        { key: "motor_base_yaw", label: "Base Yaw" },
+        { key: "motor_base_pitch", label: "Base Pitch" },
+        { key: "motor_elbow_pitch", label: "Elbow Pitch" },
+        { key: "motor_wrist_yaw", label: "Wrist Yaw" },
+        { key: "motor_wrist_pitch", label: "Wrist Pitch" },
+        { key: "motor_claw", label: "Claw" },
+    ];
+
+    armMotors.forEach((motor) => {
+        registerArmMeter(
+            motorsGrid,
+            motor.key,
+            motor.label
+        );
+    });
 }
 
 function buildDepthPanel() {
@@ -1576,8 +1620,9 @@ function refreshStaleState() {
 
 function buildDashboard() {
     buildThrusterPanel();
-    buildPowerPanel();
+    // buildPowerPanel();
     buildArmPanel();
+    buildButtonPanel();
     buildDepthPanel();
     buildCameraPanel();
     buildModelPanel();

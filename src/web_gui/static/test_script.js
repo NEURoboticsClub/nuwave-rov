@@ -82,14 +82,34 @@ class MessageTester {
     }
 
     start() {
+        const thrusters = [
+            { key: "thruster_fll", label: "Front Left Lateral" },
+            { key: "thruster_frl", label: "Front Right Lateral" },
+            { key: "thruster_rll", label: "Rear Left Lateral" },
+            { key: "thruster_rrl", label: "Rear Right Lateral" },
+            { key: "thruster_flv", label: "Front Left Vertical" },
+            { key: "thruster_frv", label: "Front Right Vertical" },
+            { key: "thruster_rlv", label: "Rear Left Vertical" },
+            { key: "thruster_rrv", label: "Rear Right Vertical" },
+        ];
+
+        const armMotors = [
+            { key: "motor_base_yaw", label: "Base Yaw" },
+            { key: "motor_base_pitch", label: "Base Pitch" },
+            { key: "motor_elbow_pitch", label: "Elbow Pitch" },
+            { key: "motor_wrist_yaw", label: "Wrist Yaw" },
+            { key: "motor_wrist_pitch", label: "Wrist Pitch" },
+            { key: "motor_claw", label: "Claw" },
+        ];
+    
         window.testInterval = setInterval(() => {
             // Thruster PWM + power monitor data (x8)
             for (let thrusterId = 0; thrusterId < 8; thrusterId++) {
-                const pwm = Math.sin(Date.now() / 1000 + thrusterId) * 500 + 1500;
-                this.sendMessage({ topic: `/thruster/thruster_${thrusterId}`, data: parseFloat(pwm) });
+                const pwm = Math.sin(Date.now() / 1000 + thrusterId);
+                this.sendMessage({ topic: `/thruster/${thrusters[thrusterId].key}`, data: parseFloat(pwm) });
 
-                const responsePwm = Math.max(1000, Math.min(2000, pwm + Math.sin(Date.now() / 700 + thrusterId) * 70));
-                this.sendMessage({ topic: `/thruster/thruster_${thrusterId}/response_pwm`, data: parseFloat(responsePwm) });
+                const responsePwm = Math.max(-1, Math.min(1, pwm + Math.sin(Date.now() / 700 + thrusterId) * 0.2));
+                this.sendMessage({ topic: `/thruster/${thrusters[thrusterId].key}/response_pwm`, data: parseFloat(responsePwm) });
 
 
                 const power_monitor_topic = `/power_monitor/monitor_${thrusterId}`;
@@ -110,11 +130,11 @@ class MessageTester {
             
             // Arm PWM data (x6)
             for (let armMotorId = 0; armMotorId < 6; armMotorId++) {
-                const pwm = Math.cos(Date.now() / 1000 + armMotorId) * 500 + 1500;
-                this.sendMessage({ topic: `/arm/arm_motor_${armMotorId}`, data: parseFloat(pwm) });
-                
-                const responsePwm = Math.max(1000, Math.min(2000, pwm + Math.sin(Date.now() / 800 + armMotorId) * 80));
-                this.sendMessage({ topic: `/arm/arm_motor_${armMotorId}/response_pwm`, data: parseFloat(responsePwm) });
+                const pwm = Math.cos(Date.now() / 1000 + armMotorId);
+                this.sendMessage({ topic: `/arm/${armMotors[armMotorId].key}`, data: parseFloat(pwm) });
+
+                const responsePwm = Math.max(-1, Math.min(1, pwm + Math.sin(Date.now() / 800 + armMotorId) * 0.2));
+                this.sendMessage({ topic: `/arm/${armMotors[armMotorId].key}/response_pwm`, data: parseFloat(responsePwm) });
             }
 
             // Depth sensor data

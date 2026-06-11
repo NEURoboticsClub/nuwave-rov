@@ -3,6 +3,10 @@ from rclpy.node import Node
 from std_msgs.msg import Float32
 from power_monitor_pkg.power_monitor_driver import INA226
 
+class PowerMonitorInitError(Exception):
+    """Raised when the INA226 cannot be initialized; details are already logged."""
+    pass
+
 class PowerMonitorPublisher(Node):
     def __init__(self):
         super().__init__('power_monitor_publisher')
@@ -38,16 +42,21 @@ class PowerMonitorPublisher(Node):
             self.ina226.calibrate(max_expected_current=17.0)  # Adjust for your system
             self.get_logger().info('INA226 initialized successfully')
         except Exception as e:
-            self.get_logger().error(f'Failed to initialize INA226: {e}')
-            raise
-        
+            self.get_logger().error(
+                f'Failed to initialize INA226 at address 0x{i2c_address:02X} on bus {i2c_bus}: {e}'
+            )
+            raise PowerMonitorInitError() from e
+
+        self.read_error_logged = False
+
         # Create timer to publish at 10 Hz
         self.timer = self.create_timer(0.1, self.timer_callback)
-        
+
     def timer_callback(self):
         """Read and publish power monitor data"""
         try:
             data = self.ina226.read_all()
+            self.read_error_logged = False
             
             # Publish each measurement
             msg_voltage = Float32()
@@ -73,12 +82,19 @@ class PowerMonitorPublisher(Node):
             )
             
         except Exception as e:
-            self.get_logger().error(f'Error reading INA226: {e}')
+            if not self.read_error_logged:
+                self.get_logger().error(f'Error reading INA226: {e} (suppressing repeats until next successful read)')
+                self.read_error_logged = True
 
 def main(args=None):
     rclpy.init(args=args)
-    node = PowerMonitorPublisher()
-    
+    try:
+        node = PowerMonitorPublisher()
+    except PowerMonitorInitError:
+        # Already logged a concise error in __init__; exit without a traceback
+        rclpy.shutdown()
+        return
+
     try:
         rclpy.spin(node)
     except KeyboardInterrupt:

@@ -78,12 +78,20 @@ class IMUPublisher(Node):
         Based on whatever control loop freq is provided
         """
 
-        values = self.imu.read_data()
-        linear_acceleration = values['linear_acceleration']
-        # linear_velocity = values['linear_velocity']
-        angular_velocity = values['angular_velocity']
-        magnetometer = values['magnetometer']
-        quaternion = values['game_quaternion']
+        if self.imu is None:
+            return
+
+        try:
+            values = self.imu.read_data()
+            linear_acceleration = values['linear_acceleration']
+            # linear_velocity = values['linear_velocity']
+            angular_velocity = values['angular_velocity']
+            magnetometer = values['magnetometer']
+            quaternion = values['game_quaternion']
+        except Exception as e:
+            self.get_logger().error(f'IMU read failed, skipping this cycle: {e}')
+            return
+
         imu_msg = Imu()
 
         # Parse header with frame id and timestamp
@@ -130,10 +138,13 @@ def main(args=None):
 
     imu_publisher = IMUPublisher()
 
-    rclpy.spin(imu_publisher)
-
-    imu_publisher.destroy_node()
-    rclpy.shutdown()
+    try:
+        rclpy.spin(imu_publisher)
+    except KeyboardInterrupt:
+        pass
+    finally:
+        imu_publisher.destroy_node()
+        rclpy.shutdown()
 
 
 if __name__ == '__main__':

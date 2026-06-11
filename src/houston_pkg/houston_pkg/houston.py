@@ -64,11 +64,14 @@ class Houston(Node):
 
     def joy_arm_callback(self, msg: Joy):
         """Handle arm joystick input"""
-        self.last_joy_arm_msg = msg
-        return_map = self.parse_joystick(msg, cfg_type="arm_control")
-        self.get_logger().info(str(return_map))
+        try:
+            self.last_joy_arm_msg = msg
+            return_map = self.parse_joystick(msg, cfg_type="arm_control")
+            self.get_logger().info(str(return_map))
 
-        self.publish_arm_commands(return_map["axis"], return_map["button"])
+            self.publish_arm_commands(return_map["axis"], return_map["button"])
+        except Exception as e:
+            self.get_logger().error(f"Error processing arm joystick input: {e}")
 
     def joy_thruster_callback(self, msg: Joy):
         """Handle thruster joystick input"""
@@ -77,14 +80,20 @@ class Houston(Node):
     def _publish_loop(self):
         if self.last_joy_thruster_msg is None:
             return
-        parsed = self.parse_joystick(self.last_joy_thruster_msg, cfg_type="thruster_control")
-        self.publish_twist(parsed["axis"], parsed["button"])
+        try:
+            parsed = self.parse_joystick(self.last_joy_thruster_msg, cfg_type="thruster_control")
+            self.get_logger().info(str(parsed))
+
+            # Publish the result
+            self.publish_twist(parsed["axis"], parsed["button"])
+        except Exception as e:
+            self.get_logger().error(f"Error processing thruster joystick input: {e}")
 
     def parse_joystick(self, msg: Joy, cfg_type: str) -> dict:
         cfg_list = self.joy_map.get(cfg_type, [])
 
         if not isinstance(cfg_list, list):
-            return {} # config malformed
+            return {"axis": {}, "button": {}} # config malformed
 
         axis_values = {}
         button_values = {}
@@ -97,7 +106,8 @@ class Houston(Node):
                 sensitivity = float(cfg.get("sensitivity", 1.0))
                 scale = cfg.get("scale", "linear")
                 # Controller is NOISEY! Tune deadzone, so that stick drift still gives us neutral when we have it at rest
-                deadzone = float(cfg.get("deadzone", 0.07))
+                # Clamp below 1.0 so the rescaling can't divide by zero
+                deadzone = min(max(float(cfg.get("deadzone", 0.07)), 0.0), 0.99)
 
                 raw = msg.axes[axis_index] if axis_index < len(msg.axes) else 0.0
                 if invert:
@@ -145,13 +155,44 @@ class Houston(Node):
         self.prev_stabilize_button = stab_btn
 
         msg = Twist()
-        msg.angular.x = float(axis_values['pitch'])
-        msg.angular.y = float(button_values['roll_right']) - float(button_values['roll_left'])
-        msg.angular.z = float(axis_values['yaw'])
+        msg.angular.x = float(axis_values.get('pitch', 0.0))
+        msg.angular.y = float(button_values.get('roll_right', 0.0)) - float(button_values.get('roll_left', 0.0))
+        msg.angular.z = float(axis_values.get('yaw', 0.0))
 
-        msg.linear.x = float(axis_values['strafe'])
-        msg.linear.y = float(axis_values['drive_forward'])
-        msg.linear.z = (float(axis_values['up']) - float(axis_values['down'])) * 0.5
+
+        msg.linear.x = float(axis_values.get('strafe', 0.0))
+        msg.linear.y = float(axis_values.get('drive_forward', 0.0))
+        msg.linear.z = (float(axis_values.get('up', 0.0)) - float(axis_values.get('down', 0.0))) * 0.5
+
+        def _scale_to_unit(x, y, z):
+            m = max(abs(x), abs(y), abs(z), 1.0)
+            return x / m, y / m, z / m
+
+        if self.stabilize_enabled:
+            now = self.get_clock().now()
+            stale = (
+                self.last_stabilizer_time is None
+                or (now - self.last_stabilizer_time).nanoseconds * 1e-9 > self.stabilizer_timeout
+            )
+            if stale:
+                self.stabilize_enabled = False
+                self.get_logger().warn(
+                    "Stabilizer messages stale; stabilization disabled"
+                )
+            else:
+                s = self.last_stabilizer_twist
+                lx, ly, lz = _scale_to_unit(
+                    msg.linear.x + s.linear.x,
+                    msg.linear.y + s.linear.y,
+                    msg.linear.z + s.linear.z,
+                )
+                ax, ay, az = _scale_to_unit(
+                    msg.angular.x + s.angular.x,
+                    msg.angular.y + s.angular.y,
+                    msg.angular.z + s.angular.z,
+                )
+                msg.linear.x, msg.linear.y, msg.linear.z = lx, ly, lz
+                msg.angular.x, msg.angular.y, msg.angular.z = ax, ay, az
 
         def _scale_to_unit(x, y, z):
             m = max(abs(x), abs(y), abs(z), 1.0)
@@ -197,8 +238,8 @@ class Houston(Node):
             float(axis_values.get('base_pitch_input', 0.0)),
             float(axis_values.get('elbow_pitch_input', 0.0)),
             float(axis_values.get('wrist_yaw_input', 0.0)),
-            (float(button_values.get('wrist_up_input', 0.0)) - float(button_values.get('wrist_down_input', 0.0))),
-            (float(axis_values.get('claw_open_input', 0.0)) - float(axis_values.get('claw_close_input', 0.0))) * 0.5, 
+            (float(axis_values.get('wrist_up_input', 0.0)) - float(axis_values.get('wrist_down_input', 0.0))) * 0.5,
+            (float(button_values.get('claw_open_input', 0.0)) - float(button_values.get('claw_close_input', 0.0))), 
         ]
         self.arm_pub.publish(msg)
 
