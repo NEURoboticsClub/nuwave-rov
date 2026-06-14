@@ -46,7 +46,7 @@ class MessageTester {
                     sec,
                     nanosec,
                 },
-                frame_id: 'IMU_Frame',
+                frame_id: 'imu_link',
             },
             angular_velocity: {
                 x: Math.cos(elapsed * 0.45) * 0.18,

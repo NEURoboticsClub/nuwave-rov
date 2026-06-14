@@ -54,6 +54,10 @@ thruster_control:
     input: 5
     invert: false
 
+  - button: "stabilize_toggle"
+    input: 0
+    invert: false
+
 
 arm_control:
   - axis: "base_yaw_input" # Base rotate left right
