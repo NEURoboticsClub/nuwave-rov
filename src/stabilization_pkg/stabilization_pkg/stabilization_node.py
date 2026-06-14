@@ -142,6 +142,8 @@ class StabilizationNode(Node):
             twist.angular.x = float(v[0])
             twist.angular.y = float(v[1])
             twist.angular.z = float(v[2])
+        
+        twist.angular.z = 0.0
 
         return twist
 

@@ -1,7 +1,7 @@
 imu_stabilization:
   p: 0.5
-  d: 0.15
-  use_setpoints: true
+  d: 0
+  use_setpoints: false
   max_stabilization_influence: 0.5
 
 # TODO: implement depth stabilization
