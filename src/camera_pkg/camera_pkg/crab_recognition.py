@@ -10,7 +10,7 @@ from pathlib import Path
 from ultralytics import YOLO
 
 
-DEFAULT_MODEL_PATH = '/crab_recognition_models/30epochs_best.pt'
+DEFAULT_MODEL_PATH = '/home/nuwave-rov/nuwave-rov/src/camera_pkg/camera_pkg/crab_recognition_models/30epochs_best.pt'
 DEFAULT_OUTPUT_PATH = '/crab_recognition_results/result.jpg'
 DEFAULT_CONFIDENCE = 0.4
 DEFAULT_IMAGE_TOPIC_PREFIX = '/camera_'
