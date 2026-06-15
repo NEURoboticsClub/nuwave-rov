@@ -12,7 +12,7 @@ setup(
         ('share/' + package_name, ['package.xml']),
         ('share/' + package_name + '/launch', ['launch/multi_camera_launch.launch.py']),
     ],
-    install_requires=['setuptools', 'cv2_enumerate_cameras'],
+    install_requires=['setuptools', 'cv2_enumerate_cameras', 'ultralytics', 'numpy'],
     zip_safe=True,
     maintainer='charstieve',
     maintainer_email='charlotteolivia930@gmail.com',
@@ -22,6 +22,7 @@ setup(
         'console_scripts': [
             'camera_publisher = camera_pkg.openCVStreaming:main',
             'camera_subscriber = camera_pkg.testCVStreaming:main',
+            'crab_recognition = camera_pkg.crab_recognition:main',
         ],
     },
 )
