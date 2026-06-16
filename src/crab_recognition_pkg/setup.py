@@ -20,7 +20,7 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-            'crab_recognition = crab_recognition_pkg.crab_recognition_node:main',
+            'crab_recognition = crab_recognition_pkg.crab_recognition:main',
         ],
     },
 )
