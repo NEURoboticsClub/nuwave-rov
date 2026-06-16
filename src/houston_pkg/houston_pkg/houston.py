@@ -25,7 +25,7 @@ class Houston(Node):
         self.declare_parameter('publish_rate_hz', 50.0)    # publish rate of houston twist commands
         self.declare_parameter('expo_enabled_default', False)
         self.declare_parameter('agnes_enabled_default', False)
-        self.declare_parameter('agnes_scale', 0.4)
+        self.declare_parameter('agnes_scale', 0.2)
 
         joy_config_path = self.get_parameter('joy_config').value
         joy_thruster = self.get_parameter('joy_thruster').value
@@ -282,12 +282,8 @@ class Houston(Node):
                 msg.angular.x, msg.angular.y, msg.angular.z = ax, ay, az
 
         if self.agnes_enabled:
-            msg.linear.x *= self.agnes_scale
-            msg.linear.y *= self.agnes_scale
+            # Agnes mode limits only vertical thrust authority.
             msg.linear.z *= self.agnes_scale
-            msg.angular.x *= self.agnes_scale
-            msg.angular.y *= self.agnes_scale
-            msg.angular.z *= self.agnes_scale
 
         self.twist_pub.publish(msg)
 
