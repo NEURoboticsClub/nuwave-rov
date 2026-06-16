@@ -15,7 +15,7 @@ BOTTOMSIDE_SCRIPT="$WS/setup_terminals_bottomside.sh"
 
 usage() {
     cat <<EOF
-Usage: ./$(basename "$0") [-d] [-s] [-h]
+Usage: ./$(basename "$0") [-d] [-h]
 
 Runs both launch scripts:
   1) setup_terminals_topside.sh
@@ -64,10 +64,9 @@ fi
 
 BOTTOMSIDE_ARGS+=("-s")
 
-echo "Launching topside terminals..."
-"$TOPSIDE_SCRIPT" "${TOPSIDE_ARGS[@]}"
+echo "Launching topside and bottomside terminals in parallel..."
+"$TOPSIDE_SCRIPT" "${TOPSIDE_ARGS[@]}" &
 
-echo "Launching bottomside terminals..."
-"$BOTTOMSIDE_SCRIPT" "${BOTTOMSIDE_ARGS[@]}"
+"$BOTTOMSIDE_SCRIPT" "${BOTTOMSIDE_ARGS[@]}" &
 
-echo "Both launch scripts have been started."
+echo "Topside and bottomside launchers started (separate windows)."
