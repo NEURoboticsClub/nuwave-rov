@@ -2,7 +2,7 @@
  * publishes button values to /gui_buttons/
  *  - scan_crabs: toggles crab scanning mode
  *  - expo_enabled: toggles exponential controller scaling mode
- *  - agnes_enabled: toggles thrust scaling limiter mode
+ *  - precision_mode: toggles PWM precision motor range mode
  *  - photogrammetry: toggles photogrammetry mode
  *  - measure_iceberg: triggers iceberg measurement sequence
  */
@@ -729,7 +729,7 @@ function buildButtonPanel() {
     const buttonConfigs = [
         { label: "Scan Crabs", toggle: true, topic: "/gui_buttons/scan_crabs" },
         { label: "Expo Controls", toggle: true, topic: "/gui_buttons/expo_enabled" },
-        { label: "Agnes Mode", toggle: true, topic: "/gui_buttons/agnes_enabled" },
+        { label: "Precision Mode", toggle: true, topic: "/gui_buttons/precision_mode" },
         { label: "Take Screenshot", toggle: false, action: "screenshot" },
         { label: "Photogrammetry", toggle: true, topic: "/gui_buttons/photogrammetry" },
         { label: "Measure Iceberg", toggle: false, action: "measure_iceberg" },

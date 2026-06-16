@@ -81,9 +81,9 @@ function processRosMessage(topic, data) {
         return;
     }
 
-    if (topic === '/controls/agnes_enabled') {
+    if (topic === '/controls/precision_mode') {
         if (typeof window.setGuiToggleButtonState === 'function') {
-            window.setGuiToggleButtonState('/gui_buttons/agnes_enabled', !!data);
+            window.setGuiToggleButtonState('/gui_buttons/precision_mode', !!data);
         }
         return;
     }

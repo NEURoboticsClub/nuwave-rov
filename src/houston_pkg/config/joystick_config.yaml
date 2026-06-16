@@ -62,7 +62,7 @@ thruster_control:
     input: 2
     invert: false
 
-  - button: "agnes_toggle"
+  - button: "precision_toggle"
     input: 0
     invert: false
 

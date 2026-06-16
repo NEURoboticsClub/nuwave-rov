@@ -138,7 +138,7 @@ class WebBridgeNode(Node):
         self._subs.append(self.create_subscription(Twist, '/velocity_commands', self._on_velocity_commands, 10))
         self._subs.append(self.create_subscription(Float32MultiArray, '/arm_commands', self._on_arm_commands, 10))
         self._subs.append(self.create_subscription(Bool, '/controls/expo_enabled', self._on_expo_enabled, 10))
-        self._subs.append(self.create_subscription(Bool, '/controls/agnes_enabled', self._on_agnes_enabled, 10))
+        self._subs.append(self.create_subscription(Bool, '/controls/precision_mode', self._on_precision_mode, 10))
 
         # Camera topics
         camera_qos = QoSProfile(
@@ -159,7 +159,7 @@ class WebBridgeNode(Node):
 
         # GUI command publishers (browser -> ROS)
         self.expo_toggle_pub = self.create_publisher(Bool, '/gui_buttons/expo_enabled', 10)
-        self.agnes_toggle_pub = self.create_publisher(Bool, '/gui_buttons/agnes_enabled', 10)
+        self.precision_mode_toggle_pub = self.create_publisher(Bool, '/gui_buttons/precision_mode', 10)
         self.get_logger().info('WebBridge node started')
 
     def handle_ws_message(self, raw_payload: str):
@@ -181,10 +181,10 @@ class WebBridgeNode(Node):
             self.expo_toggle_pub.publish(msg)
             return
 
-        if topic == '/gui_buttons/agnes_enabled':
+        if topic == '/gui_buttons/precision_mode':
             msg = Bool()
             msg.data = bool(data)
-            self.agnes_toggle_pub.publish(msg)
+            self.precision_mode_toggle_pub.publish(msg)
             return
 
         self.get_logger().debug(f'Ignoring unsupported websocket topic: {topic}')
@@ -263,8 +263,8 @@ class WebBridgeNode(Node):
     def _on_expo_enabled(self, msg: Bool):
         self._forward('/controls/expo_enabled', bool(msg.data))
 
-    def _on_agnes_enabled(self, msg: Bool):
-        self._forward('/controls/agnes_enabled', bool(msg.data))
+    def _on_precision_mode(self, msg: Bool):
+        self._forward('/controls/precision_mode', bool(msg.data))
 
     def _on_video(self, topic: str, msg: CompressedImage):
         payload = {
