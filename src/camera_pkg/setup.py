@@ -12,7 +12,7 @@ setup(
         ('share/' + package_name, ['package.xml']),
         ('share/' + package_name + '/launch', ['launch/multi_camera_launch.launch.py']),
     ],
-    install_requires=['setuptools', 'cv2_enumerate_cameras', 'ultralytics', 'numpy'],
+    install_requires=['setuptools', 'cv2_enumerate_cameras'],
     zip_safe=True,
     maintainer='charstieve',
     maintainer_email='charlotteolivia930@gmail.com',
