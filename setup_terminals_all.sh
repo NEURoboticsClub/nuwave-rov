@@ -3,9 +3,8 @@
 # Combined launcher for both topside and bottomside terminator layouts.
 # Keeps the individual scripts intact and delegates to them.
 #
-# Usage: setup_terminals_all.sh [-d] [-s] [-h]
+# Usage: setup_terminals_all.sh [-d] [-h]
 #   -d: skip colcon build step (forwarded to both scripts)
-#   -s: run bottomside over SSH (forwarded only to bottomside script)
 #   -h: show help
 
 set -e
@@ -24,23 +23,22 @@ Runs both launch scripts:
 
 Options:
   -d    Skip colcon build step in both scripts
-  -s    Run bottomside script over SSH (passes -s to bottomside only)
   -h    Show this help menu
+
+Notes:
+    Bottomside script is always launched with -s (SSH mode).
 
 Examples:
   ./$(basename "$0")
   ./$(basename "$0") -d
-  ./$(basename "$0") -d -s
 EOF
 }
 
 SKIP_BUILD=false
-USE_SSH_BOTTOMSIDE=false
 
-while getopts "dsh" opt; do
+while getopts "dh" opt; do
     case $opt in
         d) SKIP_BUILD=true ;;
-        s) USE_SSH_BOTTOMSIDE=true ;;
         h) usage; exit 0 ;;
         \?) usage; exit 1 ;;
     esac
@@ -64,9 +62,7 @@ if [ "$SKIP_BUILD" = true ]; then
     BOTTOMSIDE_ARGS+=("-d")
 fi
 
-if [ "$USE_SSH_BOTTOMSIDE" = true ]; then
-    BOTTOMSIDE_ARGS+=("-s")
-fi
+BOTTOMSIDE_ARGS+=("-s")
 
 echo "Launching topside terminals..."
 "$TOPSIDE_SCRIPT" "${TOPSIDE_ARGS[@]}"

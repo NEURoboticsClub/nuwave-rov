@@ -17,12 +17,11 @@ To be written...
     - `setup_terminals_bottomside.sh`
 - Flags:
     - `-d`: skip build in both scripts
-    - `-s`: run bottomside over SSH (passes only to bottomside)
+- Bottomside is always run over SSH (`-s`) when using this combined script.
 
 Examples:
 - `./setup_terminals_all.sh`
 - `./setup_terminals_all.sh -d`
-- `./setup_terminals_all.sh -d -s`
 
 ### How to run EVERYTHING:
 - colcon build (on both remote and nano)
