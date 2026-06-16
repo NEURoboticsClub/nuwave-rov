@@ -100,6 +100,9 @@ cat > "$LAYOUT_FILE" <<EOF
     [[[vpane_right_bottom]]]
       type = VPaned
       parent = vpane_right_top
+    [[[vpane_right_tail]]]
+      type = VPaned
+      parent = vpane_right_bottom
     [[[top-left]]]
       type = Terminal
       parent = vpane_left_top
@@ -113,8 +116,8 @@ cat > "$LAYOUT_FILE" <<EOF
     [[[bottom-left]]]
       type = Terminal
       parent = vpane_left_bottom
-      title = Topside Shell
-      command = bash -c '$SETUP; exec bash'
+      title = Crab Recognition
+      command = bash -c '$START_CRAB_RECOGNITION; exec bash'
     [[[top-right]]]
       type = Terminal
       parent = vpane_right_top
@@ -127,14 +130,14 @@ cat > "$LAYOUT_FILE" <<EOF
       command = bash -c '$START_ARM_CONTROLLER; exec bash'
     [[[bottom-right]]]
       type = Terminal
-      parent = vpane_right_bottom
+      parent = vpane_right_tail
       title = Web GUI
       command = bash -c '$START_WEB_GUI; exec bash'
-    [[[bottom-middle]]]
+    [[[bottom-right-extra]]]
       type = Terminal
-      parent = vpane_left_bottom
-      title = Crab Recognition
-      command = bash -c '$START_CRAB_RECOGNITION; exec bash'
+      parent = vpane_right_tail
+      title = Topside Shell
+      command = bash -c '$SETUP; exec bash'
 [plugins]
 EOF
 
