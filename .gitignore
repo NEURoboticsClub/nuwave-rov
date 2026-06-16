@@ -16,3 +16,6 @@ venv_old/
 
 *.py[cod]
 *$py.class
+
+# Generated crab recognition outputs
+src/crab_recognition_pkg/crab_recognition_results/
