@@ -22,7 +22,6 @@ setup(
         'console_scripts': [
             'camera_publisher = camera_pkg.openCVStreaming:main',
             'camera_subscriber = camera_pkg.testCVStreaming:main',
-            'crab_recognition = camera_pkg.crab_recognition:main',
         ],
     },
 )
