@@ -2,6 +2,7 @@ import rclpy
 from rclpy.node import Node
 from rclpy.executors import MultiThreadedExecutor
 from std_msgs.msg import Float32, Float32MultiArray
+from std_msgs.msg import Bool
 from geometry_msgs.msg import Twist
 from sensor_msgs.msg import FluidPressure, Temperature, CompressedImage, Imu
 from ament_index_python.packages import get_package_share_directory
@@ -136,6 +137,8 @@ class WebBridgeNode(Node):
         # Command topics
         self._subs.append(self.create_subscription(Twist, '/velocity_commands', self._on_velocity_commands, 10))
         self._subs.append(self.create_subscription(Float32MultiArray, '/arm_commands', self._on_arm_commands, 10))
+        self._subs.append(self.create_subscription(Bool, '/controls/expo_enabled', self._on_expo_enabled, 10))
+        self._subs.append(self.create_subscription(Bool, '/controls/agnes_enabled', self._on_agnes_enabled, 10))
 
         # Camera topics
         camera_qos = QoSProfile(
@@ -153,7 +156,38 @@ class WebBridgeNode(Node):
                     camera_qos,
                 )
             )
+
+        # GUI command publishers (browser -> ROS)
+        self.expo_toggle_pub = self.create_publisher(Bool, '/gui_buttons/expo_enabled', 10)
+        self.agnes_toggle_pub = self.create_publisher(Bool, '/gui_buttons/agnes_enabled', 10)
         self.get_logger().info('WebBridge node started')
+
+    def handle_ws_message(self, raw_payload: str):
+        try:
+            payload = json.loads(raw_payload)
+        except json.JSONDecodeError:
+            self.get_logger().warning('Ignoring non-JSON websocket payload')
+            return
+
+        topic = payload.get('topic')
+        data = payload.get('data')
+        if not isinstance(topic, str):
+            self.get_logger().warning('Ignoring websocket payload with missing topic')
+            return
+
+        if topic == '/gui_buttons/expo_enabled':
+            msg = Bool()
+            msg.data = bool(data)
+            self.expo_toggle_pub.publish(msg)
+            return
+
+        if topic == '/gui_buttons/agnes_enabled':
+            msg = Bool()
+            msg.data = bool(data)
+            self.agnes_toggle_pub.publish(msg)
+            return
+
+        self.get_logger().debug(f'Ignoring unsupported websocket topic: {topic}')
 
     def _forward(self, topic: str, payload):
         """Thread-safe: store the latest value for periodic websocket flush."""
@@ -226,6 +260,12 @@ class WebBridgeNode(Node):
     def _on_arm_commands(self, msg: Float32MultiArray):
         self._forward('/arm_commands', list(msg.data))
 
+    def _on_expo_enabled(self, msg: Bool):
+        self._forward('/controls/expo_enabled', bool(msg.data))
+
+    def _on_agnes_enabled(self, msg: Bool):
+        self._forward('/controls/agnes_enabled', bool(msg.data))
+
     def _on_video(self, topic: str, msg: CompressedImage):
         payload = {
             'format': msg.format,
@@ -235,18 +275,21 @@ class WebBridgeNode(Node):
 
 # --- HTTP + WebSocket server ---
 async def ws_handler(request):
+    node = request.app['ros_node']
     ws = web.WebSocketResponse()
     await ws.prepare(request)
     ws_clients.add(ws)
     try:
-        async for _ in ws:  # keep connection alive
-            pass
+        async for msg in ws:
+            if msg.type == aiohttp.WSMsgType.TEXT:
+                node.handle_ws_message(msg.data)
     finally:
         ws_clients.discard(ws)
     return ws
 
-def build_app():
+def build_app(node: WebBridgeNode):
     app = web.Application()
+    app['ros_node'] = node
     app.router.add_get('/ws', ws_handler)
 
     static_dir = os.path.join(get_package_share_directory('web_gui'), 'static')
@@ -272,7 +315,7 @@ def main():
     ros_thread.start()
 
     # Run the web server on the main thread's asyncio loop
-    app = build_app()
+    app = build_app(node)
     runner = web.AppRunner(app)
     loop.run_until_complete(runner.setup())
     site = web.TCPSite(runner, 'localhost', 8080)

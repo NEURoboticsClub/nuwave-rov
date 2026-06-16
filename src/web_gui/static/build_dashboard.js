@@ -1,6 +1,8 @@
 /**
  * publishes button values to /gui_buttons/
  *  - scan_crabs: toggles crab scanning mode
+ *  - expo_enabled: toggles exponential controller scaling mode
+ *  - agnes_enabled: toggles thrust scaling limiter mode
  *  - photogrammetry: toggles photogrammetry mode
  *  - measure_iceberg: triggers iceberg measurement sequence
  */
@@ -14,7 +16,22 @@ const dashboard = {
     cameras: new Map(),
     thrusterViz: null,
     model3d: null,
+    toggleButtons: new Map(),
 };
+
+function setGuiToggleButtonState(topic, isEnabled) {
+    const button = dashboard.toggleButtons.get(topic);
+    if (!button) {
+        return;
+    }
+
+    if (isEnabled) {
+        button.classList.add('is-active');
+    } else {
+        button.classList.remove('is-active');
+    }
+    button.setAttribute('aria-pressed', String(!!isEnabled));
+}
 
 function publishMessage(topic, data) {
     if (typeof window.ws !== 'undefined' && window.ws && window.ws.send) {
@@ -711,6 +728,8 @@ function buildButtonPanel() {
 
     const buttonConfigs = [
         { label: "Scan Crabs", toggle: true, topic: "/gui_buttons/scan_crabs" },
+        { label: "Expo Controls", toggle: true, topic: "/gui_buttons/expo_enabled" },
+        { label: "Agnes Mode", toggle: true, topic: "/gui_buttons/agnes_enabled" },
         { label: "Take Screenshot", toggle: false, action: "screenshot" },
         { label: "Photogrammetry", toggle: true, topic: "/gui_buttons/photogrammetry" },
         { label: "Measure Iceberg", toggle: false, action: "measure_iceberg" },
@@ -726,6 +745,7 @@ function buildButtonPanel() {
         if (config.toggle && config.topic) {
             button.classList.add("test-button-grid__button--toggle");
             button.setAttribute("aria-pressed", "false");
+            dashboard.toggleButtons.set(config.topic, button);
             button.addEventListener("click", () => {
                 const isPressed = button.classList.toggle("is-active");
                 button.setAttribute("aria-pressed", String(isPressed));
@@ -1421,6 +1441,7 @@ function buildModelPanel() {
 window.updateModelOrientation = updateModelOrientation;
 window.updateThrusterMeter = updateThrusterMeter;
 window.updateImuTelemetry = updateImuTelemetry;
+window.setGuiToggleButtonState = setGuiToggleButtonState;
 
 function updateMeter(key, rawValue) {
     const meter = dashboard.meters.get(key);

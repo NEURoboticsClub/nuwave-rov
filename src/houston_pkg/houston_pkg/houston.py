@@ -2,7 +2,8 @@ import rclpy
 from rclpy.node import Node
 from sensor_msgs.msg import Joy
 from geometry_msgs.msg import Twist
-from std_msgs.msg import Float32MultiArray, Empty
+from std_msgs.msg import Float32MultiArray, Empty, Bool
+from rclpy.qos import QoSProfile, DurabilityPolicy, ReliabilityPolicy, HistoryPolicy
 from ament_index_python.packages import get_package_share_directory
 from nuwave_utils_pkg.file_helpers import load_yaml
 import os
@@ -22,6 +23,9 @@ class Houston(Node):
         self.declare_parameter('joy_arm', '/joy_arm')
         self.declare_parameter('stabilizer_timeout', 0.5)  # seconds before we consider stabilizer data stale and disable stabilization
         self.declare_parameter('publish_rate_hz', 50.0)    # publish rate of houston twist commands
+        self.declare_parameter('expo_enabled_default', False)
+        self.declare_parameter('agnes_enabled_default', False)
+        self.declare_parameter('agnes_scale', 0.4)
 
         joy_config_path = self.get_parameter('joy_config').value
         joy_thruster = self.get_parameter('joy_thruster').value
@@ -42,6 +46,17 @@ class Houston(Node):
 
         self.stabilizer_sub = self.create_subscription(Twist, '/stabilizer/commands', self.stabilizer_callback, 10)
 
+        qos_state = QoSProfile(
+            reliability=ReliabilityPolicy.RELIABLE,
+            history=HistoryPolicy.KEEP_LAST,
+            depth=1,
+            durability=DurabilityPolicy.TRANSIENT_LOCAL,
+        )
+        self.expo_mode_pub = self.create_publisher(Bool, '/controls/expo_enabled', qos_state)
+        self.expo_mode_sub = self.create_subscription(Bool, '/gui_buttons/expo_enabled', self.gui_expo_toggle_callback, 10)
+        self.agnes_mode_pub = self.create_publisher(Bool, '/controls/agnes_enabled', qos_state)
+        self.agnes_mode_sub = self.create_subscription(Bool, '/gui_buttons/agnes_enabled', self.gui_agnes_toggle_callback, 10)
+
         self.twist_pub = self.create_publisher(Twist, "velocity_commands", 10)
         self.arm_pub = self.create_publisher(Float32MultiArray, "arm_commands", 10)
         self.capture_pub = self.create_publisher(Empty, '/stabilizer/capture', 10)
@@ -53,10 +68,68 @@ class Houston(Node):
         self.last_stabilizer_twist = Twist()
         self.stabilize_enabled = False
         self.prev_stabilize_button = 0
+        self.prev_expo_toggle_button = 0
+        self.prev_agnes_toggle_button = 0
+        self.expo_enabled = bool(self.get_parameter('expo_enabled_default').value)
+        self.agnes_enabled = bool(self.get_parameter('agnes_enabled_default').value)
+        self.agnes_scale = float(self.get_parameter('agnes_scale').value)
 
         self.create_timer(1.0 / rate, self._publish_loop)
 
+        self.publish_expo_state()
+        self.publish_agnes_state()
+
         self.get_logger().info("Houston Initialized")
+
+    def publish_expo_state(self):
+        msg = Bool()
+        msg.data = bool(self.expo_enabled)
+        self.expo_mode_pub.publish(msg)
+
+    def set_expo_enabled(self, enabled: bool, source: str):
+        enabled = bool(enabled)
+        if self.expo_enabled == enabled:
+            return
+        self.expo_enabled = enabled
+        self.publish_expo_state()
+        self.get_logger().info(f"Exponential controls: {'ON' if self.expo_enabled else 'OFF'} (source={source})")
+
+    def gui_expo_toggle_callback(self, msg: Bool):
+        self.set_expo_enabled(msg.data, 'gui')
+
+    def publish_agnes_state(self):
+        msg = Bool()
+        msg.data = bool(self.agnes_enabled)
+        self.agnes_mode_pub.publish(msg)
+
+    def set_agnes_enabled(self, enabled: bool, source: str):
+        enabled = bool(enabled)
+        if self.agnes_enabled == enabled:
+            return
+        self.agnes_enabled = enabled
+        self.publish_agnes_state()
+        self.get_logger().info(
+            f"Agnes mode: {'ON' if self.agnes_enabled else 'OFF'} "
+            f"(scale={self.agnes_scale:.2f}, source={source})"
+        )
+
+    def gui_agnes_toggle_callback(self, msg: Bool):
+        self.set_agnes_enabled(msg.data, 'gui')
+
+    def scale_controller_input(self, x: float) -> float:
+        """Apply a normalized exponential joystick curve based on the requested shape."""
+        # x is expected in [-1, 1]. Match existing deadband intent with a small center deadzone.
+        if abs(x) <= 0.05:
+            return 0.0
+
+        abs_x = abs(x)
+        result = np.sign(x) * ((1.2 * np.power(1.0356, abs_x * 100.0)) - 1.2 + (0.2 * abs_x * 100.0))
+
+        # Normalize curve output back to [-1, 1].
+        max_result = (1.2 * np.power(1.0356, 100.0)) - 1.2 + (0.2 * 100.0)
+        if max_result <= 0:
+            return float(x)
+        return float(np.clip(result / max_result, -1.0, 1.0))
 
     def stabilizer_callback(self, msg: Twist):
         self.last_stabilizer_twist = msg
@@ -127,6 +200,10 @@ class Houston(Node):
                 if scale == "logarithmic":
                     # compress near 0, preserve sign
                     val = np.sign(val) * np.log1p(abs(val))
+                elif scale == "exponential" and self.expo_enabled:
+                    val = self.scale_controller_input(val)
+
+                val = float(np.clip(val, -1.0, 1.0))
 
                 axis_values[axis_name] = float(val)
                 continue
@@ -153,6 +230,16 @@ class Houston(Node):
             if self.stabilize_enabled:  # send message to capture orientation as setpoint
                 self.capture_pub.publish(Empty())
         self.prev_stabilize_button = stab_btn
+
+        expo_btn = int(button_values.get('expo_toggle', 0))
+        if expo_btn == 1 and self.prev_expo_toggle_button == 0:
+            self.set_expo_enabled(not self.expo_enabled, 'controller')
+        self.prev_expo_toggle_button = expo_btn
+
+        agnes_btn = int(button_values.get('agnes_toggle', 0))
+        if agnes_btn == 1 and self.prev_agnes_toggle_button == 0:
+            self.set_agnes_enabled(not self.agnes_enabled, 'controller')
+        self.prev_agnes_toggle_button = agnes_btn
 
         msg = Twist()
         msg.angular.x = float(axis_values.get('pitch', 0.0))
@@ -193,6 +280,14 @@ class Houston(Node):
                 )
                 msg.linear.x, msg.linear.y, msg.linear.z = lx, ly, lz
                 msg.angular.x, msg.angular.y, msg.angular.z = ax, ay, az
+
+        if self.agnes_enabled:
+            msg.linear.x *= self.agnes_scale
+            msg.linear.y *= self.agnes_scale
+            msg.linear.z *= self.agnes_scale
+            msg.angular.x *= self.agnes_scale
+            msg.angular.y *= self.agnes_scale
+            msg.angular.z *= self.agnes_scale
 
         self.twist_pub.publish(msg)
 

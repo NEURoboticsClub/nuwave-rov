@@ -74,6 +74,20 @@ function processRosMessage(topic, data) {
         return;
     }
 
+    if (topic === '/controls/expo_enabled') {
+        if (typeof window.setGuiToggleButtonState === 'function') {
+            window.setGuiToggleButtonState('/gui_buttons/expo_enabled', !!data);
+        }
+        return;
+    }
+
+    if (topic === '/controls/agnes_enabled') {
+        if (typeof window.setGuiToggleButtonState === 'function') {
+            window.setGuiToggleButtonState('/gui_buttons/agnes_enabled', !!data);
+        }
+        return;
+    }
+
     if ((topic === '/imu' || topic === 'imu' || topic.startsWith('/imu/')) && typeof updateModelOrientation === 'function') {
         if (typeof window.updateImuTelemetry === 'function') {
             window.updateImuTelemetry(data);
