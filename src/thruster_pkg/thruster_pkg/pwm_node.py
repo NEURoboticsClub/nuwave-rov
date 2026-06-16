@@ -136,6 +136,7 @@ class PWMNode(Node):
                     )
 
         self._apply_precision_mode_to_all_motors()
+        self._log_active_pwm_ranges("Active PWM ranges on startup:")
 
         self._arm()
 
@@ -201,6 +202,15 @@ class PWMNode(Node):
             mot['target_us'] = float(np.clip(mot.get('target_us', mot.get('neutral_us', 1500)), min_us, max_us))
             mot['current_us'] = float(np.clip(mot.get('current_us', mot.get('neutral_us', 1500)), min_us, max_us))
 
+    def _log_active_pwm_ranges(self, header: str):
+        self.get_logger().info(header)
+        for mot in self.motors:
+            topic = mot.get('topic', '<unknown>')
+            mode = 'precision' if self.precision_mode_enabled else 'speed'
+            self.get_logger().info(
+                f"[{mode}] {topic}: min_us={mot.get('min_us')}, neutral_us={mot.get('neutral_us')}, max_us={mot.get('max_us')}"
+            )
+
     def _precision_mode_callback(self, msg: Bool):
         enabled = bool(msg.data)
         if self.precision_mode_enabled == enabled:
@@ -210,6 +220,7 @@ class PWMNode(Node):
         self.get_logger().info(
             f"Precision mode: {'ON' if self.precision_mode_enabled else 'OFF'}"
         )
+        self._log_active_pwm_ranges("Active PWM ranges after precision mode toggle:")
 
     
     # takes dutycycle (-1 to 1) and maps that to PWM range for each motor
