@@ -55,7 +55,7 @@ class ThrusterController(Node):
         config = load_yaml(thruster_config_path)
         # self.pwm_range_table = self._configure_virtual_thruster_pwm_range(config)
         self.thrusters = config.get('thrusters', [])
-
+        self.center_offset = config.get('center_offset', 0.0) # Offset to apply to thruster positions
         self.allocMatrix = self.compute_thruster_allocation_matrix(config)
         # self.n_thrusters = self.allocMatrix.shape[1]
         self.allocMatrix_inverse = np.linalg.pinv(self.allocMatrix)
@@ -111,8 +111,17 @@ class ThrusterController(Node):
         AllocMatrix = np.zeros((6, len(thrusters)))
 
         for indx, thruster in enumerate(thrusters):
-            pos_m = np.array(thruster['position_m'], dtype=float)
+            pos_m_unbalanced = np.array(thruster['position_m'], dtype=float)
             dir = np.array(thruster['direction'], dtype=float)
+
+            if thruster['name'] == 'front_left_lateral' or thruster['name'] == 'front_right_lateral' \
+                or thruster['name'] == 'front_left_vertical' or thruster['name'] == 'front_right_vertical':
+                pos_m = pos_m_unbalanced - np.array([0.0, self.center_offset, 0.0])
+            elif thruster['name'] == 'rear_left_lateral' or thruster['name'] == 'rear_right_lateral' \
+                or thruster['name'] == 'rear_left_vertical' or thruster['name'] == 'rear_right_vertical':
+                pos_m = pos_m_unbalanced + np.array([0.0, self.center_offset, 0.0])
+            else:
+                pos_m = pos_m_unbalanced
 
             norm = np.linalg.norm(dir)
             if norm == 0.0:
@@ -122,8 +131,6 @@ class ThrusterController(Node):
             # Linear Force Contribution
             AllocMatrix[0:3, indx] = dir
             AllocMatrix[3:6, indx] = np.cross(pos_m, dir) 
-
-            
         self.get_logger().info(f"Thruster Allocation Matrix:\n {AllocMatrix}")
         return AllocMatrix
 
