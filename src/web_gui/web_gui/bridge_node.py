@@ -6,7 +6,7 @@ from std_msgs.msg import Bool
 from geometry_msgs.msg import Twist
 from sensor_msgs.msg import FluidPressure, Temperature, CompressedImage, Imu
 from ament_index_python.packages import get_package_share_directory
-from rclpy.qos import QoSProfile, ReliabilityPolicy, HistoryPolicy
+from rclpy.qos import QoSProfile, ReliabilityPolicy, HistoryPolicy, DurabilityPolicy
 import asyncio
 import json
 import threading
@@ -135,10 +135,17 @@ class WebBridgeNode(Node):
         self._subs.append(self.create_subscription(Imu, '/imu', self._on_imu, 10))
 
         # Command topics
+        controls_qos = QoSProfile(
+            reliability=ReliabilityPolicy.RELIABLE,
+            history=HistoryPolicy.KEEP_LAST,
+            depth=1,
+            durability=DurabilityPolicy.TRANSIENT_LOCAL,
+        )
         self._subs.append(self.create_subscription(Twist, '/velocity_commands', self._on_velocity_commands, 10))
         self._subs.append(self.create_subscription(Float32MultiArray, '/arm_commands', self._on_arm_commands, 10))
-        self._subs.append(self.create_subscription(Bool, '/controls/expo_enabled', self._on_expo_enabled, 10))
-        self._subs.append(self.create_subscription(Bool, '/controls/precision_mode', self._on_precision_mode, 10))
+        self._subs.append(self.create_subscription(Bool, '/controls/expo_enabled', self._on_expo_enabled, controls_qos))
+        self._subs.append(self.create_subscription(Bool, '/controls/precision_mode', self._on_precision_mode, controls_qos))
+        self._subs.append(self.create_subscription(Bool, '/controls/stabilize_enabled', self._on_stabilize_enabled, controls_qos))
 
         # Camera topics
         camera_qos = QoSProfile(
@@ -163,6 +170,7 @@ class WebBridgeNode(Node):
         # GUI command publishers (browser -> ROS)
         self.expo_toggle_pub = self.create_publisher(Bool, '/gui_buttons/expo_enabled', 10)
         self.precision_mode_toggle_pub = self.create_publisher(Bool, '/gui_buttons/precision_mode', 10)
+        self.stabilize_toggle_pub = self.create_publisher(Bool, '/gui_buttons/stabilize_enabled', 10)
         self.get_logger().info('WebBridge node started')
 
     def handle_ws_message(self, raw_payload: str):
@@ -194,6 +202,12 @@ class WebBridgeNode(Node):
             msg = Bool()
             msg.data = bool(data)
             self.precision_mode_toggle_pub.publish(msg)
+            return
+
+        if topic == '/gui_buttons/stabilize_enabled':
+            msg = Bool()
+            msg.data = bool(data)
+            self.stabilize_toggle_pub.publish(msg)
             return
 
         self.get_logger().debug(f'Ignoring unsupported websocket topic: {topic}')
@@ -275,6 +289,9 @@ class WebBridgeNode(Node):
 
     def _on_precision_mode(self, msg: Bool):
         self._forward('/controls/precision_mode', bool(msg.data))
+
+    def _on_stabilize_enabled(self, msg: Bool):
+        self._forward('/controls/stabilize_enabled', bool(msg.data))
 
     def _on_video(self, topic: str, msg: CompressedImage):
         payload = {
