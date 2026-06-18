@@ -727,7 +727,6 @@ function buildButtonPanel() {
     buttonGrid.className = "test-button-grid";
 
     const buttonConfigs = [
-        { label: "Scan Crabs", toggle: true, topic: "/gui_buttons/scan_crabs" },
         { label: "Expo Controls", toggle: true, topic: "/gui_buttons/expo_enabled" },
         { label: "Precision Mode", toggle: true, topic: "/gui_buttons/precision_mode" },
         { label: "Detect Crabs", toggle: false, action: "detect_crabs" },

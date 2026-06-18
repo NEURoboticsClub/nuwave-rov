@@ -177,6 +177,7 @@ class WebBridgeNode(Node):
         if not isinstance(topic, str):
             self.get_logger().warning('Ignoring websocket payload with missing topic')
             return
+        
         if topic == '/gui_buttons/detect_crabs':
             msg = Bool()
             msg.data = bool(data)
@@ -289,9 +290,6 @@ async def ws_handler(request):
     await ws.prepare(request)
     ws_clients.add(ws)
     try:
-        async for msg in ws:
-            if msg.type == aiohttp.WSMsgType.TEXT:
-                node.handle_ws_message(msg.data)
         async for msg in ws:
             if msg.type == aiohttp.WSMsgType.TEXT:
                 node.handle_ws_message(msg.data)
