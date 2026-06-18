@@ -22,7 +22,6 @@ class Houston(Node):
         self.declare_parameter('joy_thruster', '/joy_thruster')
         self.declare_parameter('joy_arm', '/joy_arm')
         self.declare_parameter('stabilizer_timeout', 0.5)  # seconds before we consider stabilizer data stale and disable stabilization
-        self.declare_parameter('stabilizer_enable_grace_s', 0.5)  # allow time for first stabilizer message after enabling
         self.declare_parameter('publish_rate_hz', 50.0)    # publish rate of houston twist commands
         self.declare_parameter('expo_enabled_default', False)
         self.declare_parameter('precision_mode_default', True)
@@ -33,9 +32,7 @@ class Houston(Node):
         rate = self.get_parameter('publish_rate_hz').value
 
         self.stabilizer_timeout = self.get_parameter('stabilizer_timeout').value
-        self.stabilizer_enable_grace_s = self.get_parameter('stabilizer_enable_grace_s').value
         self.last_stabilizer_time = None
-        self.last_stabilize_enable_time = None
 
 
         self.get_logger().info(f"Loading joystick config from: {joy_config_path}")
@@ -127,8 +124,6 @@ class Houston(Node):
         if self.stabilize_enabled == enabled:
             return
         self.stabilize_enabled = enabled
-        if self.stabilize_enabled:
-            self.last_stabilize_enable_time = self.get_clock().now()
         self.publish_stabilize_state()
         self.get_logger().info(f"Stabilization mode: {'ON' if self.stabilize_enabled else 'OFF'} (source={source})")
         if self.stabilize_enabled:
@@ -275,17 +270,9 @@ class Houston(Node):
 
         if self.stabilize_enabled:
             now = self.get_clock().now()
-            waiting_for_first_stabilizer_msg = (
-                self.last_stabilizer_time is None
-                and self.last_stabilize_enable_time is not None
-                and (now - self.last_stabilize_enable_time).nanoseconds * 1e-9 <= self.stabilizer_enable_grace_s
-            )
             stale = (
-                not waiting_for_first_stabilizer_msg
-                and (
-                    self.last_stabilizer_time is None
-                    or (now - self.last_stabilizer_time).nanoseconds * 1e-9 > self.stabilizer_timeout
-                )
+                self.last_stabilizer_time is not None
+                and (now - self.last_stabilizer_time).nanoseconds * 1e-9 > self.stabilizer_timeout
             )
             if stale:
                 self.set_stabilize_enabled(False, 'stale_data')
