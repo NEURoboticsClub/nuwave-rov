@@ -35,6 +35,12 @@ class WebBridgeNode(Node):
         super().__init__('web_bridge')
         self._loop = loop
         self._subs = []
+        self._latest_control_states = {
+            '/controls/expo_enabled': False,
+            '/controls/precision_mode': False,
+            '/controls/stabilize_enabled': False,
+        }
+        self._latest_control_states_lock = threading.Lock()
 
         # Thruster telemetry topics
         thruster_topics = [
@@ -285,13 +291,26 @@ class WebBridgeNode(Node):
         self._forward('/arm_commands', list(msg.data))
 
     def _on_expo_enabled(self, msg: Bool):
-        self._forward('/controls/expo_enabled', bool(msg.data))
+        value = bool(msg.data)
+        with self._latest_control_states_lock:
+            self._latest_control_states['/controls/expo_enabled'] = value
+        self._forward('/controls/expo_enabled', value)
 
     def _on_precision_mode(self, msg: Bool):
-        self._forward('/controls/precision_mode', bool(msg.data))
+        value = bool(msg.data)
+        with self._latest_control_states_lock:
+            self._latest_control_states['/controls/precision_mode'] = value
+        self._forward('/controls/precision_mode', value)
 
     def _on_stabilize_enabled(self, msg: Bool):
-        self._forward('/controls/stabilize_enabled', bool(msg.data))
+        value = bool(msg.data)
+        with self._latest_control_states_lock:
+            self._latest_control_states['/controls/stabilize_enabled'] = value
+        self._forward('/controls/stabilize_enabled', value)
+
+    def get_control_state_snapshot(self):
+        with self._latest_control_states_lock:
+            return dict(self._latest_control_states)
 
     def _on_video(self, topic: str, msg: CompressedImage):
         payload = {
@@ -306,6 +325,11 @@ async def ws_handler(request):
     ws = web.WebSocketResponse()
     await ws.prepare(request)
     ws_clients.add(ws)
+
+    # Send latest control states to avoid button-state desync after page refresh/reconnect.
+    for topic, data in node.get_control_state_snapshot().items():
+        await ws.send_str(json.dumps({'topic': topic, 'data': data}))
+
     try:
         async for msg in ws:
             if msg.type == aiohttp.WSMsgType.TEXT:
