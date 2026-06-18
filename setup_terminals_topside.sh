@@ -6,6 +6,7 @@
 # - ros2 run controller thruster_controller_node
 # - ros2 run arm_controller arm_controller_node
 # - ros2 run web_gui bridge_node
+# - ros2 run crab_recognition_pkg crab_recognition
 
 # Usage: setup_terminals_topside.sh [-d] [-h]
 #   -d: skip colcon build step
@@ -25,6 +26,7 @@ Panes:
   Thruster Controller  ros2 run controller thruster_controller_node
   Arm Controller       ros2 run arm_controller arm_controller_node
   Web GUI              ros2 run web_gui bridge_node
+  Crab Recognition     ros2 run crab_recognition_pkg crab_recognition
   Topside Shell        sourced shell for any additional commands
 
 Options:
@@ -69,6 +71,7 @@ START_HOUSTON="$SETUP && ros2 run houston_pkg houston"
 START_THRUSTER_CONTROLLER="$SETUP && ros2 run controller thruster_controller_node"
 START_ARM_CONTROLLER="$SETUP && ros2 run arm_controller arm_controller_node"
 START_WEB_GUI="$SETUP && ros2 run web_gui bridge_node"
+START_CRAB_RECOGNITION="$SETUP && ros2 run crab_recognition_pkg crab_recognition"
 
 LAYOUT_FILE=$(mktemp /tmp/terminator_ros2_setup_topside_XXXX.conf)
 
@@ -97,6 +100,9 @@ cat > "$LAYOUT_FILE" <<EOF
     [[[vpane_right_bottom]]]
       type = VPaned
       parent = vpane_right_top
+    [[[vpane_right_tail]]]
+      type = VPaned
+      parent = vpane_right_bottom
     [[[top-left]]]
       type = Terminal
       parent = vpane_left_top
@@ -110,8 +116,8 @@ cat > "$LAYOUT_FILE" <<EOF
     [[[bottom-left]]]
       type = Terminal
       parent = vpane_left_bottom
-      title = Topside Shell
-      command = bash -c '$SETUP; exec bash'
+      title = Crab Recognition
+      command = bash -c '$START_CRAB_RECOGNITION; exec bash'
     [[[top-right]]]
       type = Terminal
       parent = vpane_right_top
@@ -124,9 +130,14 @@ cat > "$LAYOUT_FILE" <<EOF
       command = bash -c '$START_ARM_CONTROLLER; exec bash'
     [[[bottom-right]]]
       type = Terminal
-      parent = vpane_right_bottom
+      parent = vpane_right_tail
       title = Web GUI
       command = bash -c '$START_WEB_GUI; exec bash'
+    [[[bottom-right-extra]]]
+      type = Terminal
+      parent = vpane_right_tail
+      title = Topside Shell
+      command = bash -c '$SETUP; exec bash'
 [plugins]
 EOF
 

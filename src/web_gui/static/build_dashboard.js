@@ -1,8 +1,8 @@
 /**
  * publishes button values to /gui_buttons/
- *  - scan_crabs: toggles crab scanning mode
  *  - expo_enabled: toggles exponential controller scaling mode
  *  - precision_mode: toggles PWM precision motor range mode
+ *  - detect_crabs: one-shot crab detection trigger
  *  - photogrammetry: toggles photogrammetry mode
  *  - measure_iceberg: triggers iceberg measurement sequence
  */
@@ -730,6 +730,7 @@ function buildButtonPanel() {
         { label: "Scan Crabs", toggle: true, topic: "/gui_buttons/scan_crabs" },
         { label: "Expo Controls", toggle: true, topic: "/gui_buttons/expo_enabled" },
         { label: "Precision Mode", toggle: true, topic: "/gui_buttons/precision_mode" },
+        { label: "Detect Crabs", toggle: false, action: "detect_crabs" },
         { label: "Take Screenshot", toggle: false, action: "screenshot" },
         { label: "Photogrammetry", toggle: true, topic: "/gui_buttons/photogrammetry" },
         { label: "Measure Iceberg", toggle: false, action: "measure_iceberg" },
@@ -750,6 +751,10 @@ function buildButtonPanel() {
                 const isPressed = button.classList.toggle("is-active");
                 button.setAttribute("aria-pressed", String(isPressed));
                 publishMessage(config.topic, isPressed);
+            });
+        } else if (config.action === "detect_crabs") {
+            button.addEventListener("click", () => {
+                publishMessage('/gui_buttons/detect_crabs', true);
             });
         } else if (config.action === "screenshot") {
             button.addEventListener("click", downloadAllCameraScreenshots);

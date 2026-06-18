@@ -157,6 +157,9 @@ class WebBridgeNode(Node):
                 )
             )
 
+        # GUI button command publishers (browser -> ROS)
+        self.detect_crabs_pub = self.create_publisher(Bool, '/gui_buttons/detect_crabs', 10)
+
         # GUI command publishers (browser -> ROS)
         self.expo_toggle_pub = self.create_publisher(Bool, '/gui_buttons/expo_enabled', 10)
         self.precision_mode_toggle_pub = self.create_publisher(Bool, '/gui_buttons/precision_mode', 10)
@@ -174,6 +177,11 @@ class WebBridgeNode(Node):
         if not isinstance(topic, str):
             self.get_logger().warning('Ignoring websocket payload with missing topic')
             return
+        if topic == '/gui_buttons/detect_crabs':
+            msg = Bool()
+            msg.data = bool(data)
+            self.detect_crabs_pub.publish(msg)
+            return
 
         if topic == '/gui_buttons/expo_enabled':
             msg = Bool()
@@ -188,6 +196,7 @@ class WebBridgeNode(Node):
             return
 
         self.get_logger().debug(f'Ignoring unsupported websocket topic: {topic}')
+
 
     def _forward(self, topic: str, payload):
         """Thread-safe: store the latest value for periodic websocket flush."""
@@ -280,6 +289,9 @@ async def ws_handler(request):
     await ws.prepare(request)
     ws_clients.add(ws)
     try:
+        async for msg in ws:
+            if msg.type == aiohttp.WSMsgType.TEXT:
+                node.handle_ws_message(msg.data)
         async for msg in ws:
             if msg.type == aiohttp.WSMsgType.TEXT:
                 node.handle_ws_message(msg.data)
