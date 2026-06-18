@@ -137,7 +137,7 @@ motors:
 
   - id: 14
     min_us: 1400
-    max_us: 1650
+    max_us: 1700
     neutral_us: 1500
     channel: 9
     topic: "/arm/motor_claw"
