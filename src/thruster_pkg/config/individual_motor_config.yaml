@@ -25,7 +25,7 @@ motors:
     speed_min_us: 1430
     speed_max_us: 1630
     neutral_us: 1530
-    channel: 3
+    channel: 0
     topic: "/thruster/thruster_frl"
     slew_us_per_s: 750.0
 
@@ -47,7 +47,7 @@ motors:
     speed_min_us: 1430
     speed_max_us: 1630
     neutral_us: 1530
-    channel: 5
+    channel: 4
     topic: "/thruster/thruster_rrl"
     slew_us_per_s: 750.0
 
@@ -58,7 +58,7 @@ motors:
     speed_min_us: 1280
     speed_max_us: 1780
     neutral_us: 1530
-    channel: 1
+    channel: 3
     topic: "/thruster/thruster_flv"
     slew_us_per_s: 750.0
 
@@ -69,7 +69,7 @@ motors:
     speed_min_us: 1280
     speed_max_us: 1780
     neutral_us: 1530
-    channel: 0
+    channel: 1
     topic: "/thruster/thruster_frv"
     slew_us_per_s: 750.0
 
@@ -91,7 +91,7 @@ motors:
     speed_min_us: 1280
     speed_max_us: 1780
     neutral_us: 1530
-    channel: 4
+    channel: 5
     topic: "/thruster/thruster_rrv"
     slew_us_per_s: 750.0
 
@@ -136,7 +136,7 @@ motors:
     slew_us_per_s: 0.0
 
   - id: 14
-    min_us: 1300
+    min_us: 1400
     max_us: 1700
     neutral_us: 1500
     channel: 9

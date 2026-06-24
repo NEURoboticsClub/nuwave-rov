@@ -6,7 +6,7 @@ from std_msgs.msg import Bool
 from geometry_msgs.msg import Twist
 from sensor_msgs.msg import FluidPressure, Temperature, CompressedImage, Imu
 from ament_index_python.packages import get_package_share_directory
-from rclpy.qos import QoSProfile, ReliabilityPolicy, HistoryPolicy
+from rclpy.qos import QoSProfile, ReliabilityPolicy, HistoryPolicy, DurabilityPolicy
 import asyncio
 import json
 import threading
@@ -35,6 +35,12 @@ class WebBridgeNode(Node):
         super().__init__('web_bridge')
         self._loop = loop
         self._subs = []
+        self._latest_control_states = {
+            '/controls/expo_enabled': False,
+            '/controls/precision_mode': False,
+            '/controls/stabilize_enabled': False,
+        }
+        self._latest_control_states_lock = threading.Lock()
 
         # Thruster telemetry topics
         thruster_topics = [
@@ -135,10 +141,17 @@ class WebBridgeNode(Node):
         self._subs.append(self.create_subscription(Imu, '/imu', self._on_imu, 10))
 
         # Command topics
+        controls_qos = QoSProfile(
+            reliability=ReliabilityPolicy.RELIABLE,
+            history=HistoryPolicy.KEEP_LAST,
+            depth=1,
+            durability=DurabilityPolicy.TRANSIENT_LOCAL,
+        )
         self._subs.append(self.create_subscription(Twist, '/velocity_commands', self._on_velocity_commands, 10))
         self._subs.append(self.create_subscription(Float32MultiArray, '/arm_commands', self._on_arm_commands, 10))
-        self._subs.append(self.create_subscription(Bool, '/controls/expo_enabled', self._on_expo_enabled, 10))
-        self._subs.append(self.create_subscription(Bool, '/controls/precision_mode', self._on_precision_mode, 10))
+        self._subs.append(self.create_subscription(Bool, '/controls/expo_enabled', self._on_expo_enabled, controls_qos))
+        self._subs.append(self.create_subscription(Bool, '/controls/precision_mode', self._on_precision_mode, controls_qos))
+        self._subs.append(self.create_subscription(Bool, '/controls/stabilize_enabled', self._on_stabilize_enabled, controls_qos))
 
         # Camera topics
         camera_qos = QoSProfile(
@@ -163,6 +176,7 @@ class WebBridgeNode(Node):
         # GUI command publishers (browser -> ROS)
         self.expo_toggle_pub = self.create_publisher(Bool, '/gui_buttons/expo_enabled', 10)
         self.precision_mode_toggle_pub = self.create_publisher(Bool, '/gui_buttons/precision_mode', 10)
+        self.stabilize_toggle_pub = self.create_publisher(Bool, '/gui_buttons/stabilize_enabled', 10)
         self.get_logger().info('WebBridge node started')
 
     def handle_ws_message(self, raw_payload: str):
@@ -177,6 +191,7 @@ class WebBridgeNode(Node):
         if not isinstance(topic, str):
             self.get_logger().warning('Ignoring websocket payload with missing topic')
             return
+        
         if topic == '/gui_buttons/detect_crabs':
             msg = Bool()
             msg.data = bool(data)
@@ -193,6 +208,12 @@ class WebBridgeNode(Node):
             msg = Bool()
             msg.data = bool(data)
             self.precision_mode_toggle_pub.publish(msg)
+            return
+
+        if topic == '/gui_buttons/stabilize_enabled':
+            msg = Bool()
+            msg.data = bool(data)
+            self.stabilize_toggle_pub.publish(msg)
             return
 
         self.get_logger().debug(f'Ignoring unsupported websocket topic: {topic}')
@@ -270,10 +291,26 @@ class WebBridgeNode(Node):
         self._forward('/arm_commands', list(msg.data))
 
     def _on_expo_enabled(self, msg: Bool):
-        self._forward('/controls/expo_enabled', bool(msg.data))
+        value = bool(msg.data)
+        with self._latest_control_states_lock:
+            self._latest_control_states['/controls/expo_enabled'] = value
+        self._forward('/controls/expo_enabled', value)
 
     def _on_precision_mode(self, msg: Bool):
-        self._forward('/controls/precision_mode', bool(msg.data))
+        value = bool(msg.data)
+        with self._latest_control_states_lock:
+            self._latest_control_states['/controls/precision_mode'] = value
+        self._forward('/controls/precision_mode', value)
+
+    def _on_stabilize_enabled(self, msg: Bool):
+        value = bool(msg.data)
+        with self._latest_control_states_lock:
+            self._latest_control_states['/controls/stabilize_enabled'] = value
+        self._forward('/controls/stabilize_enabled', value)
+
+    def get_control_state_snapshot(self):
+        with self._latest_control_states_lock:
+            return dict(self._latest_control_states)
 
     def _on_video(self, topic: str, msg: CompressedImage):
         payload = {
@@ -288,10 +325,12 @@ async def ws_handler(request):
     ws = web.WebSocketResponse()
     await ws.prepare(request)
     ws_clients.add(ws)
+
+    # Send latest control states to avoid button-state desync after page refresh/reconnect.
+    for topic, data in node.get_control_state_snapshot().items():
+        await ws.send_str(json.dumps({'topic': topic, 'data': data}))
+
     try:
-        async for msg in ws:
-            if msg.type == aiohttp.WSMsgType.TEXT:
-                node.handle_ws_message(msg.data)
         async for msg in ws:
             if msg.type == aiohttp.WSMsgType.TEXT:
                 node.handle_ws_message(msg.data)

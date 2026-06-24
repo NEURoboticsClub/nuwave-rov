@@ -55,6 +55,8 @@ class Houston(Node):
         self.expo_mode_sub = self.create_subscription(Bool, '/gui_buttons/expo_enabled', self.gui_expo_toggle_callback, 10)
         self.precision_mode_pub = self.create_publisher(Bool, '/controls/precision_mode', qos_state)
         self.precision_mode_sub = self.create_subscription(Bool, '/gui_buttons/precision_mode', self.gui_precision_mode_toggle_callback, 10)
+        self.stabilize_mode_pub = self.create_publisher(Bool, '/controls/stabilize_enabled', qos_state)
+        self.stabilize_mode_sub = self.create_subscription(Bool, '/gui_buttons/stabilize_enabled', self.gui_stabilize_toggle_callback, 10)
 
         self.twist_pub = self.create_publisher(Twist, "velocity_commands", 10)
         self.arm_pub = self.create_publisher(Float32MultiArray, "arm_commands", 10)
@@ -76,6 +78,7 @@ class Houston(Node):
 
         self.publish_expo_state()
         self.publish_precision_mode_state()
+        self.publish_stabilize_state()
 
         self.get_logger().info("Houston Initialized")
 
@@ -110,6 +113,24 @@ class Houston(Node):
 
     def gui_precision_mode_toggle_callback(self, msg: Bool):
         self.set_precision_mode_enabled(msg.data, 'gui')
+
+    def publish_stabilize_state(self):
+        msg = Bool()
+        msg.data = bool(self.stabilize_enabled)
+        self.stabilize_mode_pub.publish(msg)
+
+    def set_stabilize_enabled(self, enabled: bool, source: str):
+        enabled = bool(enabled)
+        if self.stabilize_enabled == enabled:
+            return
+        self.stabilize_enabled = enabled
+        self.publish_stabilize_state()
+        self.get_logger().info(f"Stabilization mode: {'ON' if self.stabilize_enabled else 'OFF'} (source={source})")
+        if self.stabilize_enabled:
+            self.capture_pub.publish(Empty())
+
+    def gui_stabilize_toggle_callback(self, msg: Bool):
+        self.set_stabilize_enabled(msg.data, 'gui')
 
     def scale_controller_input(self, x: float) -> float:
         """Apply a normalized exponential joystick curve based on the requested shape."""
@@ -220,10 +241,7 @@ class Houston(Node):
         """Publish the twist velocity command."""
         stab_btn = int(button_values.get('stabilize_toggle', 0))
         if stab_btn == 1 and self.prev_stabilize_button == 0:
-            self.stabilize_enabled = not self.stabilize_enabled
-            self.get_logger().info(f"Stabilization mode: {'ON' if self.stabilize_enabled else 'OFF'}")
-            if self.stabilize_enabled:  # send message to capture orientation as setpoint
-                self.capture_pub.publish(Empty())
+            self.set_stabilize_enabled(not self.stabilize_enabled, 'controller')
         self.prev_stabilize_button = stab_btn
 
         expo_btn = int(button_values.get('expo_toggle', 0))
@@ -253,15 +271,15 @@ class Houston(Node):
         if self.stabilize_enabled:
             now = self.get_clock().now()
             stale = (
-                self.last_stabilizer_time is None
-                or (now - self.last_stabilizer_time).nanoseconds * 1e-9 > self.stabilizer_timeout
+                self.last_stabilizer_time is not None
+                and (now - self.last_stabilizer_time).nanoseconds * 1e-9 > self.stabilizer_timeout
             )
             if stale:
-                self.stabilize_enabled = False
+                self.set_stabilize_enabled(False, 'stale_data')
                 self.get_logger().warn(
                     "Stabilizer messages stale; stabilization disabled"
                 )
-            else:
+            elif self.last_stabilizer_time is not None:
                 s = self.last_stabilizer_twist
                 lx, ly, lz = _scale_to_unit(
                     msg.linear.x + s.linear.x,
