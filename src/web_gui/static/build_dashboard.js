@@ -23,34 +23,6 @@ function publishMessage(topic, data) {
     }
 }
 
-function downloadAllCameraScreenshots() {
-    const timestamp = Date.now();
-    for (let cameraId = 0; cameraId < 4; cameraId++) {
-        const camera = dashboard.cameras.get(cameraId);
-        if (!camera || !camera.canvas) {
-            console.warn(`Camera ${cameraId} not available for screenshot`);
-            continue;
-        }
-
-        const canvas = camera.canvas;
-        canvas.toBlob((blob) => {
-            if (!blob) {
-                console.error(`Failed to create blob from camera ${cameraId}`);
-                return;
-            }
-
-            const url = URL.createObjectURL(blob);
-            const link = document.createElement('a');
-            link.href = url;
-            link.download = `camera${cameraId}_${timestamp}.png`;
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-            URL.revokeObjectURL(url);
-        }, 'image/png');
-    }
-}
-
 function clamp(value, min, max) {
     return Math.min(max, Math.max(min, value));
 }
@@ -736,7 +708,9 @@ function buildButtonPanel() {
                 publishMessage('/gui_buttons/detect_crabs', true);
             });
         } else if (config.action === "screenshot") {
-            button.addEventListener("click", downloadAllCameraScreenshots);
+            button.addEventListener("click", () => {
+                publishMessage('/gui_buttons/screenshot', true);
+            });
         } else if (config.action === "measure_iceberg") {
             button.addEventListener("click", () => {
                 publishMessage("/gui_buttons/measure_iceberg", "pressed");

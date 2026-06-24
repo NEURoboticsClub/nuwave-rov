@@ -8,11 +8,19 @@ from sensor_msgs.msg import FluidPressure, Temperature, CompressedImage, Imu
 from ament_index_python.packages import get_package_share_directory
 from rclpy.qos import QoSProfile, ReliabilityPolicy, HistoryPolicy
 import asyncio
+import datetime
 import json
+import re
 import threading
 import aiohttp
 import os
+import cv2
+import numpy as np
 from aiohttp import web
+
+# Screenshots are saved to the primary dir and mirrored to backups when present.
+SCREENSHOT_PRIMARY_DIR = r'C:/rov_images'
+SCREENSHOT_BACKUP_DIRS = [r'D:/rov_images']
 
 # --- Shared state: connected WebSocket clients ---
 ws_clients: set[web.WebSocketResponse] = set()
@@ -35,6 +43,10 @@ class WebBridgeNode(Node):
         super().__init__('web_bridge')
         self._loop = loop
         self._subs = []
+
+        # Latest raw compressed frame bytes per camera id for screenshots
+        self._latest_frames: dict[int, bytes] = {}
+        self._frames_lock = threading.Lock()
 
         # Thruster telemetry topics
         thruster_topics = [
@@ -179,7 +191,36 @@ class WebBridgeNode(Node):
             self.detect_crabs_pub.publish(msg)
             return
 
+        if topic == '/gui_buttons/screenshot':
+            self._save_screenshots()
+            return
+
         self.get_logger().debug(f'Ignoring unsupported websocket topic: {topic}')
+
+    def _save_screenshots(self):
+        with self._frames_lock:
+            frames = dict(self._latest_frames)
+        if not frames:
+            self.get_logger().warning('Screenshot requested but no camera frames yet')
+            return
+
+        timestamp = datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
+        targets = [SCREENSHOT_PRIMARY_DIR]
+        for backup in SCREENSHOT_BACKUP_DIRS:
+            drive = os.path.splitdrive(backup)[0]
+            if drive and os.path.exists(drive + os.sep):
+                targets.append(backup)
+
+        for camera_id, data in sorted(frames.items()):
+            frame = cv2.imdecode(np.frombuffer(data, np.uint8), cv2.IMREAD_COLOR)
+            if frame is None:
+                continue
+            for base in targets:
+                cam_dir = os.path.join(base, f'cam_{camera_id}')
+                os.makedirs(cam_dir, exist_ok=True)
+                path = os.path.join(cam_dir, f'cam_{camera_id}_{timestamp}.png')
+                cv2.imwrite(path, frame)
+                self.get_logger().info(f'Saved screenshot: {path}')
 
     def _forward(self, topic: str, payload):
         """Thread-safe: store the latest value for periodic websocket flush."""
@@ -258,6 +299,11 @@ class WebBridgeNode(Node):
             'data': list(msg.data),
         }
         self._forward(topic, payload)
+
+        match = re.search(r'/camera_(\d+)/', topic)
+        if match:
+            with self._frames_lock:
+                self._latest_frames[int(match.group(1))] = bytes(msg.data)
 
 # --- HTTP + WebSocket server ---
 async def ws_handler(request):
