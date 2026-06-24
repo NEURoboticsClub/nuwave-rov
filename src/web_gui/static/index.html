@@ -39,8 +39,8 @@
         document.body.appendChild(dashboardScript);
       });
 
-      const isPartyMode = params.get('partymode') === '1';
-      const isTestMode = params.get('test') === '1' || isPartyMode;
+      const isPartyMode = params.has('partymode');
+      const isTestMode = params.has('test')|| isPartyMode;
       const wsScriptPath = isTestMode ? 'static/test_script.js' : 'static/script.js';
 
       if (isPartyMode) {
