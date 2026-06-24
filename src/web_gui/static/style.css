@@ -858,3 +858,66 @@ body.test-mode {
         min-height: 56px;
     }
 }
+
+/* ?cams page styling */
+.cams {
+    display: flex;
+    gap: 8px;
+    width: 100vw;
+    height: 100vh;
+    padding: 8px;
+}
+
+.cams__primary {
+    flex: 1;
+    min-width: 0;
+}
+
+.cams__side {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    width: 24vw;
+    min-width: 200px;
+}
+
+.cams__side .cam {
+    flex: 1;
+    min-height: 0;
+}
+
+.cam {
+    position: relative;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+    background: #050b12;
+    cursor: pointer;
+}
+
+.cams__primary .cam {
+    height: 100%;
+}
+
+.cam canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+}
+
+.cam__label {
+    position: absolute;
+    top: 6px;
+    left: 8px;
+    font-size: 10px;
+    color: var(--muted);
+    background: rgba(8, 18, 30, 0.6);
+    padding: 3px 6px;
+    border-radius: 4px;
+    pointer-events: none;
+}
+
+.cam--primary {
+    outline: 2px solid var(--bar-fill);
+}
