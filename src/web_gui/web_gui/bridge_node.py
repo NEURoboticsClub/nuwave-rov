@@ -25,6 +25,10 @@ SCREENSHOT_SUBDIR = 'rov_images'
 # Ubuntu auto-mounts removable drives under /media/<user>/<label> or /run/media/<user>/<label>
 REMOVABLE_MEDIA_ROOTS = ['/media', '/run/media']
 
+# "Take Video" button captures all cameras into rov_images/video/<timestamp>/cam_<id>/<frame>.png
+VIDEO_SUBDIR = 'video'
+VIDEO_FPS = 4
+
 
 def removable_drive_dirs():
     """Return an <mount>/rov_images path for each mounted, writable USB drive."""
@@ -75,6 +79,10 @@ class WebBridgeNode(Node):
         # Latest raw compressed frame bytes per camera id for screenshots
         self._latest_frames: dict[int, bytes] = {}
         self._frames_lock = threading.Lock()
+
+        self._recording = False
+        self._video_frame_index = 0
+        self._video_session = None
 
         # Thruster telemetry topics
         thruster_topics = [
@@ -197,6 +205,9 @@ class WebBridgeNode(Node):
 
         # GUI button command publishers (browser -> ROS)
         self.detect_crabs_pub = self.create_publisher(Bool, '/gui_buttons/detect_crabs', 10)
+
+        self.create_timer(1.0 / VIDEO_FPS, self._video_tick)
+
         self.get_logger().info('WebBridge node started')
 
     def handle_ws_message(self, raw_payload: str):
@@ -223,7 +234,49 @@ class WebBridgeNode(Node):
             self._save_screenshots()
             return
 
+        if topic == '/gui_buttons/take_video':
+            self._set_recording(bool(data))
+            return
+
         self.get_logger().debug(f'Ignoring unsupported websocket topic: {topic}')
+
+    def _set_recording(self, enabled: bool):
+        if enabled and not self._recording:
+            self._video_session = datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
+            self._video_frame_index = 0
+            self._recording = True
+            self.get_logger().info(
+                f'Video recording started ({VIDEO_FPS} fps) -> {VIDEO_SUBDIR}/{self._video_session}')
+        elif not enabled and self._recording:
+            self._recording = False
+            self.get_logger().info(
+                f'Video recording stopped after {self._video_frame_index} frames')
+
+    def _video_tick(self):
+        if not self._recording:
+            return
+        with self._frames_lock:
+            frames = dict(self._latest_frames)
+        if not frames:
+            return
+
+        index = self._video_frame_index
+        session = self._video_session
+        targets = [SCREENSHOT_HOME_DIR] + removable_drive_dirs()
+
+        for camera_id, data in sorted(frames.items()):
+            frame = cv2.imdecode(np.frombuffer(data, np.uint8), cv2.IMREAD_COLOR)
+            if frame is None:
+                continue
+            for base in targets:
+                try:
+                    cam_dir = os.path.join(base, VIDEO_SUBDIR, session, f'cam_{camera_id}')
+                    os.makedirs(cam_dir, exist_ok=True)
+                    cv2.imwrite(os.path.join(cam_dir, f'{index}.png'), frame)
+                except OSError as exc:
+                    self.get_logger().warning(f'Could not save video frame to {base}: {exc}')
+
+        self._video_frame_index += 1
 
     def _save_screenshots(self):
         with self._frames_lock:

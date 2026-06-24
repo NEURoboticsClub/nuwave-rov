@@ -684,6 +684,7 @@ function buildButtonPanel() {
     const buttonConfigs = [
         { label: "Detect Crabs", toggle: false, action: "detect_crabs" },
         { label: "Take Screenshot", toggle: false, action: "screenshot" },
+        { label: "Take Video", toggle: true, topic: "/gui_buttons/take_video" },
         { label: "Photogrammetry", toggle: true, topic: "/gui_buttons/photogrammetry" },
         { label: "Measure Iceberg", toggle: false, action: "measure_iceberg" },
         { label: "Quad Cam", toggle: true, action: "toggle_quad_cam" },
