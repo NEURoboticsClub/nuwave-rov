@@ -84,6 +84,10 @@ class WebBridgeNode(Node):
         self._video_frame_index = 0
         self._video_session = None
 
+        # Cameras enabled for recording. Cameras default to enabled; a camera
+        # toggled off in the GUI is added here and skipped by _video_tick.
+        self._disabled_cameras: set[int] = set()
+
         # Thruster telemetry topics
         thruster_topics = [
             '/thruster/thruster_fll',
@@ -238,7 +242,29 @@ class WebBridgeNode(Node):
             self._set_recording(bool(data))
             return
 
+        if topic == '/gui_buttons/camera_record':
+            self._set_camera_record(data)
+            return
+
         self.get_logger().debug(f'Ignoring unsupported websocket topic: {topic}')
+
+    def _set_camera_record(self, data):
+        """Enable/disable recording for a single camera from the GUI."""
+        if not isinstance(data, dict):
+            self.get_logger().warning('Ignoring malformed camera_record payload')
+            return
+        try:
+            camera_id = int(data.get('camera'))
+        except (TypeError, ValueError):
+            self.get_logger().warning('Ignoring camera_record payload with bad camera id')
+            return
+        enabled = bool(data.get('enabled'))
+        if enabled:
+            self._disabled_cameras.discard(camera_id)
+        else:
+            self._disabled_cameras.add(camera_id)
+        self.get_logger().info(
+            f'Camera {camera_id} recording {"enabled" if enabled else "disabled"}')
 
     def _set_recording(self, enabled: bool):
         if enabled and not self._recording:
@@ -265,6 +291,8 @@ class WebBridgeNode(Node):
         targets = [SCREENSHOT_HOME_DIR] + removable_drive_dirs()
 
         for camera_id, data in sorted(frames.items()):
+            if camera_id in self._disabled_cameras:
+                continue
             frame = cv2.imdecode(np.frombuffer(data, np.uint8), cv2.IMREAD_COLOR)
             if frame is None:
                 continue

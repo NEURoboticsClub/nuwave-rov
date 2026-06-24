@@ -703,6 +703,10 @@ function buildButtonPanel() {
                 const isPressed = button.classList.toggle("is-active");
                 button.setAttribute("aria-pressed", String(isPressed));
                 publishMessage(config.topic, isPressed);
+                if (config.topic === "/gui_buttons/take_video") {
+                    const dashboardEl = document.getElementById("dashboard");
+                    dashboardEl.classList.toggle("recording", isPressed);
+                }
             });
         } else if (config.action === "detect_crabs") {
             button.addEventListener("click", () => {
@@ -872,23 +876,28 @@ function buildCameraPanel() {
         card.append(title, canvas);
         wrap.appendChild(card);
 
-        card.style.cursor = "pointer";
-        card.addEventListener("click", () => {
-            const dashboardEl = document.getElementById("dashboard");
-            if (dashboardEl.classList.contains("cinema-mode")) {
-                dashboardEl.classList.remove("cinema-mode");
-                card.classList.remove("camera-card--cinema");
-            } else {
-                dashboardEl.classList.add("cinema-mode");
-                card.classList.add("camera-card--cinema");
-            }
-        });
+        // Cameras default to recording-enabled
+        card.classList.add("camera-card--rec-on");
 
-        dashboard.cameras.set(cameraId, {
+        const state = {
             card,
             canvas,
             lastSeen: 0,
+            recordEnabled: true,
+        };
+
+        card.style.cursor = "pointer";
+        card.addEventListener("click", () => {
+            state.recordEnabled = !state.recordEnabled;
+            card.classList.toggle("camera-card--rec-on", state.recordEnabled);
+            card.classList.toggle("camera-card--rec-off", !state.recordEnabled);
+            publishMessage("/gui_buttons/camera_record", {
+                camera: cameraId,
+                enabled: state.recordEnabled,
+            });
         });
+
+        dashboard.cameras.set(cameraId, state);
     }
 
     panel.appendChild(wrap);

@@ -628,6 +628,31 @@ body.test-mode {
     min-height: 0;
 }
 
+.camera-card--rec-off {
+    border-color: rgba(220, 70, 70, 0.45);
+    box-shadow: 0 0 0 1px rgba(220, 70, 70, 0.25);
+}
+
+.camera-card--rec-on {
+    border-color: rgba(70, 220, 120, 0.85);
+    box-shadow: 0 0 0 1px rgba(70, 220, 120, 0.4);
+}
+
+.dashboard.recording .camera-card--rec-on {
+    animation: camera-rec-blink 1.8s ease-in-out infinite;
+}
+
+@keyframes camera-rec-blink {
+    0%, 100% {
+        border-color: rgba(70, 220, 120, 0.85);
+        box-shadow: 0 0 0 1px rgba(70, 220, 120, 0.4);
+    }
+    50% {
+        border-color: rgba(70, 220, 120, 0.15);
+        box-shadow: 0 0 0 1px rgba(70, 220, 120, 0.05);
+    }
+}
+
 .camera-title {
     font-size: 10px;
     color: var(--muted);
