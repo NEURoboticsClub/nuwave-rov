@@ -45,29 +45,64 @@ def removable_drive_dirs():
     return dirs
 
 # --- Shared state: connected WebSocket clients ---
-ws_clients: set[web.WebSocketResponse] = set()
+clients: set = set()
 pending_messages: dict[str, object] = {}
 # Latest compressed JPEG bytes per camera id, sent as binary
 pending_frames: dict[int, bytes] = {}
 pending_lock = threading.Lock()
 flush_interval_s = 1.0 / 30.0
 
-async def broadcast(data: dict):
-    """Send JSON data to all connected browser clients."""
-    msg = json.dumps(data)
-    for ws in list(ws_clients):
-        try:
-            await ws.send_str(msg)
-        except Exception:
-            ws_clients.discard(ws)
+# A stuck send is abandoned after this long
+send_timeout_s = 2.0
 
-async def broadcast_bytes(payload: bytes):
-    """Send a raw binary frame to all connected browser clients."""
-    for ws in list(ws_clients):
+
+class Client:
+    """One browser connection: a websocket plus its own send buffer.
+
+    The buffer keeps only the latest value per topic / latest frame per camera,
+    so a slow consumer connection drops stale frames instead of blocking the loop.
+    """
+
+    def __init__(self, ws: web.WebSocketResponse):
+        self.ws = ws
+        self.messages: dict[str, object] = {}
+        self.frames: dict[int, bytes] = {}
+        self.event = asyncio.Event()
+        self.alive = True
+
+    def queue(self, messages, frames):
+        """Merge a flush batch into this client's buffer"""
+        for topic, payload in messages:
+            self.messages[topic] = payload
+        for camera_id, data in frames:
+            self.frames[camera_id] = data
+        self.event.set()
+
+    async def run(self):
+        """Drain this client's buffer to its socket; exit on any error."""
         try:
-            await ws.send_bytes(payload)
+            while self.alive:
+                await self.event.wait()
+                self.event.clear()
+                messages = list(self.messages.items())
+                self.messages.clear()
+                frames = list(self.frames.items())
+                self.frames.clear()
+
+                for topic, payload in messages:
+                    await asyncio.wait_for(
+                        self.ws.send_str(json.dumps({'topic': topic, 'data': payload})),
+                        send_timeout_s)
+                # Video frame binary: [camera_id byte][...JPEG bytes]
+                for camera_id, data in frames:
+                    await asyncio.wait_for(
+                        self.ws.send_bytes(bytes([camera_id]) + data),
+                        send_timeout_s)
         except Exception:
-            ws_clients.discard(ws)
+            pass
+        finally:
+            self.alive = False
+            clients.discard(self)
 
 # --- ROS2 Node ---
 class WebBridgeNode(Node):
@@ -340,20 +375,24 @@ class WebBridgeNode(Node):
             pending_messages[topic] = payload
 
     async def _flush_loop(self):
+        # Moves the latest telemetry and video into each client's buffer
+        # Must never stop; if it dies, the GUI dies until node is restarted
         while True:
             await asyncio.sleep(flush_interval_s)
-            with pending_lock:
-                items = list(pending_messages.items())
-                pending_messages.clear()
-                frames = list(pending_frames.items())
-                pending_frames.clear()
+            try:
+                with pending_lock:
+                    messages = list(pending_messages.items())
+                    pending_messages.clear()
+                    frames = list(pending_frames.items())
+                    pending_frames.clear()
 
-            for topic, payload in items:
-                await broadcast({'topic': topic, 'data': payload})
+                if not messages and not frames:
+                    continue
 
-            # Video frame binary: [camera_id byte][...JPEG bytes]
-            for camera_id, data in frames:
-                await broadcast_bytes(bytes([camera_id]) + data)
+                for client in list(clients):
+                    client.queue(messages, frames)
+            except Exception as exc:
+                self.get_logger().error(f'flush loop iteration failed: {exc}')
 
     def _on_scalar(self, topic: str, msg: Float32):
         self._forward(topic, float(msg.data))
@@ -424,15 +463,20 @@ class WebBridgeNode(Node):
 # --- HTTP + WebSocket server ---
 async def ws_handler(request):
     node = request.app['ros_node']
-    ws = web.WebSocketResponse()
+    # detect and close clients that are dead, and disable compression (images are already compressed)
+    ws = web.WebSocketResponse(heartbeat=15.0, compress=False)
     await ws.prepare(request)
-    ws_clients.add(ws)
+    client = Client(ws)
+    clients.add(client)
+    sender = asyncio.ensure_future(client.run())
     try:
         async for msg in ws:
             if msg.type == aiohttp.WSMsgType.TEXT:
                 node.handle_ws_message(msg.data)
     finally:
-        ws_clients.discard(ws)
+        client.alive = False
+        clients.discard(client)
+        sender.cancel()
     return ws
 
 def build_app(node: WebBridgeNode):
