@@ -1523,35 +1523,57 @@ function updateSparkline(key, values) {
     dashboard.sparkline.row.classList.remove("is-stale");
 }
 
-function updateCamera(cameraId, video) {
+function updateCamera(cameraId, frame) {
     const camera = dashboard.cameras.get(cameraId);
-    if (!camera || !video || !Array.isArray(video.data)) {
+    if (!camera || !frame) {
         return;
     }
 
-    const canvas = camera.canvas;
-    const context = canvas.getContext("2d");
+    // Live stream sends a Uint8Array of JPEG bytes; test mode sends the legacy
+    // { format, data: [...] } object. Normalize both to JPEG bytes
+    let bytes;
+    let mime = "image/jpeg";
+    if (frame instanceof Uint8Array) {
+        bytes = frame;
+    } else if (Array.isArray(frame.data)) {
+        bytes = new Uint8Array(frame.data);
+        mime = `image/${frame.format || "jpeg"}`;
+    } else {
+        return;
+    }
 
-    const blob = new Blob(
-        [new Uint8Array(video.data)],
-        { type: `image/${video.format || 'jpeg'}` }
-    );
-    const url = URL.createObjectURL(blob);
-    const img = new Image();
+    // keep only the newest frame and never run more than one decode per camera at a time
+    camera.pendingFrame = { bytes, mime };
+    if (!camera.decoding) {
+        decodeCameraFrame(camera, cameraId);
+    }
+}
 
-    img.onload = () => {
-        context.drawImage(img, 0, 0, canvas.width, canvas.height);
-        URL.revokeObjectURL(url);
+function decodeCameraFrame(camera, cameraId) {
+    const next = camera.pendingFrame;
+    if (!next) {
+        camera.decoding = false;
+        return;
+    }
+    camera.pendingFrame = null;
+    camera.decoding = true;
+
+    const blob = new Blob([next.bytes], { type: next.mime });
+
+    // createImageBitmap decodes off the main thread — no <img>/objectURL churn.
+    createImageBitmap(blob).then((bitmap) => {
+        const canvas = camera.canvas;
+        const context = canvas.getContext("2d");
+        context.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+        bitmap.close();
         camera.lastSeen = Date.now();
         camera.card.classList.remove("is-stale");
-    };
-
-    img.onerror = () => {
-        URL.revokeObjectURL(url);
-        console.error(`Failed to load image for camera ${cameraId}`);
-    };
-
-    img.src = url;
+    }).catch(() => {
+        console.error(`Failed to decode image for camera ${cameraId}`);
+    }).finally(() => {
+        // Render whatever arrived while this frame was decoding (newest only).
+        decodeCameraFrame(camera, cameraId);
+    });
 }
 
 function refreshStaleState() {

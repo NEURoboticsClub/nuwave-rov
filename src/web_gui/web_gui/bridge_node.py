@@ -25,6 +25,8 @@ SCREENSHOT_BACKUP_DIRS = [r'D:/rov_images']
 # --- Shared state: connected WebSocket clients ---
 ws_clients: set[web.WebSocketResponse] = set()
 pending_messages: dict[str, object] = {}
+# Latest compressed JPEG bytes per camera id, sent as binary
+pending_frames: dict[int, bytes] = {}
 pending_lock = threading.Lock()
 flush_interval_s = 1.0 / 30.0
 
@@ -34,6 +36,14 @@ async def broadcast(data: dict):
     for ws in list(ws_clients):
         try:
             await ws.send_str(msg)
+        except Exception:
+            ws_clients.discard(ws)
+
+async def broadcast_bytes(payload: bytes):
+    """Send a raw binary frame to all connected browser clients."""
+    for ws in list(ws_clients):
+        try:
+            await ws.send_bytes(payload)
         except Exception:
             ws_clients.discard(ws)
 
@@ -231,13 +241,17 @@ class WebBridgeNode(Node):
         while True:
             await asyncio.sleep(flush_interval_s)
             with pending_lock:
-                if not pending_messages:
-                    continue
                 items = list(pending_messages.items())
                 pending_messages.clear()
+                frames = list(pending_frames.items())
+                pending_frames.clear()
 
             for topic, payload in items:
                 await broadcast({'topic': topic, 'data': payload})
+
+            # Video frame binary: [camera_id byte][...JPEG bytes]
+            for camera_id, data in frames:
+                await broadcast_bytes(bytes([camera_id]) + data)
 
     def _on_scalar(self, topic: str, msg: Float32):
         self._forward(topic, float(msg.data))
@@ -294,16 +308,16 @@ class WebBridgeNode(Node):
         self._forward('/arm_commands', list(msg.data))
 
     def _on_video(self, topic: str, msg: CompressedImage):
-        payload = {
-            'format': msg.format,
-            'data': list(msg.data),
-        }
-        self._forward(topic, payload)
-
         match = re.search(r'/camera_(\d+)/', topic)
-        if match:
-            with self._frames_lock:
-                self._latest_frames[int(match.group(1))] = bytes(msg.data)
+        if not match:
+            return
+        camera_id = int(match.group(1))
+        # One copy of the raw JPEG, shared by the binary stream and screenshots
+        data = bytes(msg.data)
+        with pending_lock:
+            pending_frames[camera_id] = data
+        with self._frames_lock:
+            self._latest_frames[camera_id] = data
 
 # --- HTTP + WebSocket server ---
 async def ws_handler(request):
