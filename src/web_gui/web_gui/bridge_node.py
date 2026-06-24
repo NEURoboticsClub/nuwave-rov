@@ -18,9 +18,27 @@ import cv2
 import numpy as np
 from aiohttp import web
 
-# Screenshots are saved to the primary dir and mirrored to backups when present.
-SCREENSHOT_PRIMARY_DIR = r'C:/rov_images'
-SCREENSHOT_BACKUP_DIRS = [r'D:/rov_images']
+# Screenshots are saved to the home directory and on any
+# plugged-in removable drive
+SCREENSHOT_HOME_DIR = os.path.expanduser('~/rov_images')
+SCREENSHOT_SUBDIR = 'rov_images'
+# Ubuntu auto-mounts removable drives under /media/<user>/<label> or /run/media/<user>/<label>
+REMOVABLE_MEDIA_ROOTS = ['/media', '/run/media']
+
+
+def removable_drive_dirs():
+    """Return an <mount>/rov_images path for each mounted, writable USB drive."""
+    user = os.environ.get('USER') or os.path.basename(os.path.expanduser('~'))
+    dirs = []
+    for root in REMOVABLE_MEDIA_ROOTS:
+        user_root = os.path.join(root, user)
+        if not os.path.isdir(user_root):
+            continue
+        for name in sorted(os.listdir(user_root)):
+            mount = os.path.join(user_root, name)
+            if os.path.ismount(mount) and os.access(mount, os.W_OK):
+                dirs.append(os.path.join(mount, SCREENSHOT_SUBDIR))
+    return dirs
 
 # --- Shared state: connected WebSocket clients ---
 ws_clients: set[web.WebSocketResponse] = set()
@@ -215,22 +233,25 @@ class WebBridgeNode(Node):
             return
 
         timestamp = datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
-        targets = [SCREENSHOT_PRIMARY_DIR]
-        for backup in SCREENSHOT_BACKUP_DIRS:
-            drive = os.path.splitdrive(backup)[0]
-            if drive and os.path.exists(drive + os.sep):
-                targets.append(backup)
+        targets = [SCREENSHOT_HOME_DIR] + removable_drive_dirs()
 
         for camera_id, data in sorted(frames.items()):
             frame = cv2.imdecode(np.frombuffer(data, np.uint8), cv2.IMREAD_COLOR)
             if frame is None:
                 continue
             for base in targets:
-                cam_dir = os.path.join(base, f'cam_{camera_id}')
-                os.makedirs(cam_dir, exist_ok=True)
-                path = os.path.join(cam_dir, f'cam_{camera_id}_{timestamp}.png')
-                cv2.imwrite(path, frame)
-                self.get_logger().info(f'Saved screenshot: {path}')
+                # A failure on one target (e.g. a full or yanked USB stick)
+                # must not stop the others from saving.
+                try:
+                    cam_dir = os.path.join(base, f'cam_{camera_id}')
+                    os.makedirs(cam_dir, exist_ok=True)
+                    path = os.path.join(cam_dir, f'cam_{camera_id}_{timestamp}.png')
+                    if cv2.imwrite(path, frame):
+                        self.get_logger().info(f'Saved screenshot: {path}')
+                    else:
+                        self.get_logger().warning(f'Failed to write screenshot: {path}')
+                except OSError as exc:
+                    self.get_logger().warning(f'Could not save to {base}: {exc}')
 
     def _forward(self, topic: str, payload):
         """Thread-safe: store the latest value for periodic websocket flush."""
