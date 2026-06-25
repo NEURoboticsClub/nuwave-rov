@@ -6,7 +6,7 @@
     <script type="importmap">
       {
         "imports": {
-          "three": "https://cdn.jsdelivr.net/npm/three@0.161.0/build/three.module.js"
+          "three": "/static/vendor/three/three.module.js"
         }
       }
     </script>
@@ -16,11 +16,25 @@
     <main id="dashboard" class="dashboard"></main>
 
     <script type="module">
-      import * as THREE from 'three';
-      import { GLTFLoader } from 'https://cdn.jsdelivr.net/npm/three@0.161.0/examples/jsm/loaders/GLTFLoader.js';
+      const params = new URLSearchParams(window.location.search);
 
-      window.THREE = THREE;
-      window.THREE_GLTFLoader = GLTFLoader;
+      // ?cams loads the minimal cameras-only view instead of the full dashboard
+      if (params.has('cams')) {
+        const camsScript = document.createElement('script');
+        camsScript.src = 'static/cams.js';
+        document.body.appendChild(camsScript);
+      } else {
+
+      // Try to load three.js for 3D model support, prevent crashing the entire dashboard
+      try {
+        const THREE = await import('three');
+        const { GLTFLoader } = await import('/static/vendor/three/loaders/GLTFLoader.js');
+
+        window.THREE = THREE;
+        window.THREE_GLTFLoader = GLTFLoader;
+      } catch (error) {
+        console.warn('three.js failed to load; 3D model panel will be disabled.', error);
+      }
 
       await new Promise((resolve, reject) => {
         const dashboardScript = document.createElement('script');
@@ -30,9 +44,8 @@
         document.body.appendChild(dashboardScript);
       });
 
-      const params = new URLSearchParams(window.location.search);
-      const isPartyMode = params.get('partymode') === '1';
-      const isTestMode = params.get('test') === '1' || isPartyMode;
+      const isPartyMode = params.has('partymode');
+      const isTestMode = params.has('test')|| isPartyMode;
       const wsScriptPath = isTestMode ? 'static/test_script.js' : 'static/script.js';
 
       if (isPartyMode) {
@@ -48,6 +61,8 @@
       };
 
       document.body.appendChild(wsScript);
+
+      }
     </script>
   </body>
 </html>

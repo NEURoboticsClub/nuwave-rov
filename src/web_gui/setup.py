@@ -1,7 +1,21 @@
+import os
 from setuptools import find_packages, setup
 from glob import glob
 
 package_name = 'web_gui'
+
+
+def static_data_files():
+    """Install the static dir recursively, preserving subdirectory layout.
+
+    allows it to load all subdirectories of static like vendor/, and not just the top level files
+    """
+    entries = []
+    for root, _dirs, files in os.walk('static'):
+        paths = [os.path.join(root, f) for f in files]
+        if paths:
+            entries.append(('share/' + package_name + '/' + root, paths))
+    return entries
 
 setup(
     name=package_name,
@@ -11,7 +25,7 @@ setup(
         ('share/ament_index/resource_index/packages',
             ['resource/' + package_name]),
         ('share/' + package_name, ['package.xml']),
-        ('share/' + package_name + '/static', glob('static/*')),
+        *static_data_files(),
     ],
     install_requires=['setuptools', 'aiohttp'],
     zip_safe=True,
