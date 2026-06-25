@@ -14,7 +14,7 @@ class PWMScribeHat(PWMScribeBase):
         angle = ((us_centered / 500.0) * 90.0) + 90.0 # TODO: un-hard code this
         
         angle = int(max(0.0, min(180.0, angle)))
-        print(f'Angle: {angle}')
+        # print(f'Angle: {angle}')
 
         try:
             self.board.setRotationAngle(channel, angle)
