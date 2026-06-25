@@ -185,6 +185,30 @@ body.test-mode {
     transform: translateY(1px);
 }
 
+.timer-section {
+    flex: 0 0 auto;
+}
+
+.timer__display {
+    font-size: 30px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-align: center;
+    color: var(--text);
+    font-variant-numeric: tabular-nums;
+    padding: 2px 0;
+}
+
+.timer__bar {
+    height: 8px;
+}
+
+.timer__controls {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 6px;
+}
+
 .thruster-viz-card {
     margin-top: 6px;
     border: 1px solid var(--border);

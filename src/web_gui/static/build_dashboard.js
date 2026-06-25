@@ -741,6 +741,105 @@ function buildButtonPanel() {
     buttonsSection.appendChild(buttonGrid);
 
     layout.append(buttonsSection);
+
+    buildTimerSection(layout);
+}
+
+function buildTimerSection(parent) {
+    const TIMER_TOTAL_MS = 15 * 60 * 1000; // progress bar spans 15 minutes
+
+    const section = document.createElement("div");
+    section.className = "arm-section timer-section";
+
+    const title = document.createElement("div");
+    title.className = "arm-section__title";
+    title.textContent = "Timer";
+
+    const display = document.createElement("div");
+    display.className = "timer__display";
+    display.textContent = "00:00";
+
+    const bar = document.createElement("div");
+    bar.className = "bar timer__bar";
+
+    const fill = document.createElement("div");
+    fill.className = "bar__fill";
+    fill.style.setProperty("--value", "0");
+    bar.appendChild(fill);
+
+    const controls = document.createElement("div");
+    controls.className = "timer__controls";
+
+    const startButton = document.createElement("button");
+    startButton.type = "button";
+    startButton.className = "test-button-grid__button test-button-grid__button--toggle";
+    startButton.textContent = "Start";
+
+    const pauseButton = document.createElement("button");
+    pauseButton.type = "button";
+    pauseButton.className = "test-button-grid__button";
+    pauseButton.textContent = "Pause";
+
+    const resetButton = document.createElement("button");
+    resetButton.type = "button";
+    resetButton.className = "test-button-grid__button";
+    resetButton.textContent = "Reset";
+
+    controls.append(startButton, pauseButton, resetButton);
+    section.append(title, display, bar, controls);
+    parent.appendChild(section);
+
+    // Timestamp-based so the count stays accurate
+    let accumulatedMs = 0;   // time stored across pauses
+    let startTimestamp = 0;  // Date.now() when current run began
+    let intervalId = null;
+
+    const elapsedMs = () =>
+        intervalId !== null ? accumulatedMs + (Date.now() - startTimestamp) : accumulatedMs;
+
+    const render = () => {
+        const totalSeconds = Math.floor(elapsedMs() / 1000);
+        const minutes = String(Math.floor(totalSeconds / 60)).padStart(2, "0");
+        const seconds = String(totalSeconds % 60).padStart(2, "0");
+        display.textContent = `${minutes}:${seconds}`;
+        fill.style.setProperty("--value", String(clamp(elapsedMs() / TIMER_TOTAL_MS, 0, 1)));
+    };
+
+    const start = () => {
+        if (intervalId !== null) {
+            return;
+        }
+        startTimestamp = Date.now();
+        intervalId = setInterval(render, 250);
+        startButton.classList.add("is-active");
+        render();
+    };
+
+    const pause = () => {
+        if (intervalId === null) {
+            return;
+        }
+        accumulatedMs = elapsedMs();
+        clearInterval(intervalId);
+        intervalId = null;
+        startButton.classList.remove("is-active");
+        render();
+    };
+
+    const reset = () => {
+        clearInterval(intervalId);
+        intervalId = null;
+        accumulatedMs = 0;
+        startTimestamp = 0;
+        startButton.classList.remove("is-active");
+        render();
+    };
+
+    startButton.addEventListener("click", start);
+    pauseButton.addEventListener("click", pause);
+    resetButton.addEventListener("click", reset);
+
+    render();
 }
 
 function buildArmPanel() {
