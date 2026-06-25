@@ -10,6 +10,7 @@ from rclpy.qos import QoSProfile, ReliabilityPolicy, HistoryPolicy
 import asyncio
 import datetime
 import json
+import queue
 import re
 import threading
 import aiohttp
@@ -28,6 +29,9 @@ REMOVABLE_MEDIA_ROOTS = ['/media', '/run/media']
 # "Take Video" button captures all cameras into rov_images/video/<timestamp>/cam<id>/<frame>.png
 VIDEO_SUBDIR = 'video'
 VIDEO_FPS = 4
+# Frames are written to disk on a background thread so slow USB writes don't block the ROS executor thread
+# The queue can hold this many frames before dropping the oldest ones
+VIDEO_QUEUE_MAX = 240
 
 
 def removable_drive_dirs():
@@ -118,6 +122,13 @@ class WebBridgeNode(Node):
         self._recording = False
         self._video_frame_index = 0
         self._video_session = None
+
+        # Disk writes happen on this worker to not block the ROS executor thread
+        self._video_queue: queue.Queue = queue.Queue(maxsize=VIDEO_QUEUE_MAX)
+        self._video_drops = 0
+        self._video_writer = threading.Thread(
+            target=self._video_writer_loop, daemon=True)
+        self._video_writer.start()
 
         # Cameras enabled for recording. Cameras default to enabled; a camera
         # toggled off in the GUI is added here and skipped by _video_tick.
@@ -314,6 +325,7 @@ class WebBridgeNode(Node):
                 f'Video recording stopped after {self._video_frame_index} frames')
 
     def _video_tick(self):
+        # Runs on the ROS executor thread, so it must be non-blocking
         if not self._recording:
             return
         with self._frames_lock:
@@ -323,23 +335,39 @@ class WebBridgeNode(Node):
 
         index = self._video_frame_index
         session = self._video_session
-        targets = [SCREENSHOT_HOME_DIR] + removable_drive_dirs()
 
         for camera_id, data in sorted(frames.items()):
             if camera_id in self._disabled_cameras:
                 continue
-            frame = cv2.imdecode(np.frombuffer(data, np.uint8), cv2.IMREAD_COLOR)
-            if frame is None:
-                continue
-            for base in targets:
-                try:
-                    cam_dir = os.path.join(base, VIDEO_SUBDIR, session, f'cam{camera_id}')
-                    os.makedirs(cam_dir, exist_ok=True)
-                    cv2.imwrite(os.path.join(cam_dir, f'cam{camera_id}_{index}.png'), frame)
-                except OSError as exc:
-                    self.get_logger().warning(f'Could not save video frame to {base}: {exc}')
+            try:
+                self._video_queue.put_nowait((session, index, camera_id, data))
+            except queue.Full:
+                # Writer can't keep up with the media. Drop this frame
+                self._video_drops += 1
+                if self._video_drops % VIDEO_FPS == 1:
+                    self.get_logger().warning(
+                        f'Video write queue full; dropped {self._video_drops} '
+                        'frames so far.')
 
         self._video_frame_index += 1
+
+    def _video_writer_loop(self):
+        """Decode and write queued frames to disk off the ROS executor thread."""
+        while True:
+            session, index, camera_id, data = self._video_queue.get()
+            try:
+                frame = cv2.imdecode(np.frombuffer(data, np.uint8), cv2.IMREAD_COLOR)
+                if frame is None:
+                    continue
+                for base in [SCREENSHOT_HOME_DIR] + removable_drive_dirs():
+                    try:
+                        cam_dir = os.path.join(base, VIDEO_SUBDIR, session, f'cam{camera_id}')
+                        os.makedirs(cam_dir, exist_ok=True)
+                        cv2.imwrite(os.path.join(cam_dir, f'cam{camera_id}_{index}.png'), frame)
+                    except OSError as exc:
+                        self.get_logger().warning(f'Could not save video frame to {base}: {exc}')
+            except Exception as exc:
+                self.get_logger().error(f'Video writer iteration failed: {exc}')
 
     def _save_screenshots(self):
         with self._frames_lock:
