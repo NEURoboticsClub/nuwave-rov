@@ -185,6 +185,30 @@ body.test-mode {
     transform: translateY(1px);
 }
 
+.timer-section {
+    flex: 0 0 auto;
+}
+
+.timer__display {
+    font-size: 30px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-align: center;
+    color: var(--text);
+    font-variant-numeric: tabular-nums;
+    padding: 2px 0;
+}
+
+.timer__bar {
+    height: 8px;
+}
+
+.timer__controls {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 6px;
+}
+
 .thruster-viz-card {
     margin-top: 6px;
     border: 1px solid var(--border);
@@ -628,6 +652,31 @@ body.test-mode {
     min-height: 0;
 }
 
+.camera-card--rec-off {
+    border-color: rgba(220, 70, 70, 0.45);
+    box-shadow: 0 0 0 1px rgba(220, 70, 70, 0.25);
+}
+
+.camera-card--rec-on {
+    border-color: rgba(70, 220, 120, 0.85);
+    box-shadow: 0 0 0 1px rgba(70, 220, 120, 0.4);
+}
+
+.dashboard.recording .camera-card--rec-on {
+    animation: camera-rec-blink 1.8s ease-in-out infinite;
+}
+
+@keyframes camera-rec-blink {
+    0%, 100% {
+        border-color: rgba(70, 220, 120, 0.85);
+        box-shadow: 0 0 0 1px rgba(70, 220, 120, 0.4);
+    }
+    50% {
+        border-color: rgba(70, 220, 120, 0.15);
+        box-shadow: 0 0 0 1px rgba(70, 220, 120, 0.05);
+    }
+}
+
 .camera-title {
     font-size: 10px;
     color: var(--muted);
@@ -857,4 +906,67 @@ body.test-mode {
     .power-meter__track {
         min-height: 56px;
     }
+}
+
+/* ?cams page styling */
+.cams {
+    display: flex;
+    gap: 8px;
+    width: 100vw;
+    height: 100vh;
+    padding: 8px;
+}
+
+.cams__primary {
+    flex: 1;
+    min-width: 0;
+}
+
+.cams__side {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    width: 24vw;
+    min-width: 200px;
+}
+
+.cams__side .cam {
+    flex: 1;
+    min-height: 0;
+}
+
+.cam {
+    position: relative;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+    background: #050b12;
+    cursor: pointer;
+}
+
+.cams__primary .cam {
+    height: 100%;
+}
+
+.cam canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+}
+
+.cam__label {
+    position: absolute;
+    top: 6px;
+    left: 8px;
+    font-size: 10px;
+    color: var(--muted);
+    background: rgba(8, 18, 30, 0.6);
+    padding: 3px 6px;
+    border-radius: 4px;
+    pointer-events: none;
+}
+
+.cam--primary {
+    outline: 2px solid var(--bar-fill);
 }

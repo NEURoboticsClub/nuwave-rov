@@ -117,7 +117,32 @@ function flushRosMessages() {
     }
 }
 
+const pendingFrames = new Map();
+let frameFlushScheduled = false;
+
+function flushCameraFrames() {
+    frameFlushScheduled = false;
+    const frames = Array.from(pendingFrames.entries());
+    pendingFrames.clear();
+    for (const [cameraId, bytes] of frames) {
+        updateCamera(cameraId, bytes);
+    }
+}
+
+ws.binaryType = 'arraybuffer';
+
 ws.onmessage = (event) => {
+    if (typeof event.data !== 'string') {
+        const buf = new Uint8Array(event.data);
+        const cameraId = buf[0];
+        pendingFrames.set(cameraId, buf.subarray(1));
+        if (!frameFlushScheduled) {
+            frameFlushScheduled = true;
+            window.requestAnimationFrame(flushCameraFrames);
+        }
+        return;
+    }
+
     if (event.data === 'connected') {
         console.log('WebSocket initialized!');
         return;

@@ -8,26 +8,105 @@ from sensor_msgs.msg import FluidPressure, Temperature, CompressedImage, Imu
 from ament_index_python.packages import get_package_share_directory
 from rclpy.qos import QoSProfile, ReliabilityPolicy, HistoryPolicy
 import asyncio
+import datetime
 import json
+import queue
+import re
 import threading
 import aiohttp
 import os
+import cv2
+import numpy as np
 from aiohttp import web
 
+# Screenshots are saved to the home directory and on any
+# plugged-in removable drive
+SCREENSHOT_HOME_DIR = os.path.expanduser('~/rov_images')
+SCREENSHOT_SUBDIR = 'rov_images'
+# Ubuntu auto-mounts removable drives under /media/<user>/<label> or /run/media/<user>/<label>
+REMOVABLE_MEDIA_ROOTS = ['/media', '/run/media']
+
+# "Take Video" button captures all cameras into rov_images/video/<timestamp>/cam<id>/<frame>.png
+VIDEO_SUBDIR = 'video'
+VIDEO_FPS = 4
+# Frames are written to disk on a background thread so slow USB writes don't block the ROS executor thread
+# The queue can hold this many frames before dropping the oldest ones
+VIDEO_QUEUE_MAX = 240
+
+
+def removable_drive_dirs():
+    """Return an <mount>/rov_images path for each mounted, writable USB drive."""
+    user = os.environ.get('USER') or os.path.basename(os.path.expanduser('~'))
+    dirs = []
+    for root in REMOVABLE_MEDIA_ROOTS:
+        user_root = os.path.join(root, user)
+        if not os.path.isdir(user_root):
+            continue
+        for name in sorted(os.listdir(user_root)):
+            mount = os.path.join(user_root, name)
+            if os.path.ismount(mount) and os.access(mount, os.W_OK):
+                dirs.append(os.path.join(mount, SCREENSHOT_SUBDIR))
+    return dirs
+
 # --- Shared state: connected WebSocket clients ---
-ws_clients: set[web.WebSocketResponse] = set()
+clients: set = set()
 pending_messages: dict[str, object] = {}
+# Latest compressed JPEG bytes per camera id, sent as binary
+pending_frames: dict[int, bytes] = {}
 pending_lock = threading.Lock()
 flush_interval_s = 1.0 / 30.0
 
-async def broadcast(data: dict):
-    """Send JSON data to all connected browser clients."""
-    msg = json.dumps(data)
-    for ws in list(ws_clients):
+# A stuck send is abandoned after this long
+send_timeout_s = 2.0
+
+
+class Client:
+    """One browser connection: a websocket plus its own send buffer.
+
+    The buffer keeps only the latest value per topic / latest frame per camera,
+    so a slow consumer connection drops stale frames instead of blocking the loop.
+    """
+
+    def __init__(self, ws: web.WebSocketResponse):
+        self.ws = ws
+        self.messages: dict[str, object] = {}
+        self.frames: dict[int, bytes] = {}
+        self.event = asyncio.Event()
+        self.alive = True
+
+    def queue(self, messages, frames):
+        """Merge a flush batch into this client's buffer"""
+        for topic, payload in messages:
+            self.messages[topic] = payload
+        for camera_id, data in frames:
+            self.frames[camera_id] = data
+        self.event.set()
+
+    async def run(self):
+        """Drain this client's buffer to its socket; exit on any error."""
         try:
-            await ws.send_str(msg)
+            while self.alive:
+                await self.event.wait()
+                self.event.clear()
+                messages = list(self.messages.items())
+                self.messages.clear()
+                frames = list(self.frames.items())
+                self.frames.clear()
+
+                for topic, payload in messages:
+                    await asyncio.wait_for(
+                        self.ws.send_str(json.dumps({'topic': topic, 'data': payload})),
+                        send_timeout_s)
+                # Video frame binary: [camera_id byte][...JPEG bytes]
+                for camera_id, data in frames:
+                    await asyncio.wait_for(
+                        self.ws.send_bytes(bytes([camera_id]) + data),
+                        send_timeout_s)
         except Exception:
-            ws_clients.discard(ws)
+            pass
+        finally:
+            self.alive = False
+            clients.discard(self)
 
 # --- ROS2 Node ---
 class WebBridgeNode(Node):
@@ -35,6 +114,25 @@ class WebBridgeNode(Node):
         super().__init__('web_bridge')
         self._loop = loop
         self._subs = []
+
+        # Latest raw compressed frame bytes per camera id for screenshots
+        self._latest_frames: dict[int, bytes] = {}
+        self._frames_lock = threading.Lock()
+
+        self._recording = False
+        self._video_frame_index = 0
+        self._video_session = None
+
+        # Disk writes happen on this worker to not block the ROS executor thread
+        self._video_queue: queue.Queue = queue.Queue(maxsize=VIDEO_QUEUE_MAX)
+        self._video_drops = 0
+        self._video_writer = threading.Thread(
+            target=self._video_writer_loop, daemon=True)
+        self._video_writer.start()
+
+        # Cameras enabled for recording. Cameras default to enabled; a camera
+        # toggled off in the GUI is added here and skipped by _video_tick.
+        self._disabled_cameras: set[int] = set()
 
         # Thruster telemetry topics
         thruster_topics = [
@@ -157,6 +255,9 @@ class WebBridgeNode(Node):
 
         # GUI button command publishers (browser -> ROS)
         self.detect_crabs_pub = self.create_publisher(Bool, '/gui_buttons/detect_crabs', 10)
+
+        self.create_timer(1.0 / VIDEO_FPS, self._video_tick)
+
         self.get_logger().info('WebBridge node started')
 
     def handle_ws_message(self, raw_payload: str):
@@ -179,7 +280,129 @@ class WebBridgeNode(Node):
             self.detect_crabs_pub.publish(msg)
             return
 
+        if topic == '/gui_buttons/screenshot':
+            self._save_screenshots()
+            return
+
+        if topic == '/gui_buttons/take_video':
+            self._set_recording(bool(data))
+            return
+
+        if topic == '/gui_buttons/camera_record':
+            self._set_camera_record(data)
+            return
+
         self.get_logger().debug(f'Ignoring unsupported websocket topic: {topic}')
+
+    def _set_camera_record(self, data):
+        """Enable/disable recording for a single camera from the GUI."""
+        if not isinstance(data, dict):
+            self.get_logger().warning('Ignoring malformed camera_record payload')
+            return
+        try:
+            camera_id = int(data.get('camera'))
+        except (TypeError, ValueError):
+            self.get_logger().warning('Ignoring camera_record payload with bad camera id')
+            return
+        enabled = bool(data.get('enabled'))
+        if enabled:
+            self._disabled_cameras.discard(camera_id)
+        else:
+            self._disabled_cameras.add(camera_id)
+        self.get_logger().info(
+            f'Camera {camera_id} recording {"enabled" if enabled else "disabled"}')
+
+    def _set_recording(self, enabled: bool):
+        if enabled and not self._recording:
+            self._video_session = datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
+            self._video_frame_index = 0
+            self._recording = True
+            self.get_logger().info(
+                f'Video recording started ({VIDEO_FPS} fps) -> {VIDEO_SUBDIR}/{self._video_session}')
+        elif not enabled and self._recording:
+            self._recording = False
+            self.get_logger().info(
+                f'Video recording stopped after {self._video_frame_index} frames')
+
+    def _video_tick(self):
+        # Runs on the ROS executor thread, so it must be non-blocking
+        if not self._recording:
+            return
+        with self._frames_lock:
+            frames = dict(self._latest_frames)
+        if not frames:
+            return
+
+        index = self._video_frame_index
+        session = self._video_session
+
+        for camera_id, data in sorted(frames.items()):
+            if camera_id in self._disabled_cameras:
+                continue
+            try:
+                self._video_queue.put_nowait((session, index, camera_id, data))
+            except queue.Full:
+                # Writer can't keep up with the media. Drop this frame
+                self._video_drops += 1
+                if self._video_drops % VIDEO_FPS == 1:
+                    self.get_logger().warning(
+                        f'Video write queue full; dropped {self._video_drops} '
+                        'frames so far.')
+
+        self._video_frame_index += 1
+
+    def _video_writer_loop(self):
+        """Decode and write queued frames to disk off the ROS executor thread."""
+        while True:
+            session, index, camera_id, data = self._video_queue.get()
+            try:
+                frame = cv2.imdecode(np.frombuffer(data, np.uint8), cv2.IMREAD_COLOR)
+                if frame is None:
+                    continue
+                for base in [SCREENSHOT_HOME_DIR] + removable_drive_dirs():
+                    try:
+                        cam_dir = os.path.join(base, VIDEO_SUBDIR, session, f'cam{camera_id}')
+                        os.makedirs(cam_dir, exist_ok=True)
+                        cv2.imwrite(os.path.join(cam_dir, f'cam{camera_id}_{index}.png'), frame)
+                    except OSError as exc:
+                        self.get_logger().warning(f'Could not save video frame to {base}: {exc}')
+            except Exception as exc:
+                self.get_logger().error(f'Video writer iteration failed: {exc}')
+
+    def _save_screenshots(self):
+        # Called from the asyncio event-loop thread, so must not block it with disk writes
+        with self._frames_lock:
+            frames = dict(self._latest_frames)
+        if not frames:
+            self.get_logger().warning('Screenshot requested but no camera frames yet')
+            return
+
+        timestamp = datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
+        threading.Thread(
+            target=self._write_screenshots, args=(frames, timestamp), daemon=True
+        ).start()
+
+    def _write_screenshots(self, frames, timestamp):
+        """Decode and write screenshots to disk off the event-loop thread."""
+        targets = [SCREENSHOT_HOME_DIR] + removable_drive_dirs()
+
+        for camera_id, data in sorted(frames.items()):
+            frame = cv2.imdecode(np.frombuffer(data, np.uint8), cv2.IMREAD_COLOR)
+            if frame is None:
+                continue
+            for base in targets:
+                # A failure on one target (e.g. a full or yanked USB stick)
+                # must not stop the others from saving.
+                try:
+                    cam_dir = os.path.join(base, f'cam{camera_id}')
+                    os.makedirs(cam_dir, exist_ok=True)
+                    path = os.path.join(cam_dir, f'cam{camera_id}_{timestamp}.png')
+                    if cv2.imwrite(path, frame):
+                        self.get_logger().info(f'Saved screenshot: {path}')
+                    else:
+                        self.get_logger().warning(f'Failed to write screenshot: {path}')
+                except OSError as exc:
+                    self.get_logger().warning(f'Could not save to {base}: {exc}')
 
     def _forward(self, topic: str, payload):
         """Thread-safe: store the latest value for periodic websocket flush."""
@@ -187,16 +410,24 @@ class WebBridgeNode(Node):
             pending_messages[topic] = payload
 
     async def _flush_loop(self):
+        # Moves the latest telemetry and video into each client's buffer
+        # Must never stop; if it dies, the GUI dies until node is restarted
         while True:
             await asyncio.sleep(flush_interval_s)
-            with pending_lock:
-                if not pending_messages:
-                    continue
-                items = list(pending_messages.items())
-                pending_messages.clear()
+            try:
+                with pending_lock:
+                    messages = list(pending_messages.items())
+                    pending_messages.clear()
+                    frames = list(pending_frames.items())
+                    pending_frames.clear()
 
-            for topic, payload in items:
-                await broadcast({'topic': topic, 'data': payload})
+                if not messages and not frames:
+                    continue
+
+                for client in list(clients):
+                    client.queue(messages, frames)
+            except Exception as exc:
+                self.get_logger().error(f'flush loop iteration failed: {exc}')
 
     def _on_scalar(self, topic: str, msg: Float32):
         self._forward(topic, float(msg.data))
@@ -253,24 +484,34 @@ class WebBridgeNode(Node):
         self._forward('/arm_commands', list(msg.data))
 
     def _on_video(self, topic: str, msg: CompressedImage):
-        payload = {
-            'format': msg.format,
-            'data': list(msg.data),
-        }
-        self._forward(topic, payload)
+        match = re.search(r'/camera_(\d+)/', topic)
+        if not match:
+            return
+        camera_id = int(match.group(1))
+        # One copy of the raw JPEG, shared by the binary stream and screenshots
+        data = bytes(msg.data)
+        with pending_lock:
+            pending_frames[camera_id] = data
+        with self._frames_lock:
+            self._latest_frames[camera_id] = data
 
 # --- HTTP + WebSocket server ---
 async def ws_handler(request):
     node = request.app['ros_node']
-    ws = web.WebSocketResponse()
+    # detect and close clients that are dead, and disable compression (images are already compressed)
+    ws = web.WebSocketResponse(heartbeat=15.0, compress=False)
     await ws.prepare(request)
-    ws_clients.add(ws)
+    client = Client(ws)
+    clients.add(client)
+    sender = asyncio.ensure_future(client.run())
     try:
         async for msg in ws:
             if msg.type == aiohttp.WSMsgType.TEXT:
                 node.handle_ws_message(msg.data)
     finally:
-        ws_clients.discard(ws)
+        client.alive = False
+        clients.discard(client)
+        sender.cancel()
     return ws
 
 def build_app(node: WebBridgeNode):

@@ -23,34 +23,6 @@ function publishMessage(topic, data) {
     }
 }
 
-function downloadAllCameraScreenshots() {
-    const timestamp = Date.now();
-    for (let cameraId = 0; cameraId < 4; cameraId++) {
-        const camera = dashboard.cameras.get(cameraId);
-        if (!camera || !camera.canvas) {
-            console.warn(`Camera ${cameraId} not available for screenshot`);
-            continue;
-        }
-
-        const canvas = camera.canvas;
-        canvas.toBlob((blob) => {
-            if (!blob) {
-                console.error(`Failed to create blob from camera ${cameraId}`);
-                return;
-            }
-
-            const url = URL.createObjectURL(blob);
-            const link = document.createElement('a');
-            link.href = url;
-            link.download = `camera${cameraId}_${timestamp}.png`;
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-            URL.revokeObjectURL(url);
-        }, 'image/png');
-    }
-}
-
 function clamp(value, min, max) {
     return Math.min(max, Math.max(min, value));
 }
@@ -712,6 +684,7 @@ function buildButtonPanel() {
     const buttonConfigs = [
         { label: "Detect Crabs", toggle: false, action: "detect_crabs" },
         { label: "Take Screenshot", toggle: false, action: "screenshot" },
+        { label: "Take Video", toggle: true, topic: "/gui_buttons/take_video" },
         { label: "Photogrammetry", toggle: true, topic: "/gui_buttons/photogrammetry" },
         { label: "Measure Iceberg", toggle: false, action: "measure_iceberg" },
         { label: "Quad Cam", toggle: true, action: "toggle_quad_cam" },
@@ -730,13 +703,19 @@ function buildButtonPanel() {
                 const isPressed = button.classList.toggle("is-active");
                 button.setAttribute("aria-pressed", String(isPressed));
                 publishMessage(config.topic, isPressed);
+                if (config.topic === "/gui_buttons/take_video") {
+                    const dashboardEl = document.getElementById("dashboard");
+                    dashboardEl.classList.toggle("recording", isPressed);
+                }
             });
         } else if (config.action === "detect_crabs") {
             button.addEventListener("click", () => {
                 publishMessage('/gui_buttons/detect_crabs', true);
             });
         } else if (config.action === "screenshot") {
-            button.addEventListener("click", downloadAllCameraScreenshots);
+            button.addEventListener("click", () => {
+                publishMessage('/gui_buttons/screenshot', true);
+            });
         } else if (config.action === "measure_iceberg") {
             button.addEventListener("click", () => {
                 publishMessage("/gui_buttons/measure_iceberg", "pressed");
@@ -762,6 +741,105 @@ function buildButtonPanel() {
     buttonsSection.appendChild(buttonGrid);
 
     layout.append(buttonsSection);
+
+    buildTimerSection(layout);
+}
+
+function buildTimerSection(parent) {
+    const TIMER_TOTAL_MS = 15 * 60 * 1000; // progress bar spans 15 minutes
+
+    const section = document.createElement("div");
+    section.className = "arm-section timer-section";
+
+    const title = document.createElement("div");
+    title.className = "arm-section__title";
+    title.textContent = "Timer";
+
+    const display = document.createElement("div");
+    display.className = "timer__display";
+    display.textContent = "00:00";
+
+    const bar = document.createElement("div");
+    bar.className = "bar timer__bar";
+
+    const fill = document.createElement("div");
+    fill.className = "bar__fill";
+    fill.style.setProperty("--value", "0");
+    bar.appendChild(fill);
+
+    const controls = document.createElement("div");
+    controls.className = "timer__controls";
+
+    const startButton = document.createElement("button");
+    startButton.type = "button";
+    startButton.className = "test-button-grid__button test-button-grid__button--toggle";
+    startButton.textContent = "Start";
+
+    const pauseButton = document.createElement("button");
+    pauseButton.type = "button";
+    pauseButton.className = "test-button-grid__button";
+    pauseButton.textContent = "Pause";
+
+    const resetButton = document.createElement("button");
+    resetButton.type = "button";
+    resetButton.className = "test-button-grid__button";
+    resetButton.textContent = "Reset";
+
+    controls.append(startButton, pauseButton, resetButton);
+    section.append(title, display, bar, controls);
+    parent.appendChild(section);
+
+    // Timestamp-based so the count stays accurate
+    let accumulatedMs = 0;   // time stored across pauses
+    let startTimestamp = 0;  // Date.now() when current run began
+    let intervalId = null;
+
+    const elapsedMs = () =>
+        intervalId !== null ? accumulatedMs + (Date.now() - startTimestamp) : accumulatedMs;
+
+    const render = () => {
+        const totalSeconds = Math.floor(elapsedMs() / 1000);
+        const minutes = String(Math.floor(totalSeconds / 60)).padStart(2, "0");
+        const seconds = String(totalSeconds % 60).padStart(2, "0");
+        display.textContent = `${minutes}:${seconds}`;
+        fill.style.setProperty("--value", String(clamp(elapsedMs() / TIMER_TOTAL_MS, 0, 1)));
+    };
+
+    const start = () => {
+        if (intervalId !== null) {
+            return;
+        }
+        startTimestamp = Date.now();
+        intervalId = setInterval(render, 250);
+        startButton.classList.add("is-active");
+        render();
+    };
+
+    const pause = () => {
+        if (intervalId === null) {
+            return;
+        }
+        accumulatedMs = elapsedMs();
+        clearInterval(intervalId);
+        intervalId = null;
+        startButton.classList.remove("is-active");
+        render();
+    };
+
+    const reset = () => {
+        clearInterval(intervalId);
+        intervalId = null;
+        accumulatedMs = 0;
+        startTimestamp = 0;
+        startButton.classList.remove("is-active");
+        render();
+    };
+
+    startButton.addEventListener("click", start);
+    pauseButton.addEventListener("click", pause);
+    resetButton.addEventListener("click", reset);
+
+    render();
 }
 
 function buildArmPanel() {
@@ -897,23 +975,28 @@ function buildCameraPanel() {
         card.append(title, canvas);
         wrap.appendChild(card);
 
-        card.style.cursor = "pointer";
-        card.addEventListener("click", () => {
-            const dashboardEl = document.getElementById("dashboard");
-            if (dashboardEl.classList.contains("cinema-mode")) {
-                dashboardEl.classList.remove("cinema-mode");
-                card.classList.remove("camera-card--cinema");
-            } else {
-                dashboardEl.classList.add("cinema-mode");
-                card.classList.add("camera-card--cinema");
-            }
-        });
+        // Cameras default to recording-enabled
+        card.classList.add("camera-card--rec-on");
 
-        dashboard.cameras.set(cameraId, {
+        const state = {
             card,
             canvas,
             lastSeen: 0,
+            recordEnabled: true,
+        };
+
+        card.style.cursor = "pointer";
+        card.addEventListener("click", () => {
+            state.recordEnabled = !state.recordEnabled;
+            card.classList.toggle("camera-card--rec-on", state.recordEnabled);
+            card.classList.toggle("camera-card--rec-off", !state.recordEnabled);
+            publishMessage("/gui_buttons/camera_record", {
+                camera: cameraId,
+                enabled: state.recordEnabled,
+            });
         });
+
+        dashboard.cameras.set(cameraId, state);
     }
 
     panel.appendChild(wrap);
@@ -1549,35 +1632,57 @@ function updateSparkline(key, values) {
     dashboard.sparkline.row.classList.remove("is-stale");
 }
 
-function updateCamera(cameraId, video) {
+function updateCamera(cameraId, frame) {
     const camera = dashboard.cameras.get(cameraId);
-    if (!camera || !video || !Array.isArray(video.data)) {
+    if (!camera || !frame) {
         return;
     }
 
-    const canvas = camera.canvas;
-    const context = canvas.getContext("2d");
+    // Live stream sends a Uint8Array of JPEG bytes; test mode sends the legacy
+    // { format, data: [...] } object. Normalize both to JPEG bytes
+    let bytes;
+    let mime = "image/jpeg";
+    if (frame instanceof Uint8Array) {
+        bytes = frame;
+    } else if (Array.isArray(frame.data)) {
+        bytes = new Uint8Array(frame.data);
+        mime = `image/${frame.format || "jpeg"}`;
+    } else {
+        return;
+    }
 
-    const blob = new Blob(
-        [new Uint8Array(video.data)],
-        { type: `image/${video.format || 'jpeg'}` }
-    );
-    const url = URL.createObjectURL(blob);
-    const img = new Image();
+    // keep only the newest frame and never run more than one decode per camera at a time
+    camera.pendingFrame = { bytes, mime };
+    if (!camera.decoding) {
+        decodeCameraFrame(camera, cameraId);
+    }
+}
 
-    img.onload = () => {
-        context.drawImage(img, 0, 0, canvas.width, canvas.height);
-        URL.revokeObjectURL(url);
+function decodeCameraFrame(camera, cameraId) {
+    const next = camera.pendingFrame;
+    if (!next) {
+        camera.decoding = false;
+        return;
+    }
+    camera.pendingFrame = null;
+    camera.decoding = true;
+
+    const blob = new Blob([next.bytes], { type: next.mime });
+
+    // createImageBitmap decodes off the main thread — no <img>/objectURL churn.
+    createImageBitmap(blob).then((bitmap) => {
+        const canvas = camera.canvas;
+        const context = canvas.getContext("2d");
+        context.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+        bitmap.close();
         camera.lastSeen = Date.now();
         camera.card.classList.remove("is-stale");
-    };
-
-    img.onerror = () => {
-        URL.revokeObjectURL(url);
-        console.error(`Failed to load image for camera ${cameraId}`);
-    };
-
-    img.src = url;
+    }).catch(() => {
+        console.error(`Failed to decode image for camera ${cameraId}`);
+    }).finally(() => {
+        // Render whatever arrived while this frame was decoding (newest only).
+        decodeCameraFrame(camera, cameraId);
+    });
 }
 
 function refreshStaleState() {
