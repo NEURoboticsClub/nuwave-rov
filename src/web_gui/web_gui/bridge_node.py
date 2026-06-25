@@ -370,6 +370,7 @@ class WebBridgeNode(Node):
                 self.get_logger().error(f'Video writer iteration failed: {exc}')
 
     def _save_screenshots(self):
+        # Called from the asyncio event-loop thread, so must not block it with disk writes
         with self._frames_lock:
             frames = dict(self._latest_frames)
         if not frames:
@@ -377,6 +378,12 @@ class WebBridgeNode(Node):
             return
 
         timestamp = datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
+        threading.Thread(
+            target=self._write_screenshots, args=(frames, timestamp), daemon=True
+        ).start()
+
+    def _write_screenshots(self, frames, timestamp):
+        """Decode and write screenshots to disk off the event-loop thread."""
         targets = [SCREENSHOT_HOME_DIR] + removable_drive_dirs()
 
         for camera_id, data in sorted(frames.items()):
