@@ -25,7 +25,7 @@ SCREENSHOT_SUBDIR = 'rov_images'
 # Ubuntu auto-mounts removable drives under /media/<user>/<label> or /run/media/<user>/<label>
 REMOVABLE_MEDIA_ROOTS = ['/media', '/run/media']
 
-# "Take Video" button captures all cameras into rov_images/video/<timestamp>/cam_<id>/<frame>.png
+# "Take Video" button captures all cameras into rov_images/video/<timestamp>/cam<id>/<frame>.png
 VIDEO_SUBDIR = 'video'
 VIDEO_FPS = 4
 
@@ -333,9 +333,9 @@ class WebBridgeNode(Node):
                 continue
             for base in targets:
                 try:
-                    cam_dir = os.path.join(base, VIDEO_SUBDIR, session, f'cam_{camera_id}')
+                    cam_dir = os.path.join(base, VIDEO_SUBDIR, session, f'cam{camera_id}')
                     os.makedirs(cam_dir, exist_ok=True)
-                    cv2.imwrite(os.path.join(cam_dir, f'{index}.png'), frame)
+                    cv2.imwrite(os.path.join(cam_dir, f'cam{camera_id}_{index}.png'), frame)
                 except OSError as exc:
                     self.get_logger().warning(f'Could not save video frame to {base}: {exc}')
 
@@ -359,9 +359,9 @@ class WebBridgeNode(Node):
                 # A failure on one target (e.g. a full or yanked USB stick)
                 # must not stop the others from saving.
                 try:
-                    cam_dir = os.path.join(base, f'cam_{camera_id}')
+                    cam_dir = os.path.join(base, f'cam{camera_id}')
                     os.makedirs(cam_dir, exist_ok=True)
-                    path = os.path.join(cam_dir, f'cam_{camera_id}_{timestamp}.png')
+                    path = os.path.join(cam_dir, f'cam{camera_id}_{timestamp}.png')
                     if cv2.imwrite(path, frame):
                         self.get_logger().info(f'Saved screenshot: {path}')
                     else:
