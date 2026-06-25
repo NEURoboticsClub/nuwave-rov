@@ -6,7 +6,7 @@
     <script type="importmap">
       {
         "imports": {
-          "three": "https://cdn.jsdelivr.net/npm/three@0.161.0/build/three.module.js"
+          "three": "/static/vendor/three/three.module.js"
         }
       }
     </script>
@@ -25,11 +25,16 @@
         document.body.appendChild(camsScript);
       } else {
 
-      const THREE = await import('three');
-      const { GLTFLoader } = await import('https://cdn.jsdelivr.net/npm/three@0.161.0/examples/jsm/loaders/GLTFLoader.js');
+      // Try to load three.js for 3D model support, prevent crashing the entire dashboard
+      try {
+        const THREE = await import('three');
+        const { GLTFLoader } = await import('/static/vendor/three/loaders/GLTFLoader.js');
 
-      window.THREE = THREE;
-      window.THREE_GLTFLoader = GLTFLoader;
+        window.THREE = THREE;
+        window.THREE_GLTFLoader = GLTFLoader;
+      } catch (error) {
+        console.warn('three.js failed to load; 3D model panel will be disabled.', error);
+      }
 
       await new Promise((resolve, reject) => {
         const dashboardScript = document.createElement('script');
