@@ -24,7 +24,7 @@ class Houston(Node):
         self.declare_parameter('stabilizer_timeout', 0.5)  # seconds before we consider stabilizer data stale and disable stabilization
         self.declare_parameter('publish_rate_hz', 50.0)    # publish rate of houston twist commands
         self.declare_parameter('expo_enabled_default', False)
-        self.declare_parameter('precision_mode_default', True)
+        self.declare_parameter('precision_mode_default', False)
 
         joy_config_path = self.get_parameter('joy_config').value
         joy_thruster = self.get_parameter('joy_thruster').value

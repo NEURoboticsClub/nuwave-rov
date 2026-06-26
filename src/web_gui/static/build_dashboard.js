@@ -778,6 +778,7 @@ function buildButtonPanel() {
         if (config.toggle && config.topic) {
             button.classList.add("test-button-grid__button--toggle");
             button.setAttribute("aria-pressed", "false");
+            dashboard.toggleButtons.set(config.topic, button);
             button.addEventListener("click", () => {
                 const isPressed = button.classList.toggle("is-active");
                 button.setAttribute("aria-pressed", String(isPressed));
