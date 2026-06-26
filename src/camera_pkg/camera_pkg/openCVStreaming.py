@@ -8,6 +8,8 @@ from sensor_msgs.msg import CompressedImage
 import cv2
 import threading
 import time
+import os
+import glob
 
 
 class FastCameraPublisher(Node):
@@ -24,6 +26,7 @@ class FastCameraPublisher(Node):
 
         self.cam_id = self.get_parameter('camera_id').value
         self.cam_device_path = str(self.get_parameter('camera_device_path').value).strip()
+        self.cam_device_path = self._resolve_stable_path(self.cam_device_path)
         self.width = self.get_parameter('width').value
         self.height = self.get_parameter('height').value
         self.fps = self.get_parameter('fps').value
@@ -69,6 +72,17 @@ class FastCameraPublisher(Node):
             f"Camera {self.cam_id} using source {self.cam_device_path} streaming on {self.topic} "
             f"({self.width}x{self.height} @ {self.fps} FPS)"
         )
+
+    def _resolve_stable_path(self, path):
+        try:
+            target = os.path.realpath(path)
+            for link in glob.glob('/dev/v4l/by-path/*'):
+                if os.path.realpath(link) == target:
+                    self.get_logger().info(f"Using stable device path {link} for {path}")
+                    return link
+        except Exception as e:
+            self.get_logger().warning(f"Could not resolve stable path for {path}: {e}")
+        return path
 
     def setup_camera(self):
         while True:
