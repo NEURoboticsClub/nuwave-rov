@@ -22,6 +22,7 @@ class Houston(Node):
         self.declare_parameter('joy_thruster', '/joy_thruster')
         self.declare_parameter('joy_arm', '/joy_arm')
         self.declare_parameter('stabilizer_timeout', 0.5)  # seconds before we consider stabilizer data stale and disable stabilization
+        self.declare_parameter('joy_thruster_timeout', 0.5)  # seconds before we consider thruster joystick data stale and zero the twist
         self.declare_parameter('publish_rate_hz', 50.0)    # publish rate of houston twist commands
         self.declare_parameter('expo_enabled_default', False)
         self.declare_parameter('precision_mode_default', False)
@@ -33,6 +34,10 @@ class Houston(Node):
 
         self.stabilizer_timeout = self.get_parameter('stabilizer_timeout').value
         self.last_stabilizer_time = None
+
+        self.joy_thruster_timeout = self.get_parameter('joy_thruster_timeout').value
+        self.last_joy_thruster_time = None
+        self.joy_thruster_stale = False
 
 
         self.get_logger().info(f"Loading joystick config from: {joy_config_path}")
@@ -156,7 +161,7 @@ class Houston(Node):
         try:
             self.last_joy_arm_msg = msg
             return_map = self.parse_joystick(msg, cfg_type="arm_control")
-            self.get_logger().info(str(return_map))
+            # self.get_logger().info(str(return_map))
 
             self.publish_arm_commands(return_map["axis"], return_map["button"])
         except Exception as e:
@@ -165,13 +170,33 @@ class Houston(Node):
     def joy_thruster_callback(self, msg: Joy):
         """Handle thruster joystick input"""
         self.last_joy_thruster_msg = msg
+        self.last_joy_thruster_time = self.get_clock().now()
 
     def _publish_loop(self):
         if self.last_joy_thruster_msg is None:
             return
+
+        # Watchdog to prevent runaway if houston stops reveiving joystick messages
+        now = self.get_clock().now()
+        joy_stale = (
+            self.last_joy_thruster_time is not None
+            and (now - self.last_joy_thruster_time).nanoseconds * 1e-9 > self.joy_thruster_timeout
+        )
+        if joy_stale:
+            if not self.joy_thruster_stale:
+                self.get_logger().warn(
+                    "Thruster joystick input stale; publishing neutral twist"
+                )
+                self.joy_thruster_stale = True
+            self.twist_pub.publish(Twist())
+            return
+        if self.joy_thruster_stale:
+            self.get_logger().info("Thruster joystick input restored")
+            self.joy_thruster_stale = False
+
         try:
             parsed = self.parse_joystick(self.last_joy_thruster_msg, cfg_type="thruster_control")
-            self.get_logger().info(str(parsed))
+            # self.get_logger().info(str(parsed))
 
             # Publish the result
             self.publish_twist(parsed["axis"], parsed["button"])
