@@ -9,8 +9,10 @@
 motors:
   - id: 1
     name: front_left_lateral
-    min_us: 1430
-    max_us: 1630
+    precision_min_us: 1430
+    precision_max_us: 1630
+    speed_min_us: 1430
+    speed_max_us: 1630
     neutral_us: 1530
     channel: 2
     topic: "/thruster/thruster_fll"
@@ -18,17 +20,21 @@ motors:
 
   - id: 2
     name: front_right_lateral
-    min_us: 1430
-    max_us: 1630
+    precision_min_us: 1430
+    precision_max_us: 1630
+    speed_min_us: 1430
+    speed_max_us: 1630
     neutral_us: 1530
-    channel: 3
+    channel: 0
     topic: "/thruster/thruster_frl"
     slew_us_per_s: 750.0
 
   - id: 3
     name: rear_left_lateral
-    min_us: 1430
-    max_us: 1630
+    precision_min_us: 1430
+    precision_max_us: 1630
+    speed_min_us: 1430
+    speed_max_us: 1630
     neutral_us: 1530
     channel: 6
     topic: "/thruster/thruster_rll"
@@ -36,35 +42,43 @@ motors:
 
   - id: 4
     name: rear_right_lateral
-    min_us: 1430
-    max_us: 1630
+    precision_min_us: 1430
+    precision_max_us: 1630
+    speed_min_us: 1430
+    speed_max_us: 1630
     neutral_us: 1530
-    channel: 5
+    channel: 4
     topic: "/thruster/thruster_rrl"
     slew_us_per_s: 750.0
 
   - id: 5
     name: forward_left_vertical
-    min_us: 1430
-    max_us: 1630
+    precision_min_us: 1430
+    precision_max_us: 1630
+    speed_min_us: 1280
+    speed_max_us: 1780
     neutral_us: 1530
-    channel: 1
+    channel: 3
     topic: "/thruster/thruster_flv"
     slew_us_per_s: 750.0
 
   - id: 6
     name: forward_right_vertical
-    min_us: 1430
-    max_us: 1630
+    precision_min_us: 1430
+    precision_max_us: 1630
+    speed_min_us: 1280
+    speed_max_us: 1780
     neutral_us: 1530
-    channel: 0
+    channel: 1
     topic: "/thruster/thruster_frv"
     slew_us_per_s: 750.0
 
   - id: 7
     name: rear_left_vertical
-    min_us: 1430
-    max_us: 1630
+    precision_min_us: 1430
+    precision_max_us: 1630
+    speed_min_us: 1280
+    speed_max_us: 1780
     neutral_us: 1530
     channel: 7
     topic: "/thruster/thruster_rlv"
@@ -72,10 +86,12 @@ motors:
 
   - id: 8
     name: rear_right_vertical
-    min_us: 1430
-    max_us: 1630
+    precision_min_us: 1430
+    precision_max_us: 1630
+    speed_min_us: 1280
+    speed_max_us: 1780
     neutral_us: 1530
-    channel: 4
+    channel: 5
     topic: "/thruster/thruster_rrv"
     slew_us_per_s: 750.0
 
@@ -120,7 +136,7 @@ motors:
     slew_us_per_s: 0.0
 
   - id: 14
-    min_us: 1300
+    min_us: 1400
     max_us: 1700
     neutral_us: 1500
     channel: 9

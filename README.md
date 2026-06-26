@@ -11,6 +11,18 @@ To be written...
 
 ## Running instructions
 
+### Combined launcher (topside + bottomside)
+- Use `./setup_terminals_all.sh` to run both launcher scripts:
+    - `setup_terminals_topside.sh`
+    - `setup_terminals_bottomside.sh`
+- Flags:
+    - `-d`: skip build in both scripts
+- Bottomside is always run over SSH (`-s`) when using this combined script.
+
+Examples:
+- `./setup_terminals_all.sh`
+- `./setup_terminals_all.sh -d`
+
 ### How to run EVERYTHING:
 - colcon build (on both remote and nano)
 - Every terminal:

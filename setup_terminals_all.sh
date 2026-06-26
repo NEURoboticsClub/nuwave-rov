@@ -1,0 +1,72 @@
+#!/bin/bash
+
+# Combined launcher for both topside and bottomside terminator layouts.
+# Keeps the individual scripts intact and delegates to them.
+#
+# Usage: setup_terminals_all.sh [-d] [-h]
+#   -d: skip colcon build step (forwarded to both scripts)
+#   -h: show help
+
+set -e
+
+WS="$HOME/nuwave-rov"
+TOPSIDE_SCRIPT="$WS/setup_terminals_topside.sh"
+BOTTOMSIDE_SCRIPT="$WS/setup_terminals_bottomside.sh"
+
+usage() {
+    cat <<EOF
+Usage: ./$(basename "$0") [-d] [-h]
+
+Runs both launch scripts:
+  1) setup_terminals_topside.sh
+  2) setup_terminals_bottomside.sh
+
+Options:
+  -d    Skip colcon build step in both scripts
+  -h    Show this help menu
+
+Notes:
+    Bottomside script is always launched with -s (SSH mode).
+
+Examples:
+  ./$(basename "$0")
+  ./$(basename "$0") -d
+EOF
+}
+
+SKIP_BUILD=false
+
+while getopts "dh" opt; do
+    case $opt in
+        d) SKIP_BUILD=true ;;
+        h) usage; exit 0 ;;
+        \?) usage; exit 1 ;;
+    esac
+done
+
+if [ ! -x "$TOPSIDE_SCRIPT" ]; then
+    echo "Topside launcher not found or not executable: $TOPSIDE_SCRIPT"
+    exit 1
+fi
+
+if [ ! -x "$BOTTOMSIDE_SCRIPT" ]; then
+    echo "Bottomside launcher not found or not executable: $BOTTOMSIDE_SCRIPT"
+    exit 1
+fi
+
+TOPSIDE_ARGS=()
+BOTTOMSIDE_ARGS=()
+
+if [ "$SKIP_BUILD" = true ]; then
+    TOPSIDE_ARGS+=("-d")
+    BOTTOMSIDE_ARGS+=("-d")
+fi
+
+BOTTOMSIDE_ARGS+=("-s")
+
+echo "Launching topside and bottomside terminals in parallel..."
+"$TOPSIDE_SCRIPT" "${TOPSIDE_ARGS[@]}" &
+
+"$BOTTOMSIDE_SCRIPT" "${BOTTOMSIDE_ARGS[@]}" &
+
+echo "Topside and bottomside launchers started (separate windows)."

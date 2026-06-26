@@ -1,8 +1,9 @@
 import time
 import rclpy
 from rclpy.node import Node
-from std_msgs.msg import Float32
+from std_msgs.msg import Float32, Bool
 from rclpy.duration import Duration
+from rclpy.qos import QoSProfile, DurabilityPolicy, ReliabilityPolicy, HistoryPolicy
 from .pwm_scribe_base import PWMScribeBase
 from .pwm_scribe_arduino import PWMScribeArduino
 from .pwm_scribe_hat import PWMScribeHat
@@ -25,6 +26,7 @@ class PWMNode(Node):
         self.declare_parameter('watchdog_timeout_s', 0.5)     # neutral if no msg in this time
         self.declare_parameter('slew_us_per_s', 750.0)        # 0 to disable rate limit; else max change per sec
         self.declare_parameter('simulate', False)
+        self.declare_parameter('precision_mode_default', False)
         self.declare_parameter('pwm_hardware', 'hat')     # 'arduino' or 'hat'
         pkg_share = get_package_share_directory('thruster_pkg')
         self.declare_parameter(
@@ -52,6 +54,7 @@ class PWMNode(Node):
                 seconds=self.get_parameter('watchdog_timeout_s').value
                 )
         self.simulate = self.get_parameter('simulate').value
+        self.precision_mode_enabled = bool(self.get_parameter('precision_mode_default').value)
         # Derived Vals
         self.period_us = 1_000_000.0 / self.pwm_freq
 
@@ -90,20 +93,65 @@ class PWMNode(Node):
         if not self.motors:
             raise ValueError(f"No motors found in config")
 
-        # Validate PWM config ranges up front: min < neutral < max is required, otherwise
-        # the dutycycle <-> pwm mapping divides by zero at runtime
+        # Validate PWM config ranges up front: min < neutral < max is required.
         for mot in self.motors:
-            min_us = mot.get('min_us')
+            topic = mot.get('topic')
             neutral_us = mot.get('neutral_us', 1500)
-            max_us = mot.get('max_us')
-            if min_us is None or max_us is None or not (min_us < neutral_us < max_us):
-                raise ValueError(
-                    f"Motor {mot.get('topic')} has invalid PWM range: "
-                    f"min_us={min_us}, neutral_us={neutral_us}, max_us={max_us} "
-                    f"(need min_us < neutral_us < max_us)"
-                )
+
+            speed_min_us = mot.get('speed_min_us')
+            speed_max_us = mot.get('speed_max_us')
+            precision_min_us = mot.get('precision_min_us')
+            precision_max_us = mot.get('precision_max_us')
+
+            # Thrusters can define dual ranges for precision vs speed mode.
+            if (
+                speed_min_us is not None
+                or speed_max_us is not None
+                or precision_min_us is not None
+                or precision_max_us is not None
+            ):
+                if None in (speed_min_us, speed_max_us, precision_min_us, precision_max_us):
+                    raise ValueError(
+                        f"Motor {topic} must define all precision/speed bounds: "
+                        "precision_min_us, precision_max_us, speed_min_us, speed_max_us"
+                    )
+                if not (speed_min_us < neutral_us < speed_max_us):
+                    raise ValueError(
+                        f"Motor {topic} has invalid SPEED range: "
+                        f"speed_min_us={speed_min_us}, neutral_us={neutral_us}, speed_max_us={speed_max_us}"
+                    )
+                if not (precision_min_us < neutral_us < precision_max_us):
+                    raise ValueError(
+                        f"Motor {topic} has invalid PRECISION range: "
+                        f"precision_min_us={precision_min_us}, neutral_us={neutral_us}, precision_max_us={precision_max_us}"
+                    )
+            else:
+                min_us = mot.get('min_us')
+                max_us = mot.get('max_us')
+                if min_us is None or max_us is None or not (min_us < neutral_us < max_us):
+                    raise ValueError(
+                        f"Motor {topic} has invalid PWM range: "
+                        f"min_us={min_us}, neutral_us={neutral_us}, max_us={max_us} "
+                        f"(need min_us < neutral_us < max_us)"
+                    )
+
+        self._apply_precision_mode_to_all_motors()
+        self._log_active_pwm_ranges("Active PWM ranges on startup:")
 
         self._arm()
+
+        qos_state = QoSProfile(
+            reliability=ReliabilityPolicy.RELIABLE,
+            history=HistoryPolicy.KEEP_LAST,
+            depth=1,
+            durability=DurabilityPolicy.TRANSIENT_LOCAL,
+        )
+        self.precision_mode_sub = self.create_subscription(
+            Bool,
+            '/controls/precision_mode',
+            self._precision_mode_callback,
+            qos_state,
+        )
 
         # Ros Wiring
         self.motor_subs = []
@@ -127,6 +175,52 @@ class PWMNode(Node):
             mot['watchdog_tripped'] = False
         
         self.timer = self.create_timer(1.0 / self.update_rate_hz, self.update)
+
+    def _apply_precision_mode_to_motor(self, mot: dict):
+        speed_min_us = mot.get('speed_min_us')
+        speed_max_us = mot.get('speed_max_us')
+        precision_min_us = mot.get('precision_min_us')
+        precision_max_us = mot.get('precision_max_us')
+
+        if None in (speed_min_us, speed_max_us, precision_min_us, precision_max_us):
+            return
+
+        if self.precision_mode_enabled:
+            mot['min_us'] = precision_min_us
+            mot['max_us'] = precision_max_us
+        else:
+            mot['min_us'] = speed_min_us
+            mot['max_us'] = speed_max_us
+
+    def _apply_precision_mode_to_all_motors(self):
+        for mot in self.motors:
+            self._apply_precision_mode_to_motor(mot)
+            min_us = mot.get('min_us')
+            max_us = mot.get('max_us')
+            if min_us is None or max_us is None:
+                continue
+            mot['target_us'] = float(np.clip(mot.get('target_us', mot.get('neutral_us', 1500)), min_us, max_us))
+            mot['current_us'] = float(np.clip(mot.get('current_us', mot.get('neutral_us', 1500)), min_us, max_us))
+
+    def _log_active_pwm_ranges(self, header: str):
+        self.get_logger().info(header)
+        for mot in self.motors:
+            topic = mot.get('topic', '<unknown>')
+            mode = 'precision' if self.precision_mode_enabled else 'speed'
+            self.get_logger().info(
+                f"[{mode}] {topic}: min_us={mot.get('min_us')}, neutral_us={mot.get('neutral_us')}, max_us={mot.get('max_us')}"
+            )
+
+    def _precision_mode_callback(self, msg: Bool):
+        enabled = bool(msg.data)
+        if self.precision_mode_enabled == enabled:
+            return
+        self.precision_mode_enabled = enabled
+        self._apply_precision_mode_to_all_motors()
+        self.get_logger().info(
+            f"Precision mode: {'ON' if self.precision_mode_enabled else 'OFF'}"
+        )
+        self._log_active_pwm_ranges("Active PWM ranges after precision mode toggle:")
 
     
     # takes dutycycle (-1 to 1) and maps that to PWM range for each motor
