@@ -14,8 +14,8 @@ Uses ROS2 built-in Joy package, requires ros-humble-joy dependency.
 - std_msgs/Bool data on topic /stabilizer/capture
 
 ### Subscribing 
-- Joy data on topic joy_thruster
-- Joy data on topic joy_arm
+- sensor_msgs/joy data on topic joy_thruster
+- sensor_msgs/joy data on topic joy_arm
 - geometry_msgs/Twist data on topic /stabilizer/commands
 - std_msgs/Bool data on /gui_buttons/expo_enabled
 - std_msgs/Bool data on /gui_buttons/precision_mode
