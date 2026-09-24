@@ -1,8 +1,8 @@
-# Houston - MORE
-This package functions as the control hub for the full ROV operations. It receives two controller (like Xbox controller, not PID) inputs; one for drive controls, one for arm controls.
+# Houston
+This package functions as the control hub for the full ROV operations. It receives two controller (like Xbox controller, not PID) inputs; one for drive controls, one for arm controls, then publishes and subscribes to various topics to coordinate other nodes' functionalities. 
 
-## Requirements - MORE
-Uses ROS2 built-in Joy package, requires ros-humble-joy dependency. 
+## Requirements
+Uses ROS2 built-in Joy package, requires ros-humble-joy dependency, along with all imports listed at top of file.  
 
 ## How to run
 ### Running with default configs
@@ -26,15 +26,19 @@ ros2 run houston_pkg houston
 - std_msgs/Bool data on /gui_buttons/precision_mode
 - std_msgs/Bool data on /gui_buttons/stabilize_enabled
 
-### Configs ---- DESCRIBE EACH BRIEFLY, ONE SENTENCE
+## Configs
 - joy_config
-- joy_thruster
-- joy_arm
+    - Parameter containing YAML path. The YAML file contains the button mapping to control commands. 
 - stabilizer_timeout
+    - Parameter, in seconds; delay until stabilizer data is considered stale and stabilization is disabled
 - joy_thruster_timeout
+    - Parameter, in seconds; delay until thruster joystick data is considered stale and twist is zeroed
 - publish_rate_hz
+    - Parameter, in Hertz; publish rate of houston twist commands
 - expo_enabled_default
+    - Parameter, bool; Default state of /expo_enabled topics
 - precision_mode_default
+    - Parameter, bool; Default state of /precision_enabled topics
 
 ### Creating new config
 ```
