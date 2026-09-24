@@ -1,9 +1,14 @@
-# Houston
+# Houston - MORE
 This package functions as the control hub for the full ROV operations. It receives two controller (like Xbox controller, not PID) inputs; one for drive controls, one for arm controls.
 
-## Requirements
+## Requirements - MORE
 Uses ROS2 built-in Joy package, requires ros-humble-joy dependency. 
 
+## How to run
+### Running with default configs
+```
+ros2 run houston_pkg houston
+```
 ## Topics
 ### Publishing
 - geometry_msgs/Twist data on topic /velocity_commands
@@ -21,7 +26,7 @@ Uses ROS2 built-in Joy package, requires ros-humble-joy dependency.
 - std_msgs/Bool data on /gui_buttons/precision_mode
 - std_msgs/Bool data on /gui_buttons/stabilize_enabled
 
-### Configs
+### Configs ---- DESCRIBE EACH BRIEFLY, ONE SENTENCE
 - joy_config
 - joy_thruster
 - joy_arm
@@ -30,13 +35,6 @@ Uses ROS2 built-in Joy package, requires ros-humble-joy dependency.
 - publish_rate_hz
 - expo_enabled_default
 - precision_mode_default
-
-
-## How to run
-### Running with default configs
-```
-ros2 run houston_pkg houston
-```
 
 ### Creating new config
 ```
