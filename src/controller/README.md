@@ -8,6 +8,28 @@ It uses the position and direction of each thruster to calculate a thruster allo
 
 The node also includes a watchdog that sets all thruster commands to zero if no velocity command is received within the configured timeout.
 
+## How to run
+### Running with default configs
+```
+ros2 run controller thruster_controller_node
+```
+
+### Creating new config
+```
+ros2 run controller joystick_identify
+```
+
+### Using a custom config
+```
+ros2 run controller thruster_controller \
+  --ros-args \
+  -p joy_config:=/path/to/joystick_config.yaml \
+  -p thruster_config:=/path/to/thruster_config.yaml \
+  -p joy_topic:=/joy \
+  -p thruster_topic:=/thruster
+```
+One or more of the above params are optional
+
 ## Subscribed Topics
 
 | Topic               | Type                      | Description                                                                    |
@@ -78,29 +100,6 @@ The direction vector is normalized by the node before calculating the allocation
 ### Project Packages
 
 * `nuwave_utils_pkg` — used to load the thruster configuration YAML.
-
-
-## How to run
-### Running with default configs
-```
-ros2 run controller thruster_controller_node
-```
-
-### Creating new config
-```
-ros2 run controller joystick_identify
-```
-
-### Using a custom config
-```
-ros2 run controller thruster_controller \
-  --ros-args \
-  -p joy_config:=/path/to/joystick_config.yaml \
-  -p thruster_config:=/path/to/thruster_config.yaml \
-  -p joy_topic:=/joy \
-  -p thruster_topic:=/thruster
-```
-One or more of the above params are optional
 
 
 ## External Documentation
