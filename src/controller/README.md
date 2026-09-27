@@ -79,10 +79,34 @@ The direction vector is normalized by the node before calculating the allocation
 
 * `nuwave_utils_pkg` — used to load the thruster configuration YAML.
 
+
+## How to run
+### Running with default configs
+```
+ros2 run controller thruster_controller_node
+```
+
+### Creating new config
+```
+ros2 run controller joystick_identify
+```
+
+### Using a custom config
+```
+ros2 run controller thruster_controller \
+  --ros-args \
+  -p joy_config:=/path/to/joystick_config.yaml \
+  -p thruster_config:=/path/to/thruster_config.yaml \
+  -p joy_topic:=/joy \
+  -p thruster_topic:=/thruster
+```
+One or more of the above params are optional
+
+
 ## External Documentation
 
 * [geometry_msgs/msg/Twist](https://docs.ros.org/en/rolling/p/geometry_msgs/msg/Twist.html)
 * [std_msgs/msg/Float32](https://docs.ros.org/en/rolling/p/std_msgs/msg/Float32.html)
 
 
-Add the datasheet/documentation for the specific thrusters and ESCs used by the vehicle here.
+
