@@ -14,7 +14,7 @@ ros2 run imu_pkg imu_pub
 
 ## Published Topics
 
-The node publishes the \imu topic, type `std_msgs/msg/Imu`
+The node publishes the /imu topic, type `std_msgs/msg/Imu`
 
 
 ## Parameters
@@ -30,7 +30,7 @@ The node publishes the \imu topic, type `std_msgs/msg/Imu`
 | Method                                 | Description                                                                                                        |
 | -------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
 | `__init__()`                     | Initializes the node, parameters, imu, publisher, and timer. |
-| `_quat_mul()`                    | Multiplies two quaternions (I believe)                                     |
+| `_quat_mul()`                    | Multiplies two quaternions                                   |
 | `_rotate_vec`                    | Rotates a vector by a quaternion                     |
 | `timer_callback`                 |  Reads data from IMU and publishes it to the /imu topic based on whatever control loop freq is provided.      |
 | `main()`                         | Initializes rclpy, starts the node, and runs the rclpy spin method on the node.              |
