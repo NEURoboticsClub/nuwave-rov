@@ -8,6 +8,7 @@ from ament_index_python.packages import get_package_share_directory
 from nuwave_utils_pkg.file_helpers import load_yaml
 import os
 import numpy as np
+from thruster_controller_functions import compute_thruster_allocation_matrix
 
 class ThrusterController(Node):
     def __init__(self):
@@ -108,21 +109,7 @@ class ThrusterController(Node):
     def compute_thruster_allocation_matrix(self, config : dict) -> np.ndarray:
 
         thrusters = config['thrusters']
-        AllocMatrix = np.zeros((6, len(thrusters)))
-
-        for indx, thruster in enumerate(thrusters):
-            pos_m = np.array(thruster['position_m'], dtype=float)
-            dir = np.array(thruster['direction'], dtype=float)
-
-            norm = np.linalg.norm(dir)
-            if norm == 0.0:
-                raise ValueError(f"Thruster {indx} has a zero-length direction vector in config")
-            dir = dir / norm # normalize the direction vector
-
-            # Linear Force Contribution
-            AllocMatrix[0:3, indx] = dir
-            AllocMatrix[3:6, indx] = np.cross(pos_m, dir) 
-
+        AllocMatrix = compute_thruster_allocation_matrix(thrusters)
             
         self.get_logger().info(f"Thruster Allocation Matrix:\n {AllocMatrix}")
         return AllocMatrix
