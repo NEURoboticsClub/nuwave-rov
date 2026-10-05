@@ -8,7 +8,7 @@ from ament_index_python.packages import get_package_share_directory
 from nuwave_utils_pkg.file_helpers import load_yaml
 import os
 import numpy as np
-from thruster_controller_functions import compute_thruster_allocation_matrix
+from .thruster_controller_functions import compute_thruster_allocation_matrix
 
 class ThrusterController(Node):
     def __init__(self):

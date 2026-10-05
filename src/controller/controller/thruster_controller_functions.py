@@ -17,4 +17,4 @@ def compute_thruster_allocation_matrix(thrusters):
         AllocMatrix[0:3, indx] = dir
         AllocMatrix[3:6, indx] = np.cross(pos_m, dir) 
     return AllocMatrix
-    
+

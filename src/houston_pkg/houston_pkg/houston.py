@@ -8,6 +8,7 @@ from ament_index_python.packages import get_package_share_directory
 from nuwave_utils_pkg.file_helpers import load_yaml
 import os
 import numpy as np
+from .houston_functions import scale_controller_input
 
 class Houston(Node):
     """Status node to map joytick inputs to Twist commands."""
@@ -140,17 +141,7 @@ class Houston(Node):
     def scale_controller_input(self, x: float) -> float:
         """Apply a normalized exponential joystick curve based on the requested shape."""
         # x is expected in [-1, 1]. Match existing deadband intent with a small center deadzone.
-        if abs(x) <= 0.05:
-            return 0.0
-
-        abs_x = abs(x)
-        result = np.sign(x) * ((1.2 * np.power(1.0356, abs_x * 100.0)) - 1.2 + (0.2 * abs_x * 100.0))
-
-        # Normalize curve output back to [-1, 1].
-        max_result = (1.2 * np.power(1.0356, 100.0)) - 1.2 + (0.2 * 100.0)
-        if max_result <= 0:
-            return float(x)
-        return float(np.clip(result / max_result, -1.0, 1.0))
+        return scale_controller_input(x)
 
     def stabilizer_callback(self, msg: Twist):
         self.last_stabilizer_twist = msg
