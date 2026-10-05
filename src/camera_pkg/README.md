@@ -26,11 +26,13 @@ Publishes synthetic animated frames on the same topics real cameras use, so the 
 
 ## Topics
 ### Publishing
-- sensor_msgs/CompressedImage data (jpeg) on topic /camera_\<camera_id\>/image/compressed, one topic per connected camera
+- /camera_\<camera_id\>/image/compressed
+    - sensor_msgs/CompressedImage data, jpeg format, one topic per connected camera
 
 ### Subscribing
-- camera_publisher does not subscribe to anything
-- (dev-only) camera_subscriber subscribes to sensor_msgs/Image on topic video_\<camera_address\>, for viewing a raw feed with OpenCV during debugging
+- video_\<camera_address\>
+    - sensor_msgs/Image data, subscribed to by the dev-only camera_subscriber node for viewing a raw feed with OpenCV during debugging
+    - camera_publisher (the production node) does not subscribe to anything
 
 ## Configs
 - camera_id
