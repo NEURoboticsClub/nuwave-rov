@@ -9,17 +9,11 @@ class PWMScribeHat(PWMScribeBase):
         self.board.setPWMFreq(pwm_freq)
 
     def set_pwm(self, channel: int, pwm_us: float):
-
-        us_centered = pwm_us - 1500.0 # TODO: un-hard code this
-        angle = ((us_centered / 500.0) * 90.0) + 90.0 # TODO: un-hard code this
-        
-        angle = int(max(0.0, min(180.0, angle)))
-        # print(f'Angle: {angle}')
-
+        """Write microseconds directly; the board pulse writer requires 50 Hz."""
         try:
-            self.board.setRotationAngle(channel, angle)
+            self.board.setServoPulse(channel, pwm_us)
         except Exception as e:
-            print(f'Failed to send angle to channel {channel}: {e}')
+            print(f'Failed to send pulse to channel {channel}: {e}')
 
     def shutdown(self):
         self.board.exit_PCA9685()
