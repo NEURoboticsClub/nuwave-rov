@@ -33,8 +33,8 @@ Examples:
     - ros2 launch houston_pkg joystick_launch.launch.py
         - Launches 2 joystick nodes
     - ros2 run houston_pkg houston
-    - ros2 run controller thruster_controller_node
-    - ros2 run arm_controller arm_controller_node
+    - ros2 run thruster_controller_pkg thruster_controller_node
+    - ros2 run arm_controller_pkg arm_controller_node
 - Unique terminals on the nano:
     - ros2 launch thruster_pkg multi_thruster.launch.py
     - ros2 launch thruster_pkg multi_arm_motor.launch.py

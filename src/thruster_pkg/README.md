@@ -36,7 +36,7 @@ ros2 run joy joy_node
 2. Run the thruster controller that maps joystick -> `/thruster_N` topics:
 
 ```bash
-ros2 run controller thruster_controller_node
+ros2 run thruster_controller_pkg thruster_controller_node
 ```
 
 export JETSON_MODEL_NAME=JETSON_ORIN_NANO

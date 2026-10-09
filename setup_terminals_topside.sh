@@ -3,8 +3,8 @@
 # Runs the following commands in separate terminals:
 # - ros2 launch houston_pkg joystick_launch.launch.py
 # - ros2 run houston_pkg houston
-# - ros2 run controller thruster_controller_node
-# - ros2 run arm_controller arm_controller_node
+# - ros2 run thruster_controller_pkg thruster_controller_node
+# - ros2 run arm_controller_pkg arm_controller_node
 # - ros2 run web_gui bridge_node
 # - ros2 run crab_recognition_pkg crab_recognition
 
@@ -23,8 +23,8 @@ Spawns all ROS2 nodes for topside (laptop) in a terminator window.
 Panes:
   Joysticks            ros2 launch houston_pkg joystick_launch.launch.py
   Houston              ros2 run houston_pkg houston
-  Thruster Controller  ros2 run controller thruster_controller_node
-  Arm Controller       ros2 run arm_controller arm_controller_node
+  Thruster Controller  ros2 run thruster_controller_pkg thruster_controller_node
+  Arm Controller       ros2 run arm_controller_pkg arm_controller_node
   Web GUI              ros2 run web_gui bridge_node
   Crab Recognition     ros2 run crab_recognition_pkg crab_recognition
   Topside Shell        sourced shell for any additional commands
@@ -68,8 +68,8 @@ SETUP="cd $WS && source $WS/venv/bin/activate && source $WS/install/setup.bash"
 
 JOYSTICK_LAUNCH="$SETUP && ros2 launch houston_pkg joystick_launch.launch.py"
 START_HOUSTON="$SETUP && ros2 run houston_pkg houston"
-START_THRUSTER_CONTROLLER="$SETUP && ros2 run controller thruster_controller_node"
-START_ARM_CONTROLLER="$SETUP && ros2 run arm_controller arm_controller_node"
+START_THRUSTER_CONTROLLER="$SETUP && ros2 run thruster_controller_pkg thruster_controller_node"
+START_ARM_CONTROLLER="$SETUP && ros2 run arm_controller_pkg arm_controller_node"
 START_WEB_GUI="$SETUP && ros2 run web_gui bridge_node"
 START_CRAB_RECOGNITION="$SETUP && ros2 run crab_recognition_pkg crab_recognition"
 

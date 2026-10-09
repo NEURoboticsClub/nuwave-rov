@@ -25,10 +25,10 @@ src/
     ├── config/                      # Optional package configuration
     ├── test/                         # Package tests
     │   ├── example_node_test.py      # Tests for the ROS 2 node
-    │   └── example_method_test.py    # Tests for supporting methods
+    │   └── example_functions_test.py    # Tests for supporting methods
     ├── example_package/              # Python code package
     │   ├── example_node.py           # ROS 2 node and entry point
-    │   └── example_methods.py        # Supporting methods
+    │   └── example_functions.py        # Supporting methods
     ├── package.xml
     └── setup.py
 ```
