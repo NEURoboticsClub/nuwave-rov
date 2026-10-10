@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 ########################################################################
-# Run with ros2 run imu_pkg imu_pub addr:=<I2C address of IMU>
+# Run with ros2 run imu_pkg imu_pub_node addr:=<I2C address of IMU>
 ########################################################################
 
 """

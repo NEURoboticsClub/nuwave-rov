@@ -27,7 +27,7 @@ def _create_nodes(context, *args, **kwargs):
         nodes.append(
                Node(
                    package=pkg,
-                   executable='power_monitor_pub',
+                   executable='power_monitor_pub_node',
                    name=f'power_monitor_monitor_{id}',
                    parameters=[params],
                    output='screen'

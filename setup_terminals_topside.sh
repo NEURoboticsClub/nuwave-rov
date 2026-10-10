@@ -6,7 +6,7 @@
 # - ros2 run thruster_controller_pkg thruster_controller_node
 # - ros2 run arm_controller_pkg arm_controller_node
 # - ros2 run web_gui bridge_node
-# - ros2 run crab_recognition_pkg crab_recognition
+# - ros2 run crab_recognition_pkg crab_recognition_node
 
 # Usage: setup_terminals_topside.sh [-d] [-h]
 #   -d: skip colcon build step
@@ -26,7 +26,7 @@ Panes:
   Thruster Controller  ros2 run thruster_controller_pkg thruster_controller_node
   Arm Controller       ros2 run arm_controller_pkg arm_controller_node
   Web GUI              ros2 run web_gui bridge_node
-  Crab Recognition     ros2 run crab_recognition_pkg crab_recognition
+  Crab Recognition     ros2 run crab_recognition_pkg crab_recognition_node
   Topside Shell        sourced shell for any additional commands
 
 Options:
@@ -71,7 +71,7 @@ START_HOUSTON="$SETUP && ros2 run houston_pkg houston"
 START_THRUSTER_CONTROLLER="$SETUP && ros2 run thruster_controller_pkg thruster_controller_node"
 START_ARM_CONTROLLER="$SETUP && ros2 run arm_controller_pkg arm_controller_node"
 START_WEB_GUI="$SETUP && ros2 run web_gui bridge_node"
-START_CRAB_RECOGNITION="$SETUP && ros2 run crab_recognition_pkg crab_recognition"
+START_CRAB_RECOGNITION="$SETUP && ros2 run crab_recognition_pkg crab_recognition_node"
 
 LAYOUT_FILE=$(mktemp /tmp/terminator_ros2_setup_topside_XXXX.conf)
 
