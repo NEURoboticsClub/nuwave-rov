@@ -75,22 +75,11 @@ def parse_joystick(cfg_list, msg, is_expo_enabled) -> dict:
     return {"axis": axis_values, "button": button_values}
 
 
-def publish_expo_state(expo_enabled):
-        msg = Bool()
-        msg.data = bool(expo_enabled)
-        return msg
 
-
-def publish_precision_mode_state(precision_mode_enabled):
+def publish_boolean(is_enabled, pub_function):
     msg = Bool()
-    msg.data = bool(precision_mode_enabled)
-    return msg
-
-
-def publish_stabilize_state(stabilize_enabled):
-    msg = Bool()
-    msg.data = bool(stabilize_enabled)
-    return msg
+    msg.data = bool(is_enabled)
+    pub_function.publish(msg)
 
 
 
@@ -125,3 +114,69 @@ def publish_arm_commands(axis_values, button_values):
 def _scale_to_unit(x, y, z):
     m = max(abs(x), abs(y), abs(z), 1.0)
     return x / m, y / m, z / m
+
+def set_button_enabled(button_values, toggle, prev_button, set_enabled_function, already_enabled):
+    btn = int(button_values.get(toggle, 0))
+    if btn == 1 and prev_button == 0:
+        set_enabled_function(not already_enabled, 'controller')
+    prev_button = btn
+
+def check_if_stale_and_set_msg(clock, last_stabilizer_time, last_stabilizer_twist, stabilizer_timeout, set_stabilize_enabled, logger, msg):
+    now = clock.now()
+    stale = (
+        last_stabilizer_time is not None
+        and (now - last_stabilizer_time).nanoseconds * 1e-9 > stabilizer_timeout
+    )
+    if stale:
+        set_stabilize_enabled(False, 'stale_data')
+        logger.warn(
+            "Stabilizer messages stale; stabilization disabled"
+        )
+    elif last_stabilizer_time is not None:
+        s = last_stabilizer_twist
+        lx, ly, lz = _scale_to_unit(
+            msg.linear.x + s.linear.x,
+            msg.linear.y + s.linear.y,
+            msg.linear.z + s.linear.z,
+        )
+        ax, ay, az = _scale_to_unit(
+            msg.angular.x + s.angular.x,
+            msg.angular.y + s.angular.y,
+            msg.angular.z + s.angular.z,
+        )
+        msg.linear.x, msg.linear.y, msg.linear.z = lx, ly, lz
+        msg.angular.x, msg.angular.y, msg.angular.z = ax, ay, az
+
+def publish_loop(last_joy_thruster_msg, clock, last_joy_thruster_time, joy_thruster_timeout, joy_thruster_stale, logger, twist_pub):
+    if last_joy_thruster_msg is None:
+            return
+
+    # Watchdog to prevent runaway if houston stops reveiving joystick messages
+    now = clock.now()
+    joy_stale = (
+        last_joy_thruster_time is not None
+        and (now - last_joy_thruster_time).nanoseconds * 1e-9 > joy_thruster_timeout
+    )
+    if joy_stale:
+        if not joy_thruster_stale:
+            logger.warn(
+                "Thruster joystick input stale; publishing neutral twist"
+            )
+            joy_thruster_stale = True
+        twist_pub.publish(Twist())
+        return joy_thruster_stale
+    if joy_thruster_stale:
+        logger.info("Thruster joystick input restored")
+        joy_thruster_stale = False
+    return joy_thruster_stale
+
+def try_parse_joystick_publish(last_joy_thruster_msg, parse_joystick, publish_twist, logger):
+    try:
+        parsed = parse_joystick(last_joy_thruster_msg, cfg_type="thruster_control")
+        # self.get_logger().info(str(parsed))
+
+        # Publish the result
+        publish_twist(parsed["axis"], parsed["button"])
+        return 
+    except Exception as e:
+        logger.error(f"Error processing thruster joystick input: {e}")

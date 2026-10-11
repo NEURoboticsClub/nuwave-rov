@@ -8,7 +8,7 @@ from ament_index_python.packages import get_package_share_directory
 from nuwave_utils_pkg.file_helpers import load_yaml
 import os
 import numpy as np
-from .houston_functions import scale_controller_input, parse_joystick, publish_expo_state,  publish_precision_mode_state,  publish_stabilize_state, joy_arm_callback, publish_arm_commands, publish_twist_get_msg, _scale_to_unit
+from .houston_functions import scale_controller_input, parse_joystick, publish_boolean, joy_arm_callback, publish_arm_commands, publish_twist_get_msg, set_button_enabled, check_if_stale_and_set_msg, publish_loop, try_parse_joystick_publish
 
 class Houston(Node):
     """Status node to map joytick inputs to Twist commands."""
@@ -89,7 +89,7 @@ class Houston(Node):
         self.get_logger().info("Houston Initialized")
 
     def publish_expo_state(self):
-         self.expo_mode_pub.publish(publish_expo_state(self.expo_enabled))
+         publish_boolean(self.expo_enabled, self.expo_mode_pub)
 
     def set_expo_enabled(self, enabled: bool, source: str):
         enabled = bool(enabled)
@@ -103,7 +103,7 @@ class Houston(Node):
         self.set_expo_enabled(msg.data, 'gui')
 
     def publish_precision_mode_state(self):
-        self.precision_mode_pub.publish(publish_precision_mode_state(self.precision_mode_enabled))
+        publish_boolean(self.precision_mode_enabled,self.precision_mode_pub)
 
     def set_precision_mode_enabled(self, enabled: bool, source: str):
         enabled = bool(enabled)
@@ -117,7 +117,7 @@ class Houston(Node):
         self.set_precision_mode_enabled(msg.data, 'gui')
 
     def publish_stabilize_state(self):
-        self.stabilize_mode_pub.publish(publish_stabilize_state(self.stabilize_enabled))
+        publish_boolean(self.stabilize_enabled, self.stabilize_mode_pub)
 
     def set_stabilize_enabled(self, enabled: bool, source: str):
         enabled = bool(enabled)
@@ -156,86 +156,25 @@ class Houston(Node):
         self.last_joy_thruster_time = self.get_clock().now()
 
     def _publish_loop(self):
-        if self.last_joy_thruster_msg is None:
-            return
-
-        # Watchdog to prevent runaway if houston stops reveiving joystick messages
-        now = self.get_clock().now()
-        joy_stale = (
-            self.last_joy_thruster_time is not None
-            and (now - self.last_joy_thruster_time).nanoseconds * 1e-9 > self.joy_thruster_timeout
-        )
-        if joy_stale:
-            if not self.joy_thruster_stale:
-                self.get_logger().warn(
-                    "Thruster joystick input stale; publishing neutral twist"
-                )
-                self.joy_thruster_stale = True
-            self.twist_pub.publish(Twist())
-            return
-        if self.joy_thruster_stale:
-            self.get_logger().info("Thruster joystick input restored")
-            self.joy_thruster_stale = False
-
-        try:
-            parsed = self.parse_joystick(self.last_joy_thruster_msg, cfg_type="thruster_control")
-            # self.get_logger().info(str(parsed))
-
-            # Publish the result
-            self.publish_twist(parsed["axis"], parsed["button"])
-        except Exception as e:
-            self.get_logger().error(f"Error processing thruster joystick input: {e}")
+       self.joy_thruster_stale = publish_loop(self.last_joy_thruster_msg, self.get_clock(), self.last_joy_thruster_time, self.joy_thruster_timeout, self.joy_thruster_stale, self.get_logger(), self.parse_joystick, self.twist_pub, self.publish_twist)
+       try_parse_joystick_publish(self.last_joy_thruster_msg, self.parse_joystick, self.publish_twist, self.get_logger())
 
     def parse_joystick(self, msg: Joy, cfg_type: str) -> dict:
-        cfg_list = self.joy_map.get(cfg_type, [])
-
-        return parse_joystick(cfg_list, msg, self.expo_enabled)
+        return parse_joystick(self.joy_map.get(cfg_type, []), msg, self.expo_enabled)
 
 
     def publish_twist(self, axis_values, button_values):
         """Publish the twist velocity command."""
-        stab_btn = int(button_values.get('stabilize_toggle', 0))
-        if stab_btn == 1 and self.prev_stabilize_button == 0:
-            self.set_stabilize_enabled(not self.stabilize_enabled, 'controller')
-        self.prev_stabilize_button = stab_btn
+        set_button_enabled(button_values, 'stabilize_toggle', self.prev_stabilize_button, self.set_stabilize_enabled, self.stabilize_enabled)
+        
+        set_button_enabled(button_values, "expo_toggle", self.prev_expo_toggle_button, self.set_expo_enabled, self.expo_enabled)
     
-        expo_btn = int(button_values.get('expo_toggle', 0))
-        if expo_btn == 1 and self.prev_expo_toggle_button == 0:
-            self.set_expo_enabled(not self.expo_enabled, 'controller')
-        self.prev_expo_toggle_button = expo_btn
-    
-        precision_btn = int(button_values.get('precision_toggle', 0))
-        if precision_btn == 1 and self.prev_precision_toggle_button == 0:
-            self.set_precision_mode_enabled(not self.precision_mode_enabled, 'controller')
-        self.prev_precision_toggle_button = precision_btn
+        set_button_enabled(button_values, 'precision_toggle', self.prev_precision_toggle_button, self.precision_mode_enabled, self.precision_mode_enabled)
     
         msg = publish_twist_get_msg(axis_values, button_values)
     
         if self.stabilize_enabled:
-            now = self.get_clock().now()
-            stale = (
-                self.last_stabilizer_time is not None
-                and (now - self.last_stabilizer_time).nanoseconds * 1e-9 > self.stabilizer_timeout
-            )
-            if stale:
-                self.set_stabilize_enabled(False, 'stale_data')
-                self.get_logger().warn(
-                    "Stabilizer messages stale; stabilization disabled"
-                )
-            elif self.last_stabilizer_time is not None:
-                s = self.last_stabilizer_twist
-                lx, ly, lz = _scale_to_unit(
-                    msg.linear.x + s.linear.x,
-                    msg.linear.y + s.linear.y,
-                    msg.linear.z + s.linear.z,
-                )
-                ax, ay, az = _scale_to_unit(
-                    msg.angular.x + s.angular.x,
-                    msg.angular.y + s.angular.y,
-                    msg.angular.z + s.angular.z,
-                )
-                msg.linear.x, msg.linear.y, msg.linear.z = lx, ly, lz
-                msg.angular.x, msg.angular.y, msg.angular.z = ax, ay, az
+            check_if_stale_and_set_msg(self.get_clock(), self.last_stabilizer_time, self.last_stabilizer_twist, self.stabilizer_timeout, self.set_stabilize_enabled, self.get_logger(), msg)
     
         self.twist_pub.publish(msg)
 
