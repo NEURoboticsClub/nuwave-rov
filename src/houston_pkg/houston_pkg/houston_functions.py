@@ -75,73 +75,31 @@ def parse_joystick(cfg_list, msg, is_expo_enabled) -> dict:
     return {"axis": axis_values, "button": button_values}
 
 
-def publish_expo_state(self):
+def publish_expo_state(expo_enabled):
         msg = Bool()
-        msg.data = bool(self.expo_enabled)
-        self.expo_mode_pub.publish(msg)
+        msg.data = bool(expo_enabled)
+        return msg
 
-def set_expo_enabled(self, enabled: bool, source: str):
-    enabled = bool(enabled)
-    if self.expo_enabled == enabled:
-        return
-    self.expo_enabled = enabled
-    self.publish_expo_state()
-    self.get_logger().info(f"Exponential controls: {'ON' if self.expo_enabled else 'OFF'} (source={source})")
 
-def publish_precision_mode_state(self):
+def publish_precision_mode_state(precision_mode_enabled):
     msg = Bool()
-    msg.data = bool(self.precision_mode_enabled)
-    self.precision_mode_pub.publish(msg)
+    msg.data = bool(precision_mode_enabled)
+    return msg
 
-def set_precision_mode_enabled(self, enabled: bool, source: str):
-    enabled = bool(enabled)
-    if self.precision_mode_enabled == enabled:
-        return
-    self.precision_mode_enabled = enabled
-    self.publish_precision_mode_state()
-    self.get_logger().info(f"Precision mode: {'ON' if self.precision_mode_enabled else 'OFF'} (source={source})")
 
-def publish_stabilize_state(self):
+def publish_stabilize_state(stabilize_enabled):
     msg = Bool()
-    msg.data = bool(self.stabilize_enabled)
-    self.stabilize_mode_pub.publish(msg)
-
-def set_stabilize_enabled(self, enabled: bool, source: str):
-    enabled = bool(enabled)
-    if self.stabilize_enabled == enabled:
-        return
-    self.stabilize_enabled = enabled
-    self.publish_stabilize_state()
-    self.get_logger().info(f"Stabilization mode: {'ON' if self.stabilize_enabled else 'OFF'} (source={source})")
-    if self.stabilize_enabled:
-        self.capture_pub.publish(Empty())
+    msg.data = bool(stabilize_enabled)
+    return msg
 
 
-def joy_arm_callback(self, msg):
-    self.last_joy_arm_msg = msg
-    return_map = self.parse_joystick(msg, cfg_type="arm_control")
+
+def joy_arm_callback(msg):
+    return_map = parse_joystick(msg, cfg_type="arm_control")
     # self.get_logger().info(str(return_map))
+    return return_map
 
-    self.publish_arm_commands(return_map["axis"], return_map["button"])
-
-
-def publish_twist(self, axis_values, button_values):
-    """Publish the twist velocity command."""
-    stab_btn = int(button_values.get('stabilize_toggle', 0))
-    if stab_btn == 1 and self.prev_stabilize_button == 0:
-        self.set_stabilize_enabled(not self.stabilize_enabled, 'controller')
-    self.prev_stabilize_button = stab_btn
-
-    expo_btn = int(button_values.get('expo_toggle', 0))
-    if expo_btn == 1 and self.prev_expo_toggle_button == 0:
-        self.set_expo_enabled(not self.expo_enabled, 'controller')
-    self.prev_expo_toggle_button = expo_btn
-
-    precision_btn = int(button_values.get('precision_toggle', 0))
-    if precision_btn == 1 and self.prev_precision_toggle_button == 0:
-        self.set_precision_mode_enabled(not self.precision_mode_enabled, 'controller')
-    self.prev_precision_toggle_button = precision_btn
-
+def publish_twist_get_msg(axis_values, button_values):
     msg = Twist()
     msg.angular.x = float(axis_values.get('pitch', 0.0))
     msg.angular.y = float(button_values.get('roll_right', 0.0)) - float(button_values.get('roll_left', 0.0))
@@ -151,38 +109,6 @@ def publish_twist(self, axis_values, button_values):
     msg.linear.x = float(axis_values.get('strafe', 0.0))
     msg.linear.y = float(axis_values.get('drive_forward', 0.0))
     msg.linear.z = (float(axis_values.get('up', 0.0)) - float(axis_values.get('down', 0.0))) * 0.5
-
-    def _scale_to_unit(x, y, z):
-        m = max(abs(x), abs(y), abs(z), 1.0)
-        return x / m, y / m, z / m
-
-    if self.stabilize_enabled:
-        now = self.get_clock().now()
-        stale = (
-            self.last_stabilizer_time is not None
-            and (now - self.last_stabilizer_time).nanoseconds * 1e-9 > self.stabilizer_timeout
-        )
-        if stale:
-            self.set_stabilize_enabled(False, 'stale_data')
-            self.get_logger().warn(
-                "Stabilizer messages stale; stabilization disabled"
-            )
-        elif self.last_stabilizer_time is not None:
-            s = self.last_stabilizer_twist
-            lx, ly, lz = _scale_to_unit(
-                msg.linear.x + s.linear.x,
-                msg.linear.y + s.linear.y,
-                msg.linear.z + s.linear.z,
-            )
-            ax, ay, az = _scale_to_unit(
-                msg.angular.x + s.angular.x,
-                msg.angular.y + s.angular.y,
-                msg.angular.z + s.angular.z,
-            )
-            msg.linear.x, msg.linear.y, msg.linear.z = lx, ly, lz
-            msg.angular.x, msg.angular.y, msg.angular.z = ax, ay, az
-
-    self.twist_pub.publish(msg)
 
 def publish_arm_commands(axis_values, button_values):
     msg = Float32MultiArray()
@@ -195,3 +121,7 @@ def publish_arm_commands(axis_values, button_values):
         (float(button_values.get('claw_open_input', 0.0)) - float(button_values.get('claw_close_input', 0.0))), 
     ]
     return msg
+
+def _scale_to_unit(x, y, z):
+    m = max(abs(x), abs(y), abs(z), 1.0)
+    return x / m, y / m, z / m
