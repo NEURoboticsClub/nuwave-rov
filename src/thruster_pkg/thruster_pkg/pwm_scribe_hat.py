@@ -5,7 +5,9 @@ class PWMScribeHat(PWMScribeBase):
     def __init__(self, bus, addr):
         self.board = PCA9685(bus=bus, address=addr)
 
-    def setup(self, pwm_freq : int):
+    def setup(self, pwm_freq: int):
+        if pwm_freq != 50:
+            raise ValueError(f'PWM hat requires 50 Hz, got {pwm_freq} Hz')
         self.board.setPWMFreq(pwm_freq)
 
     def set_pwm(self, channel: int, pwm_us: float):
