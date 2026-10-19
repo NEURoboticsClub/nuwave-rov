@@ -2,7 +2,7 @@
 
 ## Purpose
 
-The `power_monitor_pkg` package reads bus voltage, current, power, and shunt voltage from INA226 power monitors through I2C. The node `power_monitor_pub` publishes each reading as its own ROS 2 topic.
+The `power_monitor_pkg` package reads bus voltage, current, power, and shunt voltage from INA226 power monitors through I2C. The `power_monitor` node publishes each reading as its own ROS 2 topic.
 
 Measurements are published at a fixed rate. There is also a launch file that starts one node for each monitor listed in a YAML config file. If the INA226 can't be set up when the node starts, an error is logged and it exits. If a read fails while the node is running, it logs the error once and won't log it again until a read works. 
 
@@ -20,7 +20,7 @@ ros2 launch power_monitor_pkg multi_power_monitor.launch.py \
 
 ### Running a single monitor
 ```
-ros2 run power_monitor_pkg power_monitor_pub \
+ros2 run power_monitor_pkg power_monitor_node \
   --ros-args \
   -p i2c_address:=0x4F \
   -p i2c_bus:=1 \
