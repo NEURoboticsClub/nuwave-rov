@@ -11,7 +11,7 @@ import numpy as np
 class StabilizationNode(Node):
     def __init__(self):
         # ROS2 stuff
-        super().__init__('stabilization_node')
+        super().__init__('stabilization')
 
         # Parameters
         self.declare_parameter('publish_rate_hz', 50.0)

@@ -1,5 +1,5 @@
 # Joystick Configuration
-# Use joystick_identify node to figure out which axis does what
+# Use joystick_identify_node to figure out which axis does what
 
 # strafe, drive_forward, yaw, pitch, up, down
 

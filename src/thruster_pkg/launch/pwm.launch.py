@@ -11,7 +11,7 @@ def generate_launch_description():
         Node(
             package='thruster_pkg',
             executable='pwm_node',
-            name='pwm_node',
+            name='pwm',
             parameters=[params],
             output='screen'
         )

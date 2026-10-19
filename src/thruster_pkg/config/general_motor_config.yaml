@@ -1,4 +1,4 @@
-thruster_node:
+/**:
   ros__parameters:
     i2c_bus: 7
     i2c_address: 64
