@@ -18,7 +18,7 @@ class PWMNode(Node):
     Safety: clamp, watchdog timeout -> neutral, optional slew limiting
     """
 
-    def __init__(self, node_name='pwm_node', **kwargs):
+    def __init__(self, node_name='pwm', **kwargs):
         super().__init__(node_name, **kwargs)
         # Params
         self.declare_parameter('pwm_freq_hz', 50)             # ESC expects ~50 Hz

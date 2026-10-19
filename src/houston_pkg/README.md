@@ -16,17 +16,17 @@ Uses ROS2 built-in Joy package, requires ros-humble-joy dependency, along with a
 ## How to run
 ### Running with default configs
 ```
-ros2 run houston_pkg houston
+ros2 run houston_pkg houston_node
 ```
 
 ### Creating new config
 ```
-ros2 run houston_pkg joystick_identify --ros-args -p joy_topic:=/joy_thruster -p output_file:=/path/to/new_joystick_config.yaml
+ros2 run houston_pkg joystick_identify_node --ros-args -p joy_topic:=/joy_thruster -p output_file:=/path/to/new_joystick_config.yaml
 ```
 
 ### Using a custom config
 ```
-ros2 run houston_pkg houston \
+ros2 run houston_pkg houston_node \
   --ros-args \
   -p joy_config:=/path/to/joystick_config.yaml \
   -p joy_thruster:=/joy_thruster \
