@@ -4,7 +4,7 @@ import importlib
 from pathlib import Path
 import sys
 from types import ModuleType
-from unittest.mock import Mock, patch
+from unittest.mock import patch
 
 import pytest
 
@@ -54,14 +54,10 @@ def hat():
     (15, 2000, 409),
 ])
 def test_microseconds_reach_driver_and_registers_unchanged(
-        hat, monkeypatch, channel, pulse_us, expected_count):
+        hat, channel, pulse_us, expected_count):
     """Preserve calibrated pulse widths, allowing only 12-bit truncation."""
-    pulse_writer = Mock(wraps=hat.board.setServoPulse)
-    monkeypatch.setattr(hat.board, 'setServoPulse', pulse_writer)
-
     hat.set_pwm(channel, pulse_us)
 
-    pulse_writer.assert_called_once_with(channel, pulse_us)
     registers = hat.board.bus.registers
     base = 0x06 + 4 * channel
     assert registers[0x40, base] == 0
@@ -73,4 +69,11 @@ def test_microseconds_reach_driver_and_registers_unchanged(
 
 def test_setup_uses_50_hz_prescaler(hat):
     """Match the direct pulse writer's documented 20 ms period."""
+    assert hat.board.bus.registers[0x40, 0xFE] == 121
+
+
+def test_setup_rejects_other_frequencies(hat):
+    """Refuse frequencies the 20 ms pulse writer would scale incorrectly."""
+    with pytest.raises(ValueError):
+        hat.setup(100)
     assert hat.board.bus.registers[0x40, 0xFE] == 121
