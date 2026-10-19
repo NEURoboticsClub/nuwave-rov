@@ -14,19 +14,17 @@ The node also includes a watchdog that sets all thruster commands to zero if no 
 ros2 run thruster_controller_pkg thruster_controller_node
 ```
 
-### Creating new config
+### Creating new joystick config
 ```
-ros2 run thruster_controller_pkg joystick_identify
+ros2 run houston_pkg joystick_identify_node
 ```
 
 ### Using a custom config
 ```
-ros2 run thruster_controller_pkg thruster_controller \
+ros2 run thruster_controller_pkg thruster_controller_node \
   --ros-args \
-  -p joy_config:=/path/to/joystick_config.yaml \
   -p thruster_config:=/path/to/thruster_config.yaml \
-  -p joy_topic:=/joy \
-  -p thruster_topic:=/thruster
+  -p thruster_topic:=velocity_commands
 ```
 One or more of the above params are optional
 

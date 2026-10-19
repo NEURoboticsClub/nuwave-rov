@@ -10,7 +10,7 @@ setup(
         ('share/ament_index/resource_index/packages',
             ['resource/' + package_name]),
         ('share/' + package_name, ['package.xml']),
-        ('share/' + package_name + '/launch', ['launch/multi_camera_launch.launch.py']),
+        ('share/' + package_name + '/launch', ['launch/multi_camera.launch.py']),
     ],
     install_requires=['setuptools', 'cv2_enumerate_cameras'],
     zip_safe=True,
@@ -20,7 +20,8 @@ setup(
     license='TODO: License declaration',
     entry_points={
         'console_scripts': [
-            'camera_publisher = camera_pkg.openCVStreaming:main',
+            'camera_node = camera_pkg.camera_node:main',
+            'mock_cameras_node = camera_pkg.mock_cameras_node:main',
         ],
     },
 )

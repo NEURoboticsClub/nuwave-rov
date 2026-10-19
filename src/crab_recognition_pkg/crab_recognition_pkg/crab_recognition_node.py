@@ -19,7 +19,7 @@ DEFAULT_CAMERA_COUNT = 4
 
 class CrabRecognitionNode(Node):
     def __init__(self):
-        super().__init__('crab_recognition_node')
+        super().__init__('crab_recognition')
 
         self.declare_parameter('model_path', DEFAULT_MODEL_PATH)
         self.declare_parameter('output_path', DEFAULT_OUTPUT_PATH)

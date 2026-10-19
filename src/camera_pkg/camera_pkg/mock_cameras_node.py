@@ -4,7 +4,7 @@ Matches the real camera output (sensor_msgs/CompressedImage, format='jpeg')
 on /camera_{0..3}/image/compressed, so the web GUI and screenshot button
 work with no real cameras attached.
 
-    python3 src/camera_pkg/camera_pkg/mock_cameras_node.py
+    ros2 run camera_pkg mock_cameras_node
 """
 import rclpy
 from rclpy.node import Node

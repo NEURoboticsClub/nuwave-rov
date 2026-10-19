@@ -1,5 +1,5 @@
 from .pwm_scribe_base import PWMScribeBase
-from .PCA9685 import PCA9685
+from .pca9685_driver import PCA9685
 
 class PWMScribeHat(PWMScribeBase):
     def __init__(self, bus, addr):

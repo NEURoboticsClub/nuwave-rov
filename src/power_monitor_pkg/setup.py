@@ -26,7 +26,7 @@ setup(
     },
     entry_points={
         'console_scripts': [
-            'power_monitor_pub_node = power_monitor_pkg.power_monitor_pub_node:main',
+            'power_monitor_node = power_monitor_pkg.power_monitor_node:main',
         ],
     },
 )

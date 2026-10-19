@@ -3,9 +3,9 @@
 # Runs the following commands in seperate terminals:
 # - ros2 run thruster_pkg pwm_node
 # - ros2 run stabilization_pkg stabilization_node
-# - ros2 run rov_depth_sensor depth_sensor_node
-# - ros2 run camera_pkg camera_publisher --ros-args -p camera_id:=0
-# - ros2 run imu_pkg imu_pub_node
+# - ros2 run depth_sensor_pkg depth_sensor_node
+# - ros2 run camera_pkg camera_node --ros-args -p camera_id:=0
+# - ros2 run imu_pkg imu_node
 # (power monitor launch kept below for future use, currently removed)
 
 # Usage: setup_terminals_bottomside.sh [-d] [-s]
@@ -40,9 +40,9 @@ Spawns all ROS2 nodes for bottomside (ROV) in a terminator window.
 Panes:
   Thruster + Arm   ros2 run thruster_pkg pwm_node
   Stabilization    ros2 run stabilization_pkg stabilization_node
-  Depth Sensor     ros2 run rov_depth_sensor depth_sensor_node
-  IMU              ros2 run imu_pkg imu_pub_node
-  Camera           ros2 run camera_pkg camera_publisher --ros-args -p camera_id:=0
+  Depth Sensor     ros2 run depth_sensor_pkg depth_sensor_node
+  IMU              ros2 run imu_pkg imu_node
+  Camera           ros2 run camera_pkg camera_node --ros-args -p camera_id:=0
 
 Options:
   -d    Skip colcon build step (faster if already compiled)
@@ -103,9 +103,9 @@ if [ "$USE_SSH" = true ]; then
     STABILIZATION_LAUNCH=$(wrap_ssh  "$SETUP && ros2 run stabilization_pkg stabilization_node")
     # Power monitor pane is disabled for now; kept for future use
     POWER_MONITOR_LAUNCH=$(wrap_ssh  "$SETUP && ros2 launch power_monitor_pkg multi_power_monitor.launch.py")
-    DEPTH_SENSOR_LAUNCH=$(wrap_ssh   "$SETUP && ros2 run rov_depth_sensor depth_sensor_node")
-    CAMERA_LAUNCH=$(wrap_ssh         "$SETUP && ros2 launch camera_pkg multi_camera_launch.launch.py")
-    IMU_LAUNCH=$(wrap_ssh            "$SETUP && ros2 run imu_pkg imu_pub_node")
+    DEPTH_SENSOR_LAUNCH=$(wrap_ssh   "$SETUP && ros2 run depth_sensor_pkg depth_sensor_node")
+    CAMERA_LAUNCH=$(wrap_ssh         "$SETUP && ros2 launch camera_pkg multi_camera.launch.py")
+    IMU_LAUNCH=$(wrap_ssh            "$SETUP && ros2 run imu_pkg imu_node")
 else
     echo "Starting bottomside setup locally..."
     echo "  WS=$WS  ROS_DOMAIN_ID=$ROS_DOMAIN_ID  ROS_LOCALHOST_ONLY=$ROS_LOCALHOST_ONLY"
@@ -130,9 +130,9 @@ else
     STABILIZATION_LAUNCH="$SETUP && ros2 run stabilization_pkg stabilization_node"
     # Power monitor pane is disabled for now; kept for future use
     POWER_MONITOR_LAUNCH="$SETUP && ros2 launch power_monitor_pkg multi_power_monitor.launch.py"
-    DEPTH_SENSOR_LAUNCH="$SETUP && ros2 run rov_depth_sensor depth_sensor_node"
-    CAMERA_LAUNCH="$SETUP && ros2 launch camera_pkg multi_camera_launch.launch.py"
-    IMU_LAUNCH="$SETUP && ros2 run imu_pkg imu_pub_node"
+    DEPTH_SENSOR_LAUNCH="$SETUP && ros2 run depth_sensor_pkg depth_sensor_node"
+    CAMERA_LAUNCH="$SETUP && ros2 launch camera_pkg multi_camera.launch.py"
+    IMU_LAUNCH="$SETUP && ros2 run imu_pkg imu_node"
 fi
 
 LAYOUT_FILE=$(mktemp /tmp/terminator_ros2_setup_bottomside_XXXX.conf)
