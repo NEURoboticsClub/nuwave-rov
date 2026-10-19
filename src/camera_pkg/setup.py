@@ -18,6 +18,11 @@ setup(
     maintainer_email='charlotteolivia930@gmail.com',
     description='ExploreHD cameras',
     license='TODO: License declaration',
+    extras_require={
+        'test': [
+            'pytest',
+        ],
+    },
     entry_points={
         'console_scripts': [
             'camera_node = camera_pkg.camera_node:main',
