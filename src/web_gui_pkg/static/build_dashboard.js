@@ -34,9 +34,17 @@ function setGuiToggleButtonState(topic, isEnabled) {
 }
 
 function publishMessage(topic, data) {
-  if (typeof window.ws !== "undefined" && window.ws && window.ws.send) {
-    const message = JSON.stringify({ topic, data });
-    window.ws.send(message);
+  const socket = window.ws;
+  if (!socket || typeof socket.send !== "function" || socket.readyState !== WebSocket.OPEN) {
+    console.warn("GUI command skipped: dashboard is disconnected.");
+    return false;
+  }
+  try {
+    socket.send(JSON.stringify({ topic, data }));
+    return true;
+  } catch (error) {
+    console.warn("GUI command could not be sent:", error);
+    return false;
   }
 }
 
@@ -780,9 +788,12 @@ function buildButtonPanel() {
             button.setAttribute("aria-pressed", "false");
             dashboard.toggleButtons.set(config.topic, button);
             button.addEventListener("click", () => {
-                const isPressed = button.classList.toggle("is-active");
+                const isPressed = !button.classList.contains("is-active");
+                if (!publishMessage(config.topic, isPressed)) {
+                    return;
+                }
+                button.classList.toggle("is-active", isPressed);
                 button.setAttribute("aria-pressed", String(isPressed));
-                publishMessage(config.topic, isPressed);
                 if (config.topic === "/gui_buttons/take_video") {
                     const dashboardEl = document.getElementById("dashboard");
                     dashboardEl.classList.toggle("recording", isPressed);
@@ -1063,13 +1074,16 @@ function buildCameraPanel() {
 
         card.style.cursor = "pointer";
         card.addEventListener("click", () => {
-            state.recordEnabled = !state.recordEnabled;
-            card.classList.toggle("camera-card--rec-on", state.recordEnabled);
-            card.classList.toggle("camera-card--rec-off", !state.recordEnabled);
-            publishMessage("/gui_buttons/camera_record", {
+            const enabled = !state.recordEnabled;
+            if (!publishMessage("/gui_buttons/camera_record", {
                 camera: cameraId,
-                enabled: state.recordEnabled,
-            });
+                enabled,
+            })) {
+                return;
+            }
+            state.recordEnabled = enabled;
+            card.classList.toggle("camera-card--rec-on", enabled);
+            card.classList.toggle("camera-card--rec-off", !enabled);
         });
 
         dashboard.cameras.set(cameraId, state);
