@@ -1,0 +1,30 @@
+name: arm-controller tests
+
+on:
+  pull_request:
+    paths:
+      - src/arm_controller_pkg/**
+      - .github/workflows/arm-controller-tests.yml
+  push:
+    branches: [main]
+    paths:
+      - src/arm_controller_pkg/**
+      - .github/workflows/arm-controller-tests.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  arm-controller:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install test dependencies
+        run: python -m pip install pytest numpy PyYAML
+      - name: Test production node with controlled external interfaces
+        run: python -m pytest -q src/arm_controller_pkg/test/test_arm_controller_node.py
