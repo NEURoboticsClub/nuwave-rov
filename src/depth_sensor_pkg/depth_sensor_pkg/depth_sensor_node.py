@@ -91,7 +91,7 @@ class DepthSensorNode(Node):
             
             # Update depth list (your sliding window logic)
             self.depth_list.append(depth)
-            if len(self.depth_list) >= self.depth_list_length:
+            if len(self.depth_list) > self.depth_list_length:
                 self.depth_list.pop(0)
             
             # Publish current depth
