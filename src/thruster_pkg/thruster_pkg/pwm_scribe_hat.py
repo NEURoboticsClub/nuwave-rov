@@ -11,11 +11,8 @@ class PWMScribeHat(PWMScribeBase):
         self.board.setPWMFreq(pwm_freq)
 
     def set_pwm(self, channel: int, pwm_us: float):
-        """Write microseconds directly; the board pulse writer requires 50 Hz."""
-        try:
-            self.board.setServoPulse(channel, pwm_us)
-        except Exception as e:
-            print(f'Failed to send pulse to channel {channel}: {e}')
+        """Write microseconds; let the node report hardware errors, including failed stops."""
+        self.board.setServoPulse(channel, pwm_us)
 
     def shutdown(self):
         self.board.exit_PCA9685()
