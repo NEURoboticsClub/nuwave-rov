@@ -1,0 +1,20 @@
+name: yaml-error-logging
+on:
+  pull_request:
+    paths:
+      - src/nuwave_utils_pkg/nuwave_utils_pkg/file_helpers.py
+      - src/nuwave_utils_pkg/test/test_file_helpers.py
+      - .github/workflows/yaml-error-logging.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install pytest PyYAML
+      - run: python -m pytest -q src/nuwave_utils_pkg/test/test_file_helpers.py
