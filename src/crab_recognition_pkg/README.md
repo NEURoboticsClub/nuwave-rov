@@ -2,7 +2,7 @@
 
 ## Purpose
 
-The `crab_recognition_node` node runs a YOLO model against live camera frames to detect European green crabs. On trigger, it runs detection once per camera, draws bounding boxes and a per-camera count on the frame, and saves the annotated images to disk.
+The `crab_recognition` node runs a YOLO model against live camera frames to detect European green crabs. On trigger, it runs detection once per camera, draws bounding boxes and a per-camera count on the frame, and saves the annotated images to disk.
 
 It subscribes to one or more compressed camera image topics and buffers the latest frame from each. When triggered via a boolean topic, it runs the model against the most recently received frame from every camera and writes the annotated results as separate image files.
 
@@ -11,13 +11,13 @@ It subscribes to one or more compressed camera image topics and buffers the late
 ### Running with default configs
 
 ```
-ros2 run crab_recognition_pkg crab_recognition
+ros2 run crab_recognition_pkg crab_recognition_node
 ```
 
 ### Using a custom config
 
 ```
-ros2 run crab_recognition_pkg crab_recognition \
+ros2 run crab_recognition_pkg crab_recognition_node \
   --ros-args \
   -p model_path:=/path/to/model.pt \
   -p output_path:=/path/to/result.jpg \
@@ -78,6 +78,10 @@ Each camera subscription uses a best-effort, keep-last-1 QoS profile suited to h
 * `opencv-python` (`cv2`)
 * `numpy`
 * `ultralytics`
+
+### Project Packages
+
+None.
 
 ## External Documentation
 
