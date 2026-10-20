@@ -107,14 +107,16 @@ def main(args=None):
     node = JoystickIdentify()
 
     try:
-        rclpy.spin(node)
-    except KeyboardInterrupt:
-        pass
+        try:
+            rclpy.spin(node)
+        except KeyboardInterrupt:
+            pass
 
-    # After user stops the node, run interactive setup
-    node.interactive_setup()
-    node.destroy_node()
-    rclpy.shutdown()
+        # After user stops the node, run interactive setup.
+        node.interactive_setup()
+    finally:
+        node.destroy_node()
+        rclpy.shutdown()
 
 
 if __name__ == '__main__':
