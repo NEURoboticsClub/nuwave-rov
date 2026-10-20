@@ -289,6 +289,10 @@ class WebBridgeNode(Node):
             self.get_logger().warning('Ignoring non-JSON websocket payload')
             return
 
+        if not isinstance(payload, dict):
+            self.get_logger().warning('Ignoring websocket payload that is not an object')
+            return
+
         topic = payload.get('topic')
         data = payload.get('data')
         if not isinstance(topic, str):
