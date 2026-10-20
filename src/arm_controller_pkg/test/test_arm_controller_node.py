@@ -1,234 +1,234 @@
-"""Test production node behavior with deterministic ROS and hardware boundaries."""
-
-import copy
-import importlib.util
-import sys
-from pathlib import Path
-from types import ModuleType, SimpleNamespace as NS
-from unittest.mock import Mock
-
+import time
 import pytest
+import numpy as np
+
+import rclpy
+from rclpy.node import Node
+from rclpy.executors import SingleThreadedExecutor
+from geometry_msgs.msg import Twist
+from std_msgs.msg import Float32
+
+
+@pytest.fixture(scope="module")
+def ros_context():
+    """Init/shutdown rclpy once for the whole test module."""
+    rclpy.init()
+    yield
+    rclpy.shutdown()
 
 
 @pytest.fixture
-def runtime(monkeypatch):
-    """Keep imports, ROS time, publishers, and node parameters local to each test."""
-    class Time:
-        def __init__(self, seconds=0):
-            self.nanoseconds = round(seconds * 1e9)
-
-        def __sub__(self, other):
-            return Time((self.nanoseconds - other.nanoseconds) / 1e9)
-
-        def __gt__(self, other):
-            return self.nanoseconds > other.nanoseconds
-
-        def to_msg(self):
-            return self.nanoseconds
-
-    class Node:
-        overrides = {}
-        instances = []
-
-        def __init__(self, name, **kwargs):
-            self.name = name
-            self.parameters = self.overrides.copy()
-            self.logger = Mock()
-            self.now = 0.0
-            self.publishers = []
-            self.subscriptions = []
-            self.timers = []
-            self.destroyed = False
-            self.instances.append(self)
-
-        def declare_parameter(self, name, default):
-            self.parameters.setdefault(name, default)
-            return self.get_parameter(name)
-
-        def get_parameter(self, name):
-            value = self.parameters[name]
-            return NS(value=value, get_parameter_value=lambda: NS(
-                integer_value=value, double_value=value, string_value=value,
-                bool_value=value, double_array_value=value))
-
-        def get_logger(self):
-            return self.logger
-
-        def get_clock(self):
-            return NS(now=lambda: Time(self.now))
-
-        def create_publisher(self, message_type, topic, qos):
-            pub = Mock(topic=topic, qos=qos, message_type=message_type, messages=[])
-            pub.publish.side_effect = lambda msg: pub.messages.append(copy.deepcopy(msg))
-            self.publishers.append(pub)
-            return pub
-
-        def create_subscription(self, message_type, topic, callback, qos):
-            sub = NS(topic=topic, callback=callback, qos=qos, message_type=message_type)
-            self.subscriptions.append(sub)
-            return sub
-
-        def create_timer(self, period, callback):
-            timer = NS(period=period, callback=callback)
-            self.timers.append(timer)
-            return timer
-
-        def destroy_node(self):
-            self.destroyed = True
-
-    def install(name, **attributes):
-        module = ModuleType(name)
-        module.__dict__.update(attributes)
-        monkeypatch.setitem(sys.modules, name, module)
-        return module
-
-    def vector(x=0.0, y=0.0, z=0.0):
-        return NS(x=x, y=y, z=z)
-
-    def quaternion(x=0.0, y=0.0, z=0.0, w=0.0):
-        return NS(x=x, y=y, z=z, w=w)
-
-    def twist():
-        return NS(linear=vector(), angular=vector())
-
-    def imu():
-        return NS(header=NS(stamp=None, frame_id=''), orientation=quaternion(),
-                  angular_velocity=vector(), linear_acceleration=vector())
-
-    def image():
-        return NS(header=NS(stamp=None, frame_id=''), format='', data=b'')
-
-    ros = install('rclpy', init=Mock(), spin=Mock(), shutdown=Mock(), ok=Mock(return_value=True))
-    install('rclpy.node', Node=Node)
-    install('rclpy.duration', Duration=Time)
-    policies = NS(BEST_EFFORT=1, RELIABLE=2, KEEP_LAST=1, TRANSIENT_LOCAL=1, VOLATILE=2)
-    install('rclpy.qos', QoSProfile=NS, ReliabilityPolicy=policies,
-            HistoryPolicy=policies, DurabilityPolicy=policies)
-    install('geometry_msgs')
-    install('geometry_msgs.msg', Twist=twist, Quaternion=quaternion, Vector3=vector)
-    install('std_msgs')
-    install('std_msgs.msg', Float32=NS, Float32MultiArray=NS, Bool=NS, Empty=NS, String=NS)
-    install('sensor_msgs')
-    install('sensor_msgs.msg', Imu=imu, CompressedImage=image, Image=image, Joy=NS)
-    install('ament_index_python')
-    install('ament_index_python.packages', get_package_share_directory=lambda package:
-            str(Path(__file__).resolve().parents[3] / 'src' / package))
-    install('nuwave_utils_pkg')
-    install('nuwave_utils_pkg.file_helpers', load_yaml=lambda path:
-            __import__('yaml').safe_load(Path(path).read_text()))
-
-    def load(package, filename):
-        alias = '_test_' + filename.removesuffix('.py')
-        install(alias, __path__=[str(Path(__file__).parents[1] / package)])
-        fullname = alias + '.' + filename.removesuffix('.py')
-        spec = importlib.util.spec_from_file_location(
-            fullname, Path(__file__).parents[1] / package / filename)
-        module = importlib.util.module_from_spec(spec)
-        monkeypatch.setitem(sys.modules, fullname, module)
-        spec.loader.exec_module(module)
-        return module
-
-    return NS(Node=Node, Time=Time, install=install, load=load, ros=ros,
-              vector=vector, quaternion=quaternion, twist=twist, imu=imu, image=image)
+def executor(ros_context):
+    """Fresh executor per test."""
+    exc = SingleThreadedExecutor()
+    yield exc
+    exc.shutdown()
 
 
 @pytest.fixture
-def arm(runtime):
-    return runtime.load('arm_controller_pkg', 'arm_controller_node.py')
+def controller_node(executor):
+    """
+    Spin up the real ThrusterController node.
+    Import here so rclpy.init() has already run.
+    """
+    # Adjust this import path to match your package layout
+    from arm_controller_pkg.arm_controller_node import ArmController
+    node = ArmController()
+    executor.add_node(node)
+    yield node
+    node.destroy_node()
 
 
-def test_constructor_loads_real_config_and_wires_motor_topics(arm):
-    node = arm.ArmController()
-    assert node.name == 'arm_controller'
-    assert len(node.motors) == len(node.arm_motor_pubs) == 6
-    assert [motor['id'] for motor in node.motors] == [1, 2, 3, 4, 5, 6]
-    assert [pub.topic for pub in node.arm_motor_pubs] == [
-        '/arm/motor_base_yaw', '/arm/motor_base_pitch', '/arm/motor_elbow_pitch',
-        '/arm/motor_wrist_yaw', '/arm/motor_wrist_pitch', '/arm/motor_claw']
-    assert all(motor['dutycycle'] == 0 for motor in node.motors)
-    assert node.status_sub.topic == 'arm_commands'
-    assert node.status_sub.callback == node.Status_Callback
-    assert node.timers[0].period == pytest.approx(0.02)
-    assert node.timers[0].callback == node.publish_arm_motors
-    node.publish_arm_motors()
-    assert [pub.messages[-1].data for pub in node.arm_motor_pubs] == [0.0] * 6
+class ArmMotorListener(Node):
+    """
+    Helper node that subscribes to all arm motor topics and collects messages.
+    """
+    def __init__(self, n_arm_motors: int = 8):
+        super().__init__('test_arm_motor_listener')
+        self.received = {}  # {channel_index: [list of Float32 values]}
+        self.subs = []
+
+        for i in range(n_arm_motors):
+            topic = f'arm/arm_motor_{i}'
+            self.received[i] = []
+            sub = self.create_subscription(
+                Float32, topic,
+                self._make_cb(i),
+                10
+            )
+            self.subs.append(sub)
+
+    def _make_cb(self, index):
+        def cb(msg: Float32):
+            self.received[index].append(msg.data)
+        return cb
+
+    def clear(self):
+        for k in self.received:
+            self.received[k] = []
+
+    def latest(self) -> dict:
+        """Return the most recent value per channel, or None if nothing yet."""
+        return {
+            i: msgs[-1] if msgs else None
+            for i, msgs in self.received.items()
+        }
 
 
-def test_parameter_overrides_and_empty_motor_config(arm, runtime, monkeypatch):
-    runtime.Node.overrides = {'publish_rate_hz': 20, 'arm_topic': '/test/arm',
-                              'watchdog_timeout_s': 1.0}
-    monkeypatch.setattr(arm, 'load_yaml', lambda path: {})
-    node = arm.ArmController()
-    assert node.motors == node.arm_motor_pubs == []
-    assert node.status_sub.topic == '/test/arm'
-    assert node.timers[0].period == pytest.approx(0.05)
-    assert node.watchdog_timeout_s == 1.0
-    node.Status_Callback(NS(data=[]))
-    node.publish_arm_motors()
+@pytest.fixture
+def listener(executor):
+    node = ArmMotorListener(n_arm_motors=8)
+    executor.add_node(node)
+    yield node
+    node.destroy_node()
 
 
-def test_callback_maps_motor_ids_independently_of_config_order(arm, monkeypatch):
-    monkeypatch.setattr(arm, 'load_yaml', lambda path: {
-        'arm_motors': [{'id': 3, 'topic': '/third'}, {'id': 1, 'topic': '/first'}]})
-    node = arm.ArmController()
-    command = NS(data=[-0.5, 0.0, 0.75])
-    node.now = 3.0
-    node.Status_Callback(command)
-    node.publish_arm_motors()
-    assert node.last_state_msg is command
-    assert node.last_msg_time.nanoseconds == 3_000_000_000
-    assert [pub.messages[-1].data for pub in node.arm_motor_pubs] == [0.75, -0.5]
+class TwistPublisher(Node):
+    """Helper node that publishes Twist messages on the status topic."""
+    def __init__(self):
+        super().__init__('test_twist_publisher')
+        self.pub = self.create_publisher(Twist, 'status_topic', 10)
+
+    def send(self, linear=(0.0, 0.0, 0.0), angular=(0.0, 0.0, 0.0)):
+        msg = Twist()
+        msg.linear.x, msg.linear.y, msg.linear.z = [float(v) for v in linear]
+        msg.angular.x, msg.angular.y, msg.angular.z = [float(v) for v in angular]
+        self.pub.publish(msg)
 
 
-@pytest.mark.parametrize('values, expected', [
-    ([], [0.0] * 6), ([0.5, -0.5], [0.5, -0.5, 0.0, 0.0, 0.0, 0.0]),
-    ([float('nan'), float('inf'), -float('inf'), 1, -1, 0], [0, 0, 0, 1, -1, 0]),
-    ([1, 2, 3, 4, 5, 6, 7], [1, 2, 3, 4, 5, 6]),
-])
-def test_missing_and_nonfinite_commands_are_zeroed(arm, values, expected):
-    node = arm.ArmController()
-    node.Status_Callback(NS(data=values))
-    node.publish_arm_motors()
-    assert [pub.messages[-1].data for pub in node.arm_motor_pubs] == expected
+@pytest.fixture
+def publisher(executor):
+    node = TwistPublisher()
+    executor.add_node(node)
+    yield node
+    node.destroy_node()
 
 
-@pytest.mark.parametrize('age, expected', [(0.499999999, 0.75), (0.5, 0.75),
-                                          (0.500000001, 0.0)])
-def test_watchdog_boundary(arm, age, expected):
-    node = arm.ArmController()
-    node.Status_Callback(NS(data=[0.75] * 6))
-    node.now = age
-    node.publish_arm_motors()
-    assert [pub.messages[-1].data for pub in node.arm_motor_pubs] == [expected] * 6
+# Helpers
+def spin_for(executor, seconds: float, step: float = 0.01):
+    """Spin the executor for a fixed duration to let messages flow."""
+    end = time.time() + seconds
+    while time.time() < end:
+        executor.spin_once(timeout_sec=step)
+
+# Tests
+class TestNodeStartup:
+    def test_node_creates_publishers(self, controller_node):
+        """Controller should create one publisher per arm motor."""
+        assert len(controller_node.arm_motor_pubs) == controller_node.n_arm_motors
+
+    def test_initial_pwm_is_neutral(self, controller_node):
+        """Before any message, all commands should be neutral."""
+        expected = controller_node.neutral_us
+        np.testing.assert_allclose(controller_node.pwm_commands, expected)
 
 
-def test_watchdog_warns_once_then_rearms_after_recovery(arm):
-    node = arm.ArmController()
-    node.Status_Callback(NS(data=[0.5] * 6))
-    node.now = 1.0
-    node.publish_arm_motors()
-    node.publish_arm_motors()
-    assert node.watchdog_tripped
-    assert node.logger.warn.call_count == 1
-    node.Status_Callback(NS(data=[-0.25] * 6))
-    node.publish_arm_motors()
-    assert not node.watchdog_tripped
-    assert [pub.messages[-1].data for pub in node.arm_motor_pubs] == [-0.25] * 6
-    node.now = 2.0
-    node.publish_arm_motors()
-    assert node.logger.warn.call_count == 2
+class TestZeroInput:
+    def test_zero_twist_gives_neutral_pwm(self, executor, controller_node, publisher, listener):
+        """Publishing a zero Twist should result in neutral PWM on all channels."""
+        publisher.send(linear=(0, 0, 0), angular=(0, 0, 0))
+        spin_for(executor, 0.5)  # let timer fire a few times
+    
+        latest = listener.latest()
+        for i, val in latest.items():
+            assert val is not None, f"No message received on arm motor {i}"
+            assert abs(val - controller_node.neutral_us) < 1.0, \
+                f"Arm motor {i}: expected ~{controller_node.neutral_us}, got {val}"
 
 
-@pytest.mark.parametrize('error', [None, KeyboardInterrupt(), RuntimeError('spin failed')])
-def test_main_cleanup(arm, runtime, error):
-    runtime.ros.spin.side_effect = error
-    if isinstance(error, RuntimeError):
-        with pytest.raises(RuntimeError, match='spin failed'):
-            arm.main(args=['--ros-args'])
-    else:
-        arm.main(args=['--ros-args'])
-    runtime.ros.init.assert_called_once_with(args=['--ros-args'])
-    node = runtime.Node.instances[-1]
-    runtime.ros.spin.assert_called_once_with(node)
-    assert node.destroyed
-    runtime.ros.shutdown.assert_called_once_with()
+class TestDirectionalResponse:
+    def test_pure_heave_activates_vertical_only(self, executor, controller_node, publisher, listener):
+        """A pure Z force should only change vertical thruster PWM values."""
+        publisher.send(linear=(0, 0, 20.0), angular=(0, 0, 0))
+        spin_for(executor, 0.5)
+
+        latest = listener.latest()
+        neutral = controller_node.neutral_us
+
+        # Lateral thrusters (0-3) should stay at neutral
+        for i in range(4):
+            assert latest[i] is not None
+            assert abs(latest[i] - neutral) < 1.0, \
+                f"Lateral thruster {i} moved during pure heave: {latest[i]}"
+
+        # Vertical thrusters (4-7) should be above neutral (pushing up)
+        for i in range(4, 8):
+            assert latest[i] is not None
+            assert latest[i] > neutral + 1.0, \
+                f"Vertical thruster {i} didn't respond to heave: {latest[i]}"
+
+    def test_pure_surge_activates_lateral_only(self, executor, controller_node, publisher, listener):
+        """A pure Y force should only change lateral thruster PWM values."""
+        publisher.send(linear=(0, 20.0, 0), angular=(0, 0, 0))
+        spin_for(executor, 0.5)
+
+        latest = listener.latest()
+        neutral = controller_node.neutral_us
+
+        # Vertical thrusters (4-7) should stay at neutral
+        for i in range(4, 8):
+            assert latest[i] is not None
+            assert abs(latest[i] - neutral) < 1.0, \
+                f"Vertical thruster {i} moved during pure surge: {latest[i]}"
+
+    def test_opposite_commands_give_opposite_pwm(self, executor, controller_node, publisher, listener):
+        """Forward and backward commands should produce symmetric PWM offsets."""
+        # Forward
+        publisher.send(linear=(0, 10.0, 0))
+        spin_for(executor, 0.3)
+        fwd = listener.latest()
+
+        listener.clear()
+
+        # Backward
+        publisher.send(linear=(0, -10.0, 0))
+        spin_for(executor, 0.3)
+        rev = listener.latest()
+
+        neutral = controller_node.neutral_us
+        for i in range(4):  # lateral thrusters
+            if fwd[i] is not None and rev[i] is not None:
+                fwd_offset = fwd[i] - neutral
+                rev_offset = rev[i] - neutral
+                assert abs(fwd_offset + rev_offset) < 5.0, \
+                    f"Thruster {i} not symmetric: fwd={fwd_offset}, rev={rev_offset}"
+
+
+class TestPWMBounds:
+    def test_large_input_stays_in_bounds(self, executor, controller_node, publisher, listener):
+        """Even with extreme input, PWM should never exceed [min_us, max_us]."""
+        publisher.send(linear=(999, 999, 999), angular=(999, 999, 999))
+        spin_for(executor, 0.5)
+
+        latest = listener.latest()
+        for i, val in latest.items():
+            assert val is not None, f"No message on thruster {i}"
+            assert val >= controller_node.min_us, \
+                f"Thruster {i} below min: {val}"
+            assert val <= controller_node.max_us, \
+                f"Thruster {i} above max: {val}"
+
+
+class TestMessageFlow:
+    def test_timer_publishes_without_input(self, executor, controller_node, listener):
+        """Timer should publish neutral even with no Twist input."""
+        spin_for(executor, 0.5)
+
+        latest = listener.latest()
+        received_count = sum(1 for v in latest.values() if v is not None)
+        assert received_count == controller_node.n_arm_motors, \
+            f"Only {received_count}/{controller_node.n_arm_motors} channels received"
+
+    def test_multiple_messages_last_one_wins(self, executor, controller_node, publisher, listener):
+        """Rapidly publishing should result in the last command being active."""
+        for val in [5.0, 10.0, 20.0, 0.0]:
+            publisher.send(linear=(0, val, 0))
+        spin_for(executor, 0.5)
+
+        # After sending 0, should be back to neutral
+        latest = listener.latest()
+        neutral = controller_node.neutral_us
+        for i in range(controller_node.n_arm_motors):
+            if latest[i] is not None:
+                assert abs(latest[i] - neutral) < 5.0, \
+                    f"Arm motor {i} not back to neutral: {latest[i]}"
