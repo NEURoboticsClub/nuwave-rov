@@ -83,6 +83,9 @@ class CrabRecognitionNode(Node):
             self._busy = False
 
     def camera_callback(self, msg: CompressedImage, camera_id: int):
+        if not msg.data:
+            self.get_logger().warning(f'Ignoring empty frame from camera {camera_id}')
+            return
         np_arr = np.frombuffer(msg.data, dtype=np.uint8)
         frame = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
         if frame is not None:
