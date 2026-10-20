@@ -38,8 +38,9 @@ class PowerMonitorPublisher(Node):
         # Initialize the INA226
         try:
             self.ina226 = INA226(i2c_address=i2c_address, bus_number=i2c_bus)  # Adjust address if needed
+            self.ina226.shunt_resistor = shunt_resistor
             self.ina226.configure()
-            self.ina226.calibrate(max_expected_current=17.0)  # Adjust for your system
+            self.ina226.calibrate(max_expected_current=max_current)
             self.get_logger().info('INA226 initialized successfully')
         except Exception as e:
             self.get_logger().error(
@@ -49,8 +50,8 @@ class PowerMonitorPublisher(Node):
 
         self.read_error_logged = False
 
-        # Create timer to publish at 10 Hz
-        self.timer = self.create_timer(0.1, self.timer_callback)
+        # Publish at the configured rate.
+        self.timer = self.create_timer(1.0 / publish_rate, self.timer_callback)
 
     def timer_callback(self):
         """Read and publish power monitor data"""
