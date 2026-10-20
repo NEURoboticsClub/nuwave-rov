@@ -50,3 +50,29 @@ Any editor that works with Python is fine, but we recommend using [VSCode](https
 - Pylint
 - Remote - SSH
 - GitHub Copilot (Sign up for free as a student!)
+## Viewing ROS 2 logging levels
+
+ROS log levels, from most to least verbose, are `DEBUG`, `INFO`, `WARN`, `ERROR`,
+and `FATAL`. A chosen level includes messages at that severity and above.
+Pass logging options after `--ros-args` when starting a node:
+
+```sh
+# Show debug messages as well as the usual info/warning/error messages.
+ros2 run houston_pkg houston_node --ros-args --log-level debug
+
+# Show warnings and errors for most loggers, but debug output for Houston.
+ros2 run houston_pkg houston_node --ros-args --log-level warn --log-level houston:=debug
+
+# Keep a run's ROS log files in a chosen directory.
+ROS_LOG_DIR="$PWD/rov-logs" ros2 run houston_pkg houston_node --ros-args --log-level info
+```
+
+Logger-specific overrides use the node's runtime logger name, which can differ
+from the executable name or change when the node is remapped. Existing nodes use
+`get_logger().debug()`, `.info()`, `.warn()`/`.warning()`, and `.error()`.
+These options filter ROS logging; ordinary Python `print()` output is unaffected.
+ROS logs normally go to the terminal, log files, and `/rosout`, unless those
+outputs are disabled. Restart a running node with the desired options to use
+these examples; append any parameters after the same `--ros-args` separator.
+
+Reference: [ROS 2 Humble logging configuration](https://github.com/ros2/ros2_documentation/blob/humble/source/Concepts/Intermediate/About-Logging.rst).
