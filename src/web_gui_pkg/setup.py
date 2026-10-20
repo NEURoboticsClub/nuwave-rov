@@ -1,12 +1,13 @@
 import os
+
 from setuptools import find_packages, setup
-from glob import glob
 
 package_name = 'web_gui_pkg'
 
 
 def static_data_files():
-    """Install the static dir recursively, preserving subdirectory layout.
+    """
+    Install the static dir recursively, preserving subdirectory layout.
 
     allows it to load all subdirectories of static like vendor/, and not just the top level files
     """
@@ -16,6 +17,7 @@ def static_data_files():
         if paths:
             entries.append(('share/' + package_name + '/' + root, paths))
     return entries
+
 
 setup(
     name=package_name,

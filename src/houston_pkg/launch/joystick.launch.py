@@ -16,7 +16,7 @@ def detect_joysticks():
             stderr=subprocess.STDOUT,
         )
     except (FileNotFoundError, subprocess.TimeoutExpired, subprocess.CalledProcessError) as e:
-        print(f"[joystick.launch] enumerate failed: {e}", file=sys.stderr)
+        print(f'[joystick.launch] enumerate failed: {e}', file=sys.stderr)
         return rov_joy_id, arm_joy_id
 
     # Skip the 2 header lines, take up to 2 device rows
@@ -32,9 +32,9 @@ def detect_joysticks():
             arm_joy_id = device_id
 
     if rov_joy_id == -1:
-        print("[joystick.launch] WARNING: ROV (PowerA) joystick not detected.", file=sys.stderr)
+        print('[joystick.launch] WARNING: ROV (PowerA) joystick not detected.', file=sys.stderr)
     if arm_joy_id == -1:
-        print("[joystick.launch] WARNING: arm (X360) joystick not detected.", file=sys.stderr)
+        print('[joystick.launch] WARNING: arm (X360) joystick not detected.', file=sys.stderr)
 
     return rov_joy_id, arm_joy_id
 

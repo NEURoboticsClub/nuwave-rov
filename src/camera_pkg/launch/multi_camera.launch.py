@@ -1,10 +1,10 @@
+import cv2
+from cv2_enumerate_cameras import enumerate_cameras
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument, LogInfo
 from launch.conditions import IfCondition
 from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
-from cv2_enumerate_cameras import enumerate_cameras
-import cv2
 
 
 def _is_working_path(path):
@@ -19,7 +19,7 @@ def _is_working_path(path):
 
 
 def _discover_working_ports():
-    # Group by camera display name so each physical camera can try all of 
+    # Group by camera display name so each physical camera can try all of
     # its enumerated paths, then keep the first readable one.
     idx_list = []
     for cam in enumerate_cameras():
@@ -29,11 +29,11 @@ def _discover_working_ports():
             index = getattr(cam, 'index', None)
             if index % 100 not in idx_list:
                 idx_list.append(index % 100)
-    
-    print("index list: ", idx_list)
+
+    print('index list: ', idx_list)
 
     camera_list = []
-    
+
     for candidate in idx_list:
         path = f'/dev/video{candidate}'
         if _is_working_path(path):

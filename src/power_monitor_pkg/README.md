@@ -49,9 +49,9 @@ Every topic starts with the `topic` parameter (default `power_monitor`).
 | ---------------------- | --------------: | ------------------------------------------------------------------------------------------ |
 | `i2c_address`          |          `0x4F` | I2C address of the INA226.                                                                 |
 | `i2c_bus`              |             `1` | I2C bus number the INA226 is connected to.                                                 |
-| `shunt_resistor`       |         `0.004` | The node reads this without passing it to the driver since the driver always uses `0.004`. |
-| `max_expected_current` |          `17.0` | The node reads this but the calibration always uses `17.0`.                                |
-| `publish_rate_hz`      |          `10.0` | The node reads this but the timer is always set to 10 Hz.                                  |
+| `shunt_resistor`       |         `0.004` | Declared but never used. The driver always uses `0.004`.                                   |
+| `max_expected_current` |          `17.0` | Declared but never used. The calibration always uses `17.0`.                               |
+| `publish_rate_hz`      |          `10.0` | Declared but never used. The timer is always set to 10 Hz.                                 |
 | `topic`                | `power_monitor` | Start of the name for all of the published topics.                                         |
 | `topic_prefix`         | `power_monitor` | Declared in the node but never used. Use `topic` instead.                                  |
 

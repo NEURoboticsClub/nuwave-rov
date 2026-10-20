@@ -5,23 +5,23 @@
 # Run with ros2 run imu_pkg imu_node addr:=<I2C address of IMU>
 ########################################################################
 
-"""
-Imports
-"""
-import rclpy
+"""Imports."""
 import time
+
+from imu_pkg.imu_driver import ImuDriver
+import numpy as np
+import rclpy
 from rclpy.node import Node
 from sensor_msgs.msg import Imu
-from imu_pkg.imu_driver import ImuDriver
-from geometry_msgs.msg import Quaternion
-import numpy as np
+
 
 class IMUPublisher(Node):
     def __init__(self):
         super().__init__('imu')
 
-        # Declare parameter to ros so we can use it as argument 
-        addr = self.declare_parameter('addr', 7).value # change this when change i2c pin (pin 3,4 -> 7, pin 27,28 -> 1)
+        # Declare parameter to ros so we can use it as argument
+        # change this when change i2c pin (pin 3,4 -> 7, pin 27,28 -> 1)
+        addr = self.declare_parameter('addr', 7).value
         sampling_rate = self.declare_parameter('sampling_rate', 100).value
 
         self.q_mount = self.declare_parameter(
@@ -54,10 +54,10 @@ class IMUPublisher(Node):
         w1, x1, y1, z1 = q1
         w2, x2, y2, z2 = q2
         return np.array([
-            w1*w2 - x1*x2 - y1*y2 - z1*z2,
-            w1*x2 + x1*w2 + y1*z2 - z1*y2,
-            w1*y2 - x1*z2 + y1*w2 + z1*x2,
-            w1*z2 + x1*y2 - y1*x2 + z1*w2,
+            w1 * w2 - x1 * x2 - y1 * y2 - z1 * z2,
+            w1 * x2 + x1 * w2 + y1 * z2 - z1 * y2,
+            w1 * y2 - x1 * z2 + y1 * w2 + z1 * x2,
+            w1 * z2 + x1 * y2 - y1 * x2 + z1 * w2,
         ])
 
     @staticmethod
@@ -67,17 +67,17 @@ class IMUPublisher(Node):
         vx, vy, vz = v
 
         return np.array([
-            (1 - 2*y*y - 2*z*z)*vx + 2*(x*y - w*z)*vy + 2*(x*z + w*y)*vz,
-            2*(x*y + w*z)*vx + (1 - 2*x*x - 2*z*z)*vy + 2*(y*z - w*x)*vz,
-            2*(x*z - w*y)*vx + 2*(y*z + w*x)*vy + (1 - 2*x*x - 2*y*y)*vz,
+            (1 - 2 * y * y - 2 * z * z) * vx + 2 * (x * y - w * z) * vy + 2 * (x * z + w * y) * vz,
+            2 * (x * y + w * z) * vx + (1 - 2 * x * x - 2 * z * z) * vy + 2 * (y * z - w * x) * vz,
+            2 * (x * z - w * y) * vx + 2 * (y * z + w * x) * vy + (1 - 2 * x * x - 2 * y * y) * vz,
         ])
 
     def timer_callback(self):
         """
-        Reads data from IMU and publishes it to the /imu topic
-        Based on whatever control loop freq is provided
-        """
+        Read data from the IMU and publish it to the /imu topic.
 
+        Runs at whatever control loop frequency is provided.
+        """
         if self.imu is None:
             return
 
@@ -86,7 +86,6 @@ class IMUPublisher(Node):
             linear_acceleration = values['linear_acceleration']
             # linear_velocity = values['linear_velocity']
             angular_velocity = values['angular_velocity']
-            magnetometer = values['magnetometer']
             quaternion = values['game_quaternion']
         except Exception as e:
             self.get_logger().error(f'IMU read failed, skipping this cycle: {e}')
@@ -109,8 +108,8 @@ class IMUPublisher(Node):
 
         gyro_body = self._rotate_vec(
             self._qm, [angular_velocity['gyro_x'],
-                    angular_velocity['gyro_y'],
-                    angular_velocity['gyro_z']]
+                       angular_velocity['gyro_y'],
+                       angular_velocity['gyro_z']]
         )
         imu_msg.angular_velocity.x = float(gyro_body[0])
         imu_msg.angular_velocity.y = float(gyro_body[1])
@@ -118,8 +117,8 @@ class IMUPublisher(Node):
 
         accel_body = self._rotate_vec(
             self._qm, [linear_acceleration['accel_x'],
-                    linear_acceleration['accel_y'],
-                    linear_acceleration['accel_z']]
+                       linear_acceleration['accel_y'],
+                       linear_acceleration['accel_z']]
         )
         imu_msg.linear_acceleration.x = float(accel_body[0])
         imu_msg.linear_acceleration.y = float(accel_body[1])
@@ -130,7 +129,6 @@ class IMUPublisher(Node):
         # imu_msg.linear_velocity.z = linear_velocity['vel_z']
 
         self.publisher_.publish(imu_msg)
-
 
 
 def main(args=None):

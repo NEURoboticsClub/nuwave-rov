@@ -1,13 +1,13 @@
-import enum
+import os
+
+from ament_index_python.packages import get_package_share_directory
+from geometry_msgs.msg import Twist
+import numpy as np
+from nuwave_utils_pkg.file_helpers import load_yaml
 import rclpy
 from rclpy.node import Node
-from geometry_msgs.msg import Twist
-from std_msgs import msg
 from std_msgs.msg import Float32
-from ament_index_python.packages import get_package_share_directory
-from nuwave_utils_pkg.file_helpers import load_yaml
-import os
-import numpy as np
+
 
 class ThrusterController(Node):
     def __init__(self):
@@ -16,8 +16,9 @@ class ThrusterController(Node):
 
         # Parameters
 
-        # Four thrusters control linear velocity, and they are pointed at 45 degrees. To get an accurate force to pwm use the equation below
-        thruster_max = 4 / np.sqrt(2) 
+        # Four thrusters control linear velocity, and they are pointed at 45 degrees.
+        # To get an accurate force to pwm use the equation below
+        thruster_max = 4 / np.sqrt(2)
         self.declare_parameter('max_x_n', thruster_max)
         self.declare_parameter('max_y_n', thruster_max)
         self.declare_parameter('max_z_n', 4.0)
@@ -38,9 +39,9 @@ class ThrusterController(Node):
         self.declare_parameter('publish_rate_hz', 50.0)
         pkg_share = get_package_share_directory('thruster_controller_pkg')
         self.declare_parameter(
-                'thruster_config', 
-                os.path.join(pkg_share, 'config', 'thruster_config.yaml')
-                )
+            'thruster_config',
+            os.path.join(pkg_share, 'config', 'thruster_config.yaml')
+        )
         self.declare_parameter('thruster_topic', 'velocity_commands')
 
         self.max_force = float(self.get_parameter('max_force_n').value)
@@ -49,7 +50,7 @@ class ThrusterController(Node):
         thruster_config_path = self.get_parameter('thruster_config').value
         thruster_topic = self.get_parameter('thruster_topic').value
 
-        self.get_logger().info(f"Loading thruster config from: {thruster_config_path}")
+        self.get_logger().info(f'Loading thruster config from: {thruster_config_path}')
 
         # Configure Thrusters and Allocation
         config = load_yaml(thruster_config_path)
@@ -82,15 +83,16 @@ class ThrusterController(Node):
         self.watchdog_tripped = False
 
         self.create_timer(1.0 / rate, self.publish_thrusters)
-        self.get_logger().info("Thruster Controller Initialized")
-    
+        self.get_logger().info('Thruster Controller Initialized')
+
     # def _configure_virtual_thruster_pwm_range(self, config : dict) -> np.ndarray:
     #     """
     #     Each thruster has a neutral_us, min_us, max_us configured.
-    #     When we get the force each thruster should be outputting we want to map it along the bounds of that, specific thruster.
+    #     When we get the force each thruster should be outputting we want to map it
+    #     along the bounds of that, specific thruster.
     #     Returns: A list of bounds for the thruster at index i
     #     """
-        
+
     #     thrusters = config.get('thrusters', [])
     #     table = np.zeros((len(thrusters), 3))
     #     for indx, thruster in enumerate(thrusters):
@@ -104,33 +106,30 @@ class ThrusterController(Node):
     #                     f"Each thruster needs min_us, neutral_us, and max_us. "
     #                     )
     #     return table
-    
-    def compute_thruster_allocation_matrix(self, config : dict) -> np.ndarray:
+
+    def compute_thruster_allocation_matrix(self, config: dict) -> np.ndarray:
 
         thrusters = config['thrusters']
         AllocMatrix = np.zeros((6, len(thrusters)))
 
         for indx, thruster in enumerate(thrusters):
             pos_m = np.array(thruster['position_m'], dtype=float)
-            dir = np.array(thruster['direction'], dtype=float)
+            direction = np.array(thruster['direction'], dtype=float)
 
-            norm = np.linalg.norm(dir)
+            norm = np.linalg.norm(direction)
             if norm == 0.0:
-                raise ValueError(f"Thruster {indx} has a zero-length direction vector in config")
-            dir = dir / norm # normalize the direction vector
+                raise ValueError(f'Thruster {indx} has a zero-length direction vector in config')
+            direction = direction / norm  # normalize the direction vector
 
             # Linear Force Contribution
-            AllocMatrix[0:3, indx] = dir
-            AllocMatrix[3:6, indx] = np.cross(pos_m, dir) 
+            AllocMatrix[0:3, indx] = direction
+            AllocMatrix[3:6, indx] = np.cross(pos_m, direction)
 
-            
-        self.get_logger().info(f"Thruster Allocation Matrix:\n {AllocMatrix}")
+        self.get_logger().info(f'Thruster Allocation Matrix:\n {AllocMatrix}')
         return AllocMatrix
 
     def Status_Callback(self, msg: Twist):
-        """
-        Process a new velocity vector and turns them into PWM signals for the Thrusters.
-        """
+        """Process a new velocity vector and turns them into PWM signals for the Thrusters."""
         self.last_state_msg = msg
         self.last_msg_time = self.get_clock().now()
         try:
@@ -148,30 +147,27 @@ class ThrusterController(Node):
             for i, thrust in enumerate(self.thrusters):
                 thrust['dutycycle'] = dutycycles[i]
         except Exception as e:
-            self.get_logger().error(f"Error processing velocity command: {e}")
+            self.get_logger().error(f'Error processing velocity command: {e}')
 
-    def map_twist_to_toque(self, linear : np.ndarray, angular : np.ndarray) -> np.ndarray:
-        """
-        Turns a twist msg -> a torque map for each thruster
-        """
+    def map_twist_to_toque(self, linear: np.ndarray, angular: np.ndarray) -> np.ndarray:
+        """Turn a twist into the force required from each thruster."""
         tau_norm = np.concatenate([linear, angular])
         tau = tau_norm * self.wrench_scale
         forces = self.allocMatrix_inverse @ tau
         return forces
-    
-    def map_torque_to_dutycycles(self, forces : np.ndarray) -> np.ndarray:
-        """
-        Turns a list of torques -> to a list of PWM signals
-        """
+
+    def map_torque_to_dutycycles(self, forces: np.ndarray) -> np.ndarray:
+        """Turn thruster forces into normalized commands between -1 and 1."""
         # These are nx1 vectors for each thrusters configured pwm ranges
-        # min_us = self.pwm_range_table[:, 0] 
+        # min_us = self.pwm_range_table[:, 0]
         # neutral_us = self.pwm_range_table[:, 1]
         # max_us = self.pwm_range_table[:, 2]
-        
+
         # This normalizes the forces to be within -1 and 1
         normalized = np.clip(forces / self.max_force, -1, 1)
-        
-        # If normalized >= 0, which is forward we linear interp the pwm to be some point between neutral and max
+
+        # If normalized >= 0, which is forward we linear interp the pwm to be some point
+        # between neutral and max
         # Same is applied for reverse but with neutral_us being the leading term.
         # pwm = np.where(
         #     normalized >= 0,
@@ -181,18 +177,18 @@ class ThrusterController(Node):
         return normalized
 
     def publish_thrusters(self):
-        """
-        Publish current PWM commands to each thruster
-        """
+        """Publish current PWM commands to each thruster."""
         timed_out = (
             self.last_msg_time is None or
-            (self.get_clock().now() - self.last_msg_time).nanoseconds * 1e-9 > self.watchdog_timeout_s
+            (self.get_clock().now() - self.last_msg_time).nanoseconds * 1e-9
+            > self.watchdog_timeout_s
         )
         # Log once per timeout event
         if timed_out:
             if self.last_msg_time is not None and not self.watchdog_tripped:
                 self.get_logger().warn(
-                    f"Watchdog timeout: no velocity command in {self.watchdog_timeout_s}s, zeroing thruster outputs."
+                    f'Watchdog timeout: no velocity command in {self.watchdog_timeout_s}s, '
+                    'zeroing thruster outputs.'
                 )
                 self.watchdog_tripped = True
         else:
@@ -201,6 +197,7 @@ class ThrusterController(Node):
             msg = Float32()
             msg.data = 0.0 if timed_out else float(thrust.get('dutycycle', 0.0))
             self.thruster_pubs[indx].publish(msg)
+
 
 def main(args=None):
     rclpy.init(args=args)

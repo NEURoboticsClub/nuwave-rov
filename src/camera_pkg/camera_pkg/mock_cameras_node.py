@@ -1,4 +1,5 @@
-"""Mock camera node that publishes test JPEG video on all 4 camera topics.
+"""
+Mock camera node that publishes test JPEG video on all 4 camera topics.
 
 Matches the real camera output (sensor_msgs/CompressedImage, format='jpeg')
 on /camera_{0..3}/image/compressed, so the web GUI and screenshot button
@@ -6,13 +7,12 @@ work with no real cameras attached.
 
     ros2 run camera_pkg mock_cameras_node
 """
-import rclpy
-from rclpy.node import Node
-from rclpy.qos import QoSProfile, ReliabilityPolicy, HistoryPolicy
-from sensor_msgs.msg import CompressedImage
-
 import cv2
 import numpy as np
+import rclpy
+from rclpy.node import Node
+from rclpy.qos import HistoryPolicy, QoSProfile, ReliabilityPolicy
+from sensor_msgs.msg import CompressedImage
 
 
 class MockCameras(Node):

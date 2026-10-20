@@ -31,7 +31,7 @@ setup(
     },
     entry_points={
         'console_scripts': [
-            'pwm_node = '+package_name+'.pwm_node:main',
+            'pwm_node = ' + package_name + '.pwm_node:main',
         ],
     },
 )

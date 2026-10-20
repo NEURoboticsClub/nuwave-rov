@@ -1,23 +1,23 @@
-import rclpy
-from rclpy.node import Node
-from rclpy.executors import MultiThreadedExecutor
-from std_msgs.msg import Float32, Float32MultiArray
-from std_msgs.msg import Bool
-from geometry_msgs.msg import Twist
-from sensor_msgs.msg import FluidPressure, Temperature, CompressedImage, Imu
-from ament_index_python.packages import get_package_share_directory
-from rclpy.qos import QoSProfile, ReliabilityPolicy, HistoryPolicy, DurabilityPolicy
 import asyncio
 import datetime
 import json
+import os
 import queue
 import re
 import threading
+
 import aiohttp
-import os
-import cv2
-import numpy as np
 from aiohttp import web
+from ament_index_python.packages import get_package_share_directory
+import cv2
+from geometry_msgs.msg import Twist
+import numpy as np
+import rclpy
+from rclpy.executors import MultiThreadedExecutor
+from rclpy.node import Node
+from rclpy.qos import DurabilityPolicy, HistoryPolicy, QoSProfile, ReliabilityPolicy
+from sensor_msgs.msg import CompressedImage, FluidPressure, Imu, Temperature
+from std_msgs.msg import Bool, Float32, Float32MultiArray
 
 # Screenshots are saved to the home directory and on any
 # plugged-in removable drive
@@ -29,7 +29,8 @@ REMOVABLE_MEDIA_ROOTS = ['/media', '/run/media']
 # "Take Video" button captures all cameras into rov_images/video/<timestamp>/cam<id>/<frame>.png
 VIDEO_SUBDIR = 'video'
 VIDEO_FPS = 4
-# Frames are written to disk on a background thread so slow USB writes don't block the ROS executor thread
+# Frames are written to disk on a background thread so slow USB writes don't block
+# the ROS executor thread
 # The queue can hold this many frames before dropping the oldest ones
 VIDEO_QUEUE_MAX = 240
 
@@ -48,6 +49,7 @@ def removable_drive_dirs():
                 dirs.append(os.path.join(mount, SCREENSHOT_SUBDIR))
     return dirs
 
+
 # --- Shared state: connected WebSocket clients ---
 clients: set = set()
 pending_messages: dict[str, object] = {}
@@ -61,7 +63,8 @@ send_timeout_s = 2.0
 
 
 class Client:
-    """One browser connection: a websocket plus its own send buffer.
+    """
+    One browser connection: a websocket plus its own send buffer.
 
     The buffer keeps only the latest value per topic / latest frame per camera,
     so a slow consumer connection drops stale frames instead of blocking the loop.
@@ -75,7 +78,7 @@ class Client:
         self.alive = True
 
     def queue(self, messages, frames):
-        """Merge a flush batch into this client's buffer"""
+        """Merge a flush batch into this client's buffer."""
         for topic, payload in messages:
             self.messages[topic] = payload
         for camera_id, data in frames:
@@ -109,6 +112,8 @@ class Client:
             clients.discard(self)
 
 # --- ROS2 Node ---
+
+
 class WebBridgeNode(Node):
     def __init__(self, loop: asyncio.AbstractEventLoop):
         super().__init__('web_bridge')
@@ -233,9 +238,12 @@ class WebBridgeNode(Node):
 
         # Depth telemetry
         self._subs.append(self.create_subscription(Float32, '/depth/depth', self._on_depth, 10))
-        self._subs.append(self.create_subscription(FluidPressure, '/depth/pressure', self._on_pressure, 10))
-        self._subs.append(self.create_subscription(Temperature, '/depth/temperature', self._on_temperature, 10))
-        self._subs.append(self.create_subscription(Float32MultiArray, '/depth/depth_array', self._on_depth_array, 10))
+        self._subs.append(self.create_subscription(
+            FluidPressure, '/depth/pressure', self._on_pressure, 10))
+        self._subs.append(self.create_subscription(
+            Temperature, '/depth/temperature', self._on_temperature, 10))
+        self._subs.append(self.create_subscription(
+            Float32MultiArray, '/depth/depth_array', self._on_depth_array, 10))
 
         # IMU telemetry
         self._subs.append(self.create_subscription(Imu, '/imu', self._on_imu, 10))
@@ -247,11 +255,16 @@ class WebBridgeNode(Node):
             depth=1,
             durability=DurabilityPolicy.TRANSIENT_LOCAL,
         )
-        self._subs.append(self.create_subscription(Twist, '/velocity_commands', self._on_velocity_commands, 10))
-        self._subs.append(self.create_subscription(Float32MultiArray, '/arm_commands', self._on_arm_commands, 10))
-        self._subs.append(self.create_subscription(Bool, '/controls/expo_enabled', self._on_expo_enabled, controls_qos))
-        self._subs.append(self.create_subscription(Bool, '/controls/precision_mode', self._on_precision_mode, controls_qos))
-        self._subs.append(self.create_subscription(Bool, '/controls/stabilize_enabled', self._on_stabilize_enabled, controls_qos))
+        self._subs.append(self.create_subscription(
+            Twist, '/velocity_commands', self._on_velocity_commands, 10))
+        self._subs.append(self.create_subscription(
+            Float32MultiArray, '/arm_commands', self._on_arm_commands, 10))
+        self._subs.append(self.create_subscription(
+            Bool, '/controls/expo_enabled', self._on_expo_enabled, controls_qos))
+        self._subs.append(self.create_subscription(
+            Bool, '/controls/precision_mode', self._on_precision_mode, controls_qos))
+        self._subs.append(self.create_subscription(
+            Bool, '/controls/stabilize_enabled', self._on_stabilize_enabled, controls_qos))
 
         # Camera topics
         camera_qos = QoSProfile(
@@ -275,11 +288,12 @@ class WebBridgeNode(Node):
 
         self.create_timer(1.0 / VIDEO_FPS, self._video_tick)
 
-
         # GUI command publishers (browser -> ROS)
         self.expo_toggle_pub = self.create_publisher(Bool, '/gui_buttons/expo_enabled', 10)
-        self.precision_mode_toggle_pub = self.create_publisher(Bool, '/gui_buttons/precision_mode', 10)
-        self.stabilize_toggle_pub = self.create_publisher(Bool, '/gui_buttons/stabilize_enabled', 10)
+        self.precision_mode_toggle_pub = self.create_publisher(
+            Bool, '/gui_buttons/precision_mode', 10)
+        self.stabilize_toggle_pub = self.create_publisher(
+            Bool, '/gui_buttons/stabilize_enabled', 10)
         self.get_logger().info('WebBridge node started')
 
     def handle_ws_message(self, raw_payload: str):
@@ -294,7 +308,7 @@ class WebBridgeNode(Node):
         if not isinstance(topic, str):
             self.get_logger().warning('Ignoring websocket payload with missing topic')
             return
-        
+
         if topic == '/gui_buttons/detect_crabs':
             msg = Bool()
             msg.data = bool(data)
@@ -357,7 +371,8 @@ class WebBridgeNode(Node):
             self._video_frame_index = 0
             self._recording = True
             self.get_logger().info(
-                f'Video recording started ({VIDEO_FPS} fps) -> {VIDEO_SUBDIR}/{self._video_session}')
+                f'Video recording started ({VIDEO_FPS} fps) -> '
+                f'{VIDEO_SUBDIR}/{self._video_session}')
         elif not enabled and self._recording:
             self._recording = False
             self.get_logger().info(
@@ -557,9 +572,12 @@ class WebBridgeNode(Node):
             self._latest_frames[camera_id] = data
 
 # --- HTTP + WebSocket server ---
+
+
 async def ws_handler(request):
     node = request.app['ros_node']
-    # detect and close clients that are dead, and disable compression (images are already compressed)
+    # detect and close clients that are dead, and disable compression
+    # (images are already compressed)
     ws = web.WebSocketResponse(heartbeat=15.0, compress=False)
     await ws.prepare(request)
     client = Client(ws)
@@ -580,6 +598,7 @@ async def ws_handler(request):
         sender.cancel()
     return ws
 
+
 def build_app(node: WebBridgeNode):
     app = web.Application()
     app['ros_node'] = node
@@ -595,6 +614,8 @@ def build_app(node: WebBridgeNode):
     return app
 
 # run both ROS2 + web server
+
+
 def main():
     rclpy.init()
     loop = asyncio.new_event_loop()
@@ -623,6 +644,7 @@ def main():
     finally:
         node.destroy_node()
         rclpy.shutdown()
+
 
 if __name__ == '__main__':
     main()

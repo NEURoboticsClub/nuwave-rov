@@ -1,12 +1,12 @@
+import os
+
+from ament_index_python.packages import get_package_share_directory
+import numpy as np
+from nuwave_utils_pkg.file_helpers import load_yaml
 import rclpy
 from rclpy.node import Node
-from geometry_msgs.msg import Twist
-from std_msgs import msg
 from std_msgs.msg import Float32, Float32MultiArray
-from ament_index_python.packages import get_package_share_directory
-from nuwave_utils_pkg.file_helpers import load_yaml
-import os
-import numpy as np
+
 
 class ArmController(Node):
     def __init__(self):
@@ -18,9 +18,9 @@ class ArmController(Node):
 
         pkg_share = get_package_share_directory('arm_controller_pkg')
         self.declare_parameter(
-                'arm_config', 
-                os.path.join(pkg_share, 'config', 'arm_config.yaml')
-                )
+            'arm_config',
+            os.path.join(pkg_share, 'config', 'arm_config.yaml')
+        )
         self.declare_parameter('arm_topic', 'arm_commands')
 
         rate = float(self.get_parameter('publish_rate_hz').value)
@@ -28,21 +28,22 @@ class ArmController(Node):
         arm_config_path = self.get_parameter('arm_config').value
         arm_topic = self.get_parameter('arm_topic').value
 
-        self.get_logger().info(f"Loading arm config from: {arm_config_path}")
+        self.get_logger().info(f'Loading arm config from: {arm_config_path}')
 
         config = load_yaml(arm_config_path)
         # self.pwm_range_table = self._configure_arm_motor_pwm_range(config)
         self.motors = config.get('arm_motors', [])
 
         # Subscribers / Publishers
-        self.status_sub = self.create_subscription(Float32MultiArray, arm_topic, self.Status_Callback, 10)
+        self.status_sub = self.create_subscription(
+            Float32MultiArray, arm_topic, self.Status_Callback, 10)
         self.arm_motor_pubs = []
         for mot in self.motors:
             pub = self.create_publisher(Float32, mot.get('topic'), 10)
             self.arm_motor_pubs.append(pub)
             mot['pub'] = pub
             mot['dutycycle'] = 0
-        
+
         # Init command send neutral to all arm motors
         # self.pwm_commands = self.pwm_range_table[:,1]
 
@@ -53,12 +54,10 @@ class ArmController(Node):
         self.watchdog_tripped = False
 
         self.create_timer(1.0 / rate, self.publish_arm_motors)
-        self.get_logger().info("Arm Controller Initialized")
-        
+        self.get_logger().info('Arm Controller Initialized')
+
     def Status_Callback(self, msg: Float32MultiArray):
-        """
-        Process a new velocity vector and turns them into PWM signals for the Arm Motors.
-        """
+        """Process a new velocity vector and turns them into PWM signals for the Arm Motors."""
         self.last_state_msg = msg
         self.last_msg_time = self.get_clock().now()
 
@@ -71,24 +70,24 @@ class ArmController(Node):
                 mot['dutycycle'] = vel if np.isfinite(vel) else 0.0
             else:
                 self.get_logger().warn(
-                    f"Arm command array has {len(arm_velocities)} elements; "
+                    f'Arm command array has {len(arm_velocities)} elements; '
                     f"no value for motor id {mot.get('id')}; holding zero"
                 )
                 mot['dutycycle'] = 0.0
 
     def publish_arm_motors(self):
-        """
-        Publish current PWM commands to each arm motor
-        """
+        """Publish current PWM commands to each arm motor."""
         timed_out = (
             self.last_msg_time is None or
-            (self.get_clock().now() - self.last_msg_time).nanoseconds * 1e-9 > self.watchdog_timeout_s
+            (self.get_clock().now() - self.last_msg_time).nanoseconds * 1e-9
+            > self.watchdog_timeout_s
         )
         # Log once per timeout event
         if timed_out:
             if self.last_msg_time is not None and not self.watchdog_tripped:
                 self.get_logger().warn(
-                    f"Watchdog timeout: no arm command in {self.watchdog_timeout_s}s, zeroing arm motor outputs."
+                    f'Watchdog timeout: no arm command in {self.watchdog_timeout_s}s, '
+                    'zeroing arm motor outputs.'
                 )
                 self.watchdog_tripped = True
         else:
@@ -97,6 +96,7 @@ class ArmController(Node):
             msg = Float32()
             msg.data = 0.0 if timed_out else float(mot.get('dutycycle', 0.0))
             mot['pub'].publish(msg)
+
 
 def main(args=None):
     rclpy.init(args=args)
