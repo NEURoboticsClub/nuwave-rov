@@ -223,7 +223,7 @@ class Houston(Node):
                 # Clamp below 1.0 so the rescaling can't divide by zero
                 deadzone = min(max(float(cfg.get("deadzone", 0.07)), 0.0), 0.99)
 
-                raw = msg.axes[axis_index] if axis_index < len(msg.axes) else 0.0
+                raw = msg.axes[axis_index] if 0 <= axis_index < len(msg.axes) else 0.0
                 if invert:
                     raw *= -1.0
                 
@@ -255,7 +255,7 @@ class Houston(Node):
                 btn_index = int(cfg.get("input", 0))
                 invert = bool(cfg.get("invert", False))
 
-                raw = msg.buttons[btn_index] if btn_index < len(msg.buttons) else 0
+                raw = msg.buttons[btn_index] if 0 <= btn_index < len(msg.buttons) else 0
                 pressed = (1 - raw) if invert else raw
                 button_values[btn_name] = int(pressed)
                 continue
