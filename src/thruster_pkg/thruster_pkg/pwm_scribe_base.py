@@ -1,8 +1,9 @@
 from abc import ABC, abstractmethod
 
+
 class PWMScribeBase(ABC):
     @abstractmethod
-    def setup(self, pwm_freq : int) -> None:
+    def setup(self, pwm_freq: int) -> None:
         ...
 
     @abstractmethod

@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 
-import rclpy
-from rclpy.node import Node
-from rclpy.qos import QoSProfile, ReliabilityPolicy, HistoryPolicy
-
-from sensor_msgs.msg import CompressedImage
-import cv2
 import threading
 import time
+
+import cv2
+import rclpy
+from rclpy.node import Node
+from rclpy.qos import HistoryPolicy, QoSProfile, ReliabilityPolicy
+from sensor_msgs.msg import CompressedImage
 
 
 class FastCameraPublisher(Node):
@@ -66,8 +66,8 @@ class FastCameraPublisher(Node):
         )
 
         self.get_logger().info(
-            f"Camera {self.cam_id} using source {self.cam_device_path} streaming on {self.topic} "
-            f"({self.width}x{self.height} @ {self.fps} FPS)"
+            f'Camera {self.cam_id} using source {self.cam_device_path} streaming on {self.topic} '
+            f'({self.width}x{self.height} @ {self.fps} FPS)'
         )
 
     def setup_camera(self):
@@ -76,14 +76,15 @@ class FastCameraPublisher(Node):
                 try:
                     self.cap.release()
                 except Exception:
-                    self.get_logger().warning("Could not release video capture despite capture object != None.")
+                    self.get_logger().warning(
+                        'Could not release video capture despite capture object != None.')
                 self.cap = None
             try:
                 self.cap = cv2.VideoCapture(self.cam_device_path, cv2.CAP_V4L2)
                 if self.cap.isOpened():
                     break
             except Exception as e:
-                self.get_logger().warning(f"Failed to open camera {self.cam_device_path}: {e}")
+                self.get_logger().warning(f'Failed to open camera {self.cam_device_path}: {e}')
             time.sleep(0.1)
 
         self.cap.set(cv2.CAP_PROP_FOURCC,
@@ -94,13 +95,13 @@ class FastCameraPublisher(Node):
         self.cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
 
     def capture_loop(self):
-        """Continuously grab frames, overwrite old ones"""
+        """Continuously grab frames, overwrite old ones."""
         fail_count = 0
         while self.running:
             try:
                 ret, frame = self.cap.read()
             except Exception as e:
-                self.get_logger().warning(f"Camera read raised: {e}")
+                self.get_logger().warning(f'Camera read raised: {e}')
                 ret, frame = False, None
             if not ret:
                 fail_count += 1
@@ -143,7 +144,7 @@ class FastCameraPublisher(Node):
 
             self.publisher.publish(msg)
         except Exception as e:
-            self.get_logger().warning(f"Failed to encode/publish frame: {e}")
+            self.get_logger().warning(f'Failed to encode/publish frame: {e}')
 
     # ------------------------------------------------
 
@@ -177,14 +178,13 @@ if __name__ == '__main__':
 # Posted by Bharath Kumar
 # Retrieved 2025-11-09, License - CC BY-SA 4.0
 
-#! /usr/bin/env python3
 
 # import rclpy
-# from rclpy.node import Node 
+# from rclpy.node import Node
 # from sensor_msgs.msg import Image
 # from cv_bridge import CvBridge
-# import cv2 
-    
+# import cv2
+
 # class CameraPublisher(Node):
 #     def __init__(self):
 #         super().__init__('camera_publisher')
@@ -197,14 +197,14 @@ if __name__ == '__main__':
 #         self.publisher_ = self.create_publisher(Image, topic_name , 10)
 #         self.timer = self.create_timer(0.1, self.timer_callback)
 
-        
+
 #         self.cap = cv2.VideoCapture(camera_source)
 #         self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 640)
 #         self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, 480)
 #         self.br = CvBridge()
 
 #     def timer_callback(self):
-#         ret, frame = self.cap.read()     
+#         ret, frame = self.cap.read()
 #         if ret == True:
 #             self.publisher_.publish(self.br.cv2_to_imgmsg(frame))
 #         self.get_logger().info('Publishing video frame')
@@ -217,7 +217,7 @@ if __name__ == '__main__':
 #     camera_publisher.destroy_node()
 #     rclpy.shutdown()
 
-  
+
 # if __name__ == '__main__':
 #   main()
 
@@ -254,4 +254,3 @@ if __name__ == '__main__':
 # cam2.release()
 # out.release()
 # cv2.destroyAllWindows()
-

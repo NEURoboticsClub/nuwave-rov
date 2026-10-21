@@ -1,17 +1,23 @@
-import rclpy
-from rclpy.node import Node
-from std_msgs.msg import Bool
-from sensor_msgs.msg import CompressedImage
-from rclpy.qos import QoSProfile, ReliabilityPolicy, HistoryPolicy
-import cv2
-import numpy as np
 from datetime import datetime
 from pathlib import Path
+
+import cv2
+import numpy as np
+import rclpy
+from rclpy.node import Node
+from rclpy.qos import HistoryPolicy, QoSProfile, ReliabilityPolicy
+from sensor_msgs.msg import CompressedImage
+from std_msgs.msg import Bool
 from ultralytics import YOLO
 
-
-DEFAULT_MODEL_PATH = '/home/nuwave/nuwave-rov/src/crab_recognition_pkg/crab_recognition_models/30epochs_best.pt'
-DEFAULT_OUTPUT_PATH = '/home/nuwave/nuwave-rov/src/crab_recognition_pkg/crab_recognition_results/result.jpg'
+DEFAULT_MODEL_PATH = (
+    '/home/nuwave/nuwave-rov/src/crab_recognition_pkg/'
+    'crab_recognition_models/30epochs_best.pt'
+)
+DEFAULT_OUTPUT_PATH = (
+    '/home/nuwave/nuwave-rov/src/crab_recognition_pkg/'
+    'crab_recognition_results/result.jpg'
+)
 DEFAULT_CONFIDENCE = 0.4
 DEFAULT_IMAGE_TOPIC_PREFIX = '/camera_'
 DEFAULT_CAMERA_COUNT = 4
@@ -56,7 +62,8 @@ class CrabRecognitionNode(Node):
             self.camera_subs.append(sub)
 
         self.get_logger().info(
-            f'Subscribed for crab detection on {self.camera_count} camera topics ({self.camera_topic_prefix}0..{self.camera_count - 1})'
+            f'Subscribed for crab detection on {self.camera_count} camera topics '
+            f'({self.camera_topic_prefix}0..{self.camera_count - 1})'
         )
 
         self.crab_scan_sub = self.create_subscription(
@@ -97,7 +104,8 @@ class CrabRecognitionNode(Node):
         output_suffix = output_path.suffix or '.jpg'
 
         if not self.latest_frames:
-            self.get_logger().warning('No live frames received yet on camera topics; skipping detection trigger.')
+            self.get_logger().warning(
+                'No live frames received yet on camera topics; skipping detection trigger.')
             return
 
         total_count = 0
@@ -157,7 +165,8 @@ class CrabRecognitionNode(Node):
                 f'Camera {camera_id} green crabs found: {green_count}; saved to {camera_output}'
             )
 
-        self.get_logger().info(f'Total green crabs across {len(self.latest_frames)} camera frames: {total_count}')
+        self.get_logger().info(
+            f'Total green crabs across {len(self.latest_frames)} camera frames: {total_count}')
 
 
 def main(args=None):

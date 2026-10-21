@@ -17,7 +17,7 @@ setup(
             'launch/joystick.launch.py'
         ])
     ],
-    
+
     install_requires=['setuptools'],
     zip_safe=True,
     maintainer='nuwave',
