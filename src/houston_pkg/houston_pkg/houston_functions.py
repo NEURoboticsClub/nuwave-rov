@@ -98,6 +98,7 @@ def publish_twist_get_msg(axis_values, button_values):
     msg.linear.x = float(axis_values.get('strafe', 0.0))
     msg.linear.y = float(axis_values.get('drive_forward', 0.0))
     msg.linear.z = (float(axis_values.get('up', 0.0)) - float(axis_values.get('down', 0.0))) * 0.5
+    return msg
 
 def publish_arm_commands(axis_values, button_values):
     msg = Float32MultiArray()
@@ -110,6 +111,9 @@ def publish_arm_commands(axis_values, button_values):
         (float(button_values.get('claw_open_input', 0.0)) - float(button_values.get('claw_close_input', 0.0))), 
     ]
     return msg
+
+
+
 
 def _scale_to_unit(x, y, z):
     m = max(abs(x), abs(y), abs(z), 1.0)

@@ -1,4 +1,4 @@
-from houston_pkg.houston_functions import scale_controller_input, publish_boolean, _scale_to_unit
+from houston_pkg.houston_functions import scale_controller_input, publish_boolean, _scale_to_unit, parse_joystick, joy_arm_callback, publish_twist_get_msg
 import pytest
 import numpy as np
 
@@ -29,3 +29,13 @@ def test_scale_to_unit():
 
 def test_parse_joystick():
     pass
+    #assert parse_joystick(mock cfg_list : not a list, mock msg : any, expo_enabled : Boolean) is {"axis": {}, "button": {}}
+    #assert parse_joystick(mock cfg_list : list, mock msg : any, expo_enabled : Boolean) is {"axis": (expected axis values), "button": (expected button values)}
+
+def test_joy_arm_callback():
+    pass
+    # assert joy_arm_callback(mock msg : any) is (expected return_map)
+
+def test_publish_twist_get_msg():
+    pass
+    # assert publish_twist_get_msg(mock axis_values : any, mock button_values : any)
