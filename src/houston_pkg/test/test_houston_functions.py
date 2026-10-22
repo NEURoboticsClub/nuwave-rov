@@ -38,4 +38,43 @@ def test_joy_arm_callback():
 
 def test_publish_twist_get_msg():
     pass
-    # assert publish_twist_get_msg(mock axis_values : any, mock button_values : any)
+    # assert publish_twist_get_msg(mock axis_values : any, mock button_values : any) is (expected returned msg : Twist)
+
+def test_publish_arm_commands():
+    pass
+    # assert publish_arm_commands(mock axis_values : any, mock button_values : any) is (expected returned msg : Float32MultiArray)
+
+def test_set_button_enabled():
+    pass
+    #class MockEnabled:
+        # def __init__(self):
+            #self.enabled = none
+            #self.inputString = none
+        # def set-enabled(new-enabled-val : boolean, inString : String):
+            #self.enabled = new-enabled-val
+            #self.inputString = inString
+    
+    #mock_enabled = MockEnabled()
+    #set_button_enabled(mock button_values : list, test-specific toggle : String, test-specific prev_button : int, mock_enabled.set-enabled, test-specific already_enabled : boolean)
+    # assert mock_enabled.enabled is (expected enabled)
+    # assert mock_enabled.inputString is (expected inputString)
+
+def test_check_if_stale_and_set_msg():
+    pass
+    #class MockLogger:
+        #def __init__(self):
+            #self.warning = none
+        #def warn(s : String):
+            #self.warning = s
+    #class MockStabilizeEnabler:
+        #def __init__(self):
+            #self.ran_stabilize_enabler = none
+        #def set_stabilize_enabled
+            #self.ran_stabilize_enabler = true
+    #class MockMSG:
+    #mock_logger = MockLogger()
+    #mock_stabilize_enabler = MockStabilizeEnabler()
+    # First test condition where stale
+    # check_if_stale_and_set_msg(mock clock : any, test-specific last_stabilizer_time : any, test-specific last_stabilizer_twist : any, mock stabilizer_timeout : any, mock_stabilize_enabler.set_stabilize_enabled, mock_logger, mock_msg)
+    # assert mock_logger.warning is "Stabilizer messages stale; stabilization disabled"
+    # assert mock_stabilize_enabler.ran_stabilize_enabler is true
