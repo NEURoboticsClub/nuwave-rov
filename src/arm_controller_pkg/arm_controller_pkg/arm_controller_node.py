@@ -1,11 +1,13 @@
 import os
 
 from ament_index_python.packages import get_package_share_directory
-import numpy as np
 from nuwave_utils_pkg.file_helpers import load_yaml
 import rclpy
 from rclpy.node import Node
 from std_msgs.msg import Float32, Float32MultiArray
+
+from arm_controller_pkg.arm_controller_functions import status_callback, publish_arm_motors
+
 
 
 class ArmController(Node):
@@ -53,49 +55,25 @@ class ArmController(Node):
         self.last_msg_time = None
         self.watchdog_tripped = False
 
-        self.create_timer(1.0 / rate, self.publish_arm_motors)
+        self.create_timer(1.0 / rate, self.Publish_Arm_Motors)
         self.get_logger().info('Arm Controller Initialized')
 
     def Status_Callback(self, msg: Float32MultiArray):
         """Process a new velocity vector and turns them into PWM signals for the Arm Motors."""
         self.last_state_msg = msg
-        self.last_msg_time = self.get_clock().now()
+        self.last_msg_time = status_callback(
+            msg, self.motors, self.get_logger(), self.get_clock())
 
-        arm_velocities = np.array(msg.data, dtype=float)
-
-        for mot in self.motors:
-            idx = mot.get('id', 0) - 1
-            if 0 <= idx < len(arm_velocities):
-                vel = arm_velocities[idx]
-                mot['dutycycle'] = vel if np.isfinite(vel) else 0.0
-            else:
-                self.get_logger().warn(
-                    f'Arm command array has {len(arm_velocities)} elements; '
-                    f"no value for motor id {mot.get('id')}; holding zero"
-                )
-                mot['dutycycle'] = 0.0
-
-    def publish_arm_motors(self):
+    def Publish_Arm_Motors(self):
         """Publish current PWM commands to each arm motor."""
-        timed_out = (
-            self.last_msg_time is None or
-            (self.get_clock().now() - self.last_msg_time).nanoseconds * 1e-9
-            > self.watchdog_timeout_s
+        self.watchdog_tripped = publish_arm_motors(
+            self.motors,
+            self.get_clock(),
+            self.get_logger(),
+            self.watchdog_timeout_s,
+            self.last_msg_time,
+            self.watchdog_tripped,
         )
-        # Log once per timeout event
-        if timed_out:
-            if self.last_msg_time is not None and not self.watchdog_tripped:
-                self.get_logger().warn(
-                    f'Watchdog timeout: no arm command in {self.watchdog_timeout_s}s, '
-                    'zeroing arm motor outputs.'
-                )
-                self.watchdog_tripped = True
-        else:
-            self.watchdog_tripped = False
-        for mot in self.motors:
-            msg = Float32()
-            msg.data = 0.0 if timed_out else float(mot.get('dutycycle', 0.0))
-            mot['pub'].publish(msg)
 
 
 def main(args=None):
