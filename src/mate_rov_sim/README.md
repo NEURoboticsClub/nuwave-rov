@@ -1,18 +1,46 @@
 # mate_rov_sim
 
+## Install
 
-## Gazebo Install
-```
+The sim needs **Gazebo Harmonic** and its ROS bridge (`ros_gz`). How you get them
+depends on your ROS 2 distro. Check which one you have with `echo $ROS_DISTRO`
+(after `source /opt/ros/<distro>/setup.bash`).
+
+| | **Humble** | **Jazzy** |
+|---|---|---|
+| Ubuntu | 22.04 (jammy) | 24.04 (noble) |
+| Gazebo Harmonic comes from | the OSRF Gazebo apt repo (Humble's default bridge is for the older Gazebo Fortress) | the normal ROS apt repo (Harmonic is Jazzy's default) |
+
+### ROS 2 Humble (Ubuntu 22.04)
+
+```bash
 sudo apt-get update && sudo apt-get install curl lsb-release gnupg
 sudo curl https://packages.osrfoundation.org/gazebo.gpg --output /usr/share/keyrings/pkgs-osrf-archive-keyring.gpg
 echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/pkgs-osrf-archive-keyring.gpg] https://packages.osrfoundation.org/gazebo/ubuntu-stable $(lsb_release -cs) main" | sudo tee /etc/apt/sources.list.d/gazebo-stable.list > /dev/null
 sudo apt-get update
-sudo apt-get install gz-harmonic
-
-sudo apt-get install ros-humble-ros-gzharmonic ros-humble-teleop-twist-keyboard ros-humble-rqt-image-view python3-numpy
-sudo apt upgrade
+sudo apt-get install gz-harmonic ros-humble-ros-gzharmonic ros-humble-joy python3-numpy python3-opencv python3-tk
 ```
 
+On Humble, **don't** install `ros-humble-ros-gz` and don't use `rosdep install` for this
+package: both give the Gazebo *Fortress* bridge, and this world needs *Harmonic*.
+
+### ROS 2 Jazzy (Ubuntu 24.04)
+
+```bash
+sudo apt-get update
+sudo apt-get install ros-jazzy-ros-gz ros-jazzy-joy python3-numpy python3-opencv python3-tk
+```
+
+No extra apt repository needed: `ros-jazzy-ros-gz` is the Harmonic bridge and pulls in
+Gazebo Harmonic itself. (If you already installed `gz-harmonic` from the OSRF repo
+following the Humble steps, that's fine; just don't install any `ros-humble-*` packages,
+they don't exist for 24.04.) `rosdep install` is safe on Jazzy.
+
+### Both distros
+
+The rest of the NUWave workspace has Python dependencies too (see the repo's
+`requirements.txt`; the team scripts use a `venv`). On Ubuntu 24.04, `pip install`
+outside a venv is blocked by the system, so use the venv there.
 
 Gazebo Sim (Harmonic) simulation of the NUWave ROV, driven by the **real NUWave
 software**: the same gamepads, houston, thruster controller, arm controller,
@@ -37,11 +65,29 @@ keyboard ─▶ keyboard_teleop ─┴▶ joy_mux ─▶ houston ─▶ velocity
                                           camera_sim ──▶ /camera_{0,1}/image/compressed (JPEG, best effort)
 ```
 
-## Quick start (ROS 2 Humble, Ubuntu 22.04 / WSL)
+## Quick start (ROS 2 Humble or Jazzy, Ubuntu / WSL)
 
-    sudo apt install ros-humble-ros-gzharmonic ros-humble-joy python3-opencv   # Gazebo Harmonic + bridge
+After [installing](#install), build and run. Every new terminal needs both `source` lines;
+use `humble` or `jazzy` to match your install:
+
+    source /opt/ros/humble/setup.bash        # or: source /opt/ros/jazzy/setup.bash
     cd ~/nuwave_ws/nuwave-rov && colcon build --symlink-install && source install/setup.bash
     ros2 launch mate_rov_sim sim.launch.py
+
+If you switch distros, delete the old `build/ install/ log/` folders before rebuilding.
+
+**`package 'ros_gz_sim' not found`?**
+1. `echo $ROS_DISTRO` must print your distro; if it's empty, source `/opt/ros/<distro>/setup.bash`.
+2. `ls /opt/ros/$ROS_DISTRO/share/ros_gz_sim` must exist. If it doesn't, the bridge isn't
+   installed: rerun the install line for **your** distro and read the error. The usual
+   mistake is running the Humble commands on Jazzy (or the reverse): `ros-humble-*`
+   packages don't exist on 24.04, so the install fails.
+3. `apt update` warns about `packages.ros.org` (NO_PUBKEY / expired / not signed), or
+   `ros-<distro>-*` packages can't be located: the ROS apt key that expired in June 2025
+   is still installed. Replace it with the `ros2-apt-source` package (see the ROS install
+   docs for [Humble](https://docs.ros.org/en/humble/Installation/Ubuntu-Install-Debs.html)
+   or [Jazzy](https://docs.ros.org/en/jazzy/Installation/Ubuntu-Install-Debs.html)),
+   then install again.
 
 Plug in the same two controllers you use on the real ROV (PowerA Xbox Series X for
 driving, Xbox 360 for the arm) and drive. On WSL, attach them to Linux first with
