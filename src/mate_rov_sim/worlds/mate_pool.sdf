@@ -7,9 +7,13 @@
 <sdf version="1.11">
   <world name="mate_pool">
 
-    <!-- 1 ms physics step; try to run at real time. -->
-    <physics name="1ms" type="ignored">
-      <max_step_size>0.001</max_step_size>
+    <!-- 2 ms physics step; try to run at real time. Every system and the /clock topic
+         run once per step, so 2 ms costs about half the CPU of 1 ms. Tested against 1 ms
+         (driving, diving onto the floor, arm moves): no difference beyond run-to-run noise.
+         Keep sensor periods a multiple of the step (IMU 100 Hz = 10 ms) or their rates
+         turn irregular, which rules out 4 ms. -->
+    <physics name="2ms" type="ignored">
+      <max_step_size>0.002</max_step_size>
       <real_time_factor>1.0</real_time_factor>
     </physics>
     <gravity>0 0 -9.81</gravity>

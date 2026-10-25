@@ -41,6 +41,16 @@ def on_wsl():
         return False
 
 
+def wsl_gpu_env():
+    """
+    Point at the GPU on WSL instead of llvmpipe (Use GPU instead of CPU).
+    """
+    if not on_wsl() or not os.path.exists('/usr/lib/wsl/lib/libd3d12.so'):
+        return []
+    defaults = {'GALLIUM_DRIVER': 'd3d12', 'MESA_D3D12_DEFAULT_ADAPTER_NAME': 'NVIDIA'}
+    return [SetEnvironmentVariable(k, v) for k, v in defaults.items() if k not in os.environ]
+
+
 def generate_launch_description():
     pkg = get_package_share_directory('mate_rov_sim')
     ros_gz_sim = get_package_share_directory('ros_gz_sim')
@@ -158,6 +168,7 @@ def generate_launch_description():
     return LaunchDescription([
         *args,
         model_path,
+        *wsl_gpu_env(),
         gazebo, bridge,
         *sim_nodes,
         *bottomside,
