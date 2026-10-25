@@ -1,6 +1,6 @@
 import os
 
-from ament_index_python.packages import get_package_share_directory
+from ament_index_python.packages import get_package_share_directory  # type: ignore[reportMissingImports]
 from nuwave_utils_pkg.file_helpers import load_yaml
 import rclpy
 from rclpy.node import Node
