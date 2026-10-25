@@ -18,7 +18,7 @@ sudo apt-get update && sudo apt-get install curl lsb-release gnupg
 sudo curl https://packages.osrfoundation.org/gazebo.gpg --output /usr/share/keyrings/pkgs-osrf-archive-keyring.gpg
 echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/pkgs-osrf-archive-keyring.gpg] https://packages.osrfoundation.org/gazebo/ubuntu-stable $(lsb_release -cs) main" | sudo tee /etc/apt/sources.list.d/gazebo-stable.list > /dev/null
 sudo apt-get update
-sudo apt-get install gz-harmonic ros-humble-ros-gzharmonic ros-humble-joy python3-numpy python3-opencv python3-tk
+sudo apt-get install gz-harmonic ros-humble-ros-gzharmonic ros-humble-joy python3-aiohttp python3-numpy python3-opencv python3-tk
 ```
 
 On Humble, **don't** install `ros-humble-ros-gz` and don't use `rosdep install` for this
@@ -28,7 +28,7 @@ package: both give the Gazebo *Fortress* bridge, and this world needs *Harmonic*
 
 ```bash
 sudo apt-get update
-sudo apt-get install ros-jazzy-ros-gz ros-jazzy-joy python3-numpy python3-opencv python3-tk
+sudo apt-get install ros-jazzy-ros-gz ros-jazzy-joy python3-aiohttp python3-numpy python3-opencv python3-tk
 ```
 
 No extra apt repository needed: `ros-jazzy-ros-gz` is the Harmonic bridge and pulls in
@@ -139,7 +139,7 @@ keys for the arm. Launch with `keyboard:=false` to skip the window (headless, SS
 | `keyboard` | `true` | keyboard teleop window (needs a display) |
 | `use_pwm_node` | `true` | real `pwm_node simulate:=true` between controllers and sim (slew limit, watchdog, precision ranges). `false` = sim reads the controllers' duty cycles directly |
 | `stabilization` | `true` | `stabilization_node` |
-| `web_gui` | `false` | `web_gui/bridge_node` → http://localhost:8080 |
+| `web_gui` | `false` | `web_gui_pkg/web_bridge_node` → http://localhost:8080 |
 | `render_engine` | `ogre` on WSL, else `ogre2` | Gazebo renderer for the GUI and cameras. On WSL, ogre2 renders ~5x slower and drags the whole sim far below real time |
 | `gz_args` | `-r -v 3` | extra `gz sim` flags; add `-s` for headless |
 | `joy_thruster_device` / `joy_arm_device` | real controller names | SDL device names; empty = use `joy_thruster_id` / `joy_arm_id` |

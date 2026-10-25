@@ -27,9 +27,9 @@
   <exec_depend>thruster_pkg</exec_depend>
   <exec_depend>stabilization_pkg</exec_depend>
   <exec_depend>houston_pkg</exec_depend>
-  <exec_depend>controller</exec_depend>
-  <exec_depend>arm_controller</exec_depend>
-  <exec_depend>web_gui</exec_depend>
+  <exec_depend>thruster_controller_pkg</exec_depend>
+  <exec_depend>arm_controller_pkg</exec_depend>
+  <exec_depend>web_gui_pkg</exec_depend>
 
   <test_depend>python3-pytest</test_depend>
   <test_depend>python3-yaml</test_depend>

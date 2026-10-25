@@ -3,7 +3,6 @@ sim.launch.py: drive the simulated NUWave ROV with the real NUWave software.
 
   ros2 launch mate_rov_sim sim.launch.py                        # everything, gamepads + keyboard -> sim
   ros2 launch mate_rov_sim sim.launch.py topside:=false         # sim + bottomside only (bring your own topside)
-  ros2 launch mate_rov_sim sim.launch.py web_gui:=true          # also start the web dashboard
   ros2 launch mate_rov_sim sim.launch.py gz_args:="-r -s"       # headless (no Gazebo GUI)
 
 Starts:
@@ -21,7 +20,7 @@ Starts:
                              +-> joy_mux -> houston_pkg/houston -> controller/thruster_controller_node
        keyboard_teleop ------+                                  -> arm_controller/arm_controller_node
        (keyboard:=true; a held key overrides the gamepad)
-  6. web_gui/bridge_node (web_gui:=true)
+       web_gui_pkg/web_bridge_node
 """
 import os
 
@@ -72,9 +71,6 @@ def generate_launch_description():
         DeclareLaunchArgument(
             'stabilization', default_value='true',
             description='Start stabilization_pkg/stabilization_node (toggle it from the gamepad as usual)'),
-        DeclareLaunchArgument(
-            'web_gui', default_value='false',
-            description='Start web_gui/bridge_node'),
         DeclareLaunchArgument(
             'joy_thruster_device', default_value='PowerA Xbox Series X Controller',
             description='SDL name of the ROV-driving gamepad (see: ros2 run joy joy_enumerate_devices). '
@@ -156,10 +152,8 @@ def generate_launch_description():
              parameters=[{'joy_thruster': '/teleop/joy_thruster', 'joy_arm': '/teleop/joy_arm'}]),
         Node(package='thruster_controller_pkg', executable='thruster_controller_node', output='screen', condition=topside),
         Node(package='arm_controller_pkg', executable='arm_controller_node', output='screen', condition=topside),
+        Node(package='web_gui_pkg', executable='web_bridge_node', output='screen', condition=topside)
     ]
-
-    web_gui = Node(package='web_gui_pkg', executable='bridge_node', output='screen',
-                   condition=IfCondition(LaunchConfiguration('web_gui')))
 
     return LaunchDescription([
         *args,
@@ -168,5 +162,4 @@ def generate_launch_description():
         *sim_nodes,
         *bottomside,
         *topside_nodes,
-        web_gui,
     ])
