@@ -152,9 +152,9 @@ def generate_launch_description():
         joy('joy_arm', 'joy_arm_device', 'joy_arm_id'),
         Node(package='mate_rov_sim', executable='joy_mux', output='screen', condition=topside),
         Node(package='mate_rov_sim', executable='keyboard_teleop', output='screen', condition=keyboard),
-        Node(package='houston_pkg', executable='houston', output='screen', condition=topside,
+        Node(package='houston_pkg', executable='houston_node', output='screen', condition=topside,
              parameters=[{'joy_thruster': '/teleop/joy_thruster', 'joy_arm': '/teleop/joy_arm'}]),
-        Node(package='controller_pkg', executable='thruster_controller_node', output='screen', condition=topside),
+        Node(package='thruster_controller_pkg', executable='thruster_controller_node', output='screen', condition=topside),
         Node(package='arm_controller_pkg', executable='arm_controller_node', output='screen', condition=topside),
     ]
 

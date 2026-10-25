@@ -88,6 +88,14 @@ If you switch distros, delete the old `build/ install/ log/` folders before rebu
    docs for [Humble](https://docs.ros.org/en/humble/Installation/Ubuntu-Install-Debs.html)
    or [Jazzy](https://docs.ros.org/en/jazzy/Installation/Ubuntu-Install-Debs.html)),
    then install again.
+4. `apt update` fails with `Conflicting values set for option Signed-By regarding source
+   http://packages.ros.org/ros2/ubuntu/`: the old `ros2.list` entry is still there alongside
+   the `ros2.sources` file that `ros2-apt-source` installed. Delete the old one and the
+   expired key, then update again:
+   ```bash
+   sudo rm /etc/apt/sources.list.d/ros2.list /usr/share/keyrings/ros-archive-keyring.gpg
+   sudo apt-get update
+   ```
 
 Plug in the same two controllers you use on the real ROV (PowerA Xbox Series X for
 driving, Xbox 360 for the arm) and drive. On WSL, attach them to Linux first with
