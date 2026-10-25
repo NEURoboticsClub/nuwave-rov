@@ -1,0 +1,47 @@
+# Parameters for the simulator's stand-in nodes started by sim.launch.py.
+# The NUWave nodes (houston, controller, pwm_node, ...) keep using their own configs.
+# Lists of numbers: write every value as a float (0.0, not 0) or the node won't start.
+
+sim_motor_interface:
+  ros__parameters:
+    motor_config: ""               # "" = thruster_pkg/config/individual_motor_config.yaml (what pwm_node uses)
+    # input_suffix is set by the launch file: /response_pwm with pwm_node, "" without it.
+    output_topic_format: "/sim/{}/cmd"
+    # Pulse width (us) -> thrust (N) for an ESC whose neutral is esc_neutral_us.
+    # Defaults: T200 at 12 V with the ESC deadband. Replace with points read off
+    # Blue Robotics' published T200 performance data for YOUR voltage.
+    pwm_points:    [1100.0, 1475.0, 1525.0, 1900.0]
+    thrust_points: [ -28.6,    0.0,    0.0,   36.4]
+    esc_neutral_us: 1500.0
+    arm_max_speed: 0.8             # rad/s per arm joint at full stick
+    claw_max_speed: 0.03           # m/s claw jaw speed at full button
+    cmd_timeout: 0.5
+    publish_rate: 50.0
+
+imu_sim:
+  ros__parameters:
+    input_topic: /sim/imu_raw
+    output_topic: /imu
+    frame_id: imu_link
+    remove_gravity: true           # the BNO08x linear-acceleration report has gravity removed
+    gravity: 9.81
+
+depth_sensor_sim:
+  ros__parameters:
+    odom_topic: /sim/odom_ground_truth
+    publish_rate: 10.0
+    depth_list_length: 10
+    surface_z: 0.0
+    sensor_offset_z: 0.0
+    fluid_density: 997.0
+    gravity: 9.81
+    atmospheric_pressure: 101325.0
+    noise_stddev: 0.005
+    temperature: 20.0
+    frame_id: depth_sensor
+
+camera_sim:
+  ros__parameters:
+    camera_ids: [0, 1]             # must match the camera_N sensors in models/mate_rov/model.sdf
+    fps: 30.0
+    jpeg_quality: 70

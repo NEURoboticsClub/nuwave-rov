@@ -1,0 +1,736 @@
+<?xml version="1.0" ?>
+<!--
+  mate_rov: the NUWave ROV for Gazebo Sim (Harmonic or newer).
+
+  Conventions
+    * Frames: the NUWave control frame, the same one controller/config/thruster_config.yaml,
+      houston and the IMU use:  x = RIGHT,  y = FORWARD,  z = UP.
+      base_link origin = the vehicle's CENTER OF MASS.
+    * Units: SI (m, kg, s, N).
+    * <collision> = what the water and the pool "see" (buoyancy + contact).
+      Keep collisions to primitive shapes (box / cylinder / sphere).
+    * <visual> = what you see. Anything goes (later: your CAD meshes).
+
+  The mass, buoyancy, drag, added mass and thrust limits are still the starter
+  placeholders for a ~12 kg ROV with Blue Robotics T200s at 12 V (re-expressed in
+  the frame above). Replace them with measurements of the real vehicle.
+  Check mass and buoyancy with:  python3 tools/buoyancy_check.py models/mate_rov/model.sdf
+
+  Thruster positions / directions MUST match controller/config/thruster_config.yaml.
+  test/test_model_matches_config.py checks this.
+-->
+<sdf version="1.11">
+  <model name="mate_rov">
+
+    <!-- ================================================================== -->
+    <!--  BODY                                                               -->
+    <!-- ================================================================== -->
+    <link name="base_link">
+      <inertial>
+        <pose>0 0 0 0 0 0</pose>        <!-- center of mass = link origin -->
+        <mass>11.6</mass>               <!-- + 8 thruster links x 0.05 kg = 12.0 kg (arm is ~neutral, see below) -->
+        <inertia>                       <!-- solid-box estimate, 0.35 wide x 0.45 long x 0.28 tall -->
+          <ixx>0.274</ixx><ixy>0</ixy><ixz>0</ixz>
+          <iyy>0.196</iyy><iyz>0</iyz>
+          <izz>0.317</izz>
+        </inertia>
+        <!-- ADDED MASS: water that has to be accelerated along with the ROV.
+             Units kg (xx yy zz) and kg*m^2 (pp qq rr). POSITIVE values.
+             xx = sway (x right), yy = surge (y forward), zz = heave.
+             Integrated by the DART physics engine (Gazebo's default). -->
+        <fluid_added_mass>
+          <xx>13.0</xx>
+          <yy>6.0</yy>
+          <zz>16.0</zz>
+          <pp>0.15</pp>
+          <qq>0.12</qq>
+          <rr>0.15</rr>
+        </fluid_added_mass>
+      </inertial>
+
+      <!-- ===== COLLISIONS (these create buoyancy!) ===== -->
+      <!-- The hidden "buoyancy box". Its volume (0.24 x 0.34 x 0.139 m = 11.34 L)
+           stands in for ALL the sealed / solid volume of the real ROV: foam, tubes,
+           frame plastic, thruster bodies. Its center (z = +0.07) becomes the main
+           center of buoyancy, 7 cm above the center of mass, which keeps the ROV upright.
+           See it in the GUI: right-click the ROV > View > Collisions. -->
+      <collision name="buoyancy_volume">
+        <pose>0 0 0.07 0 0 0</pose>
+        <geometry><box><size>0.24 0.34 0.139</size></box></geometry>
+      </collision>
+      <!-- Skids (run front to back): give the ROV something to land on. They also add a little volume. -->
+      <collision name="skid_left">
+        <pose>-0.16 0 -0.095 0 0 0</pose>
+        <geometry><box><size>0.03 0.45 0.03</size></box></geometry>
+      </collision>
+      <collision name="skid_right">
+        <pose>0.16 0 -0.095 0 0 0</pose>
+        <geometry><box><size>0.03 0.45 0.03</size></box></geometry>
+      </collision>
+
+      <!-- ===== VISUALS (looks only, no physics) ===== -->
+      <visual name="plate_left">
+        <pose>-0.235 0 0.03 0 0 0</pose>
+        <geometry><box><size>0.012 0.50 0.26</size></box></geometry>
+        <material><ambient>0.05 0.05 0.05 1</ambient><diffuse>0.08 0.08 0.08 1</diffuse></material>
+      </visual>
+      <visual name="plate_right">
+        <pose>0.235 0 0.03 0 0 0</pose>
+        <geometry><box><size>0.012 0.50 0.26</size></box></geometry>
+        <material><ambient>0.05 0.05 0.05 1</ambient><diffuse>0.08 0.08 0.08 1</diffuse></material>
+      </visual>
+      <visual name="foam">
+        <pose>0 0 0.135 0 0 0</pose>
+        <geometry><box><size>0.30 0.30 0.05</size></box></geometry>
+        <material><ambient>0.9 0.75 0.05 1</ambient><diffuse>0.95 0.8 0.1 1</diffuse></material>
+      </visual>
+      <visual name="electronics_tube">
+        <pose>0 0 0.03 1.570796 0 0</pose>
+        <geometry><cylinder><radius>0.055</radius><length>0.30</length></cylinder></geometry>
+        <material><ambient>0.6 0.8 0.9 1</ambient><diffuse>0.6 0.8 0.9 1</diffuse></material>
+        <transparency>0.4</transparency>
+      </visual>
+      <visual name="camera_0_housing">
+        <pose>0 0.205 0.03 0 0 0</pose>
+        <geometry><box><size>0.06 0.03 0.05</size></box></geometry>
+        <material><ambient>0.1 0.1 0.1 1</ambient><diffuse>0.1 0.1 0.1 1</diffuse></material>
+      </visual>
+      <visual name="camera_1_housing">
+        <pose>0.07 0.225 -0.04 0 0 0</pose>
+        <geometry><box><size>0.04 0.03 0.04</size></box></geometry>
+        <material><ambient>0.1 0.1 0.1 1</ambient><diffuse>0.1 0.1 0.1 1</diffuse></material>
+      </visual>
+      <visual name="skid_left_visual">
+        <pose>-0.16 0 -0.095 0 0 0</pose>
+        <geometry><box><size>0.03 0.45 0.03</size></box></geometry>
+        <material><ambient>0.3 0.3 0.3 1</ambient><diffuse>0.35 0.35 0.35 1</diffuse></material>
+      </visual>
+      <visual name="skid_right_visual">
+        <pose>0.16 0 -0.095 0 0 0</pose>
+        <geometry><box><size>0.03 0.45 0.03</size></box></geometry>
+        <material><ambient>0.3 0.3 0.3 1</ambient><diffuse>0.35 0.35 0.35 1</diffuse></material>
+      </visual>
+
+      <!-- ===== SENSORS ===== -->
+      <!-- IMU at the CoM, aligned with base_link (needs the Imu system in the world).
+           Gazebo topic /rov/imu -> bridged to /sim/imu_raw -> imu_sim -> /imu -->
+      <sensor name="imu" type="imu">
+        <always_on>true</always_on>
+        <update_rate>100</update_rate>
+        <topic>rov/imu</topic>
+      </sensor>
+      <!-- Cameras (need the Sensors system in the world). A camera looks along its own +x,
+           so yaw = 90 deg points it forward (+y); pitch > 0 tilts it down.
+           Gazebo topic /rov/camera_N/image -> bridged to /sim/camera_N/image
+           -> camera_sim -> /camera_N/image/compressed (same as camera_pkg). -->
+      <sensor name="camera_0" type="camera">  <!-- main forward camera -->
+        <pose>0 0.225 0.03 0 0 1.570796</pose>
+        <always_on>true</always_on>
+        <update_rate>30</update_rate>
+        <topic>rov/camera_0/image</topic>
+        <camera>
+          <horizontal_fov>1.4</horizontal_fov>   <!-- about 80 degrees; underwater FOV is narrower than in air -->
+          <image><width>320</width><height>240</height><format>R8G8B8</format></image>
+          <clip><near>0.02</near><far>30</far></clip>
+        </camera>
+      </sensor>
+      <sensor name="camera_1" type="camera">  <!-- claw camera: low, right of center, tilted down at the gripper -->
+        <pose>0.07 0.245 -0.04 0 0.35 1.570796</pose>
+        <always_on>true</always_on>
+        <update_rate>30</update_rate>
+        <topic>rov/camera_1/image</topic>
+        <camera>
+          <horizontal_fov>1.4</horizontal_fov>
+          <image><width>320</width><height>240</height><format>R8G8B8</format></image>
+          <clip><near>0.02</near><far>30</far></clip>
+        </camera>
+      </sensor>
+    </link>
+
+    <!-- ================================================================== -->
+    <!--  THRUSTERS: a tiny link + a revolute joint each, one per entry in   -->
+    <!--  controller/config/thruster_config.yaml (same order, same numbers). -->
+    <!--  Link name = last part of the motor topic (thruster_fll, ...).      -->
+    <!--  A POSITIVE thrust command (newtons) pushes the ROV along the       -->
+    <!--  joint axis, which is the config's "direction".                     -->
+    <!--  The link origin (where the force acts) is the config's position;   -->
+    <!--  the vertical motor visuals are drawn 6 cm higher only so they      -->
+    <!--  don't overlap the lateral ones at the same corner.                 -->
+    <!--                                                                     -->
+    <!--  Top view (y = forward = up the page):                              -->
+    <!--        fll/flv  [  front  ]  frl/frv                                -->
+    <!--        rll/rlv  [  rear   ]  rrl/rrv                                -->
+    <!-- ================================================================== -->
+
+    <!-- Thruster 1: front_left_lateral (/thruster/thruster_fll). Thrust direction (0.707107, 0.707107, 0) -->
+    <link name="thruster_fll">
+      <pose relative_to="base_link">-0.2 0.2 0 0 0 0</pose>
+      <inertial>
+        <mass>0.05</mass>
+        <inertia><ixx>2e-5</ixx><ixy>0</ixy><ixz>0</ixz><iyy>2e-5</iyy><iyz>0</iyz><izz>2e-5</izz></inertia>
+      </inertial>
+      <visual name="motor">
+        <pose>0 0 0 0 1.570796 0.785398</pose>
+        <geometry><cylinder><radius>0.025</radius><length>0.09</length></cylinder></geometry>
+        <material><ambient>0.15 0.15 0.15 1</ambient><diffuse>0.2 0.2 0.2 1</diffuse></material>
+      </visual>
+      <visual name="nozzle">
+        <pose>-0.0318 -0.0318 0 0 1.570796 0.785398</pose>
+        <geometry><cylinder><radius>0.04</radius><length>0.01</length></cylinder></geometry>
+        <material><ambient>0.1 0.3 0.8 1</ambient><diffuse>0.1 0.3 0.8 1</diffuse></material>
+      </visual>
+    </link>
+    <joint name="thruster_fll_joint" type="revolute">
+      <parent>base_link</parent>
+      <child>thruster_fll</child>
+      <axis>
+        <xyz>0.707107 0.707107 0</xyz>
+        <limit><lower>-1e12</lower><upper>1e12</upper><effort>1e6</effort><velocity>-1</velocity></limit>
+      </axis>
+    </joint>
+    <!-- Thruster 2: front_right_lateral (/thruster/thruster_frl). Thrust direction (-0.707107, 0.707107, 0) -->
+    <link name="thruster_frl">
+      <pose relative_to="base_link">0.2 0.2 0 0 0 0</pose>
+      <inertial>
+        <mass>0.05</mass>
+        <inertia><ixx>2e-5</ixx><ixy>0</ixy><ixz>0</ixz><iyy>2e-5</iyy><iyz>0</iyz><izz>2e-5</izz></inertia>
+      </inertial>
+      <visual name="motor">
+        <pose>0 0 0 0 1.570796 2.356194</pose>
+        <geometry><cylinder><radius>0.025</radius><length>0.09</length></cylinder></geometry>
+        <material><ambient>0.15 0.15 0.15 1</ambient><diffuse>0.2 0.2 0.2 1</diffuse></material>
+      </visual>
+      <visual name="nozzle">
+        <pose>0.0318 -0.0318 0 0 1.570796 2.356194</pose>
+        <geometry><cylinder><radius>0.04</radius><length>0.01</length></cylinder></geometry>
+        <material><ambient>0.1 0.3 0.8 1</ambient><diffuse>0.1 0.3 0.8 1</diffuse></material>
+      </visual>
+    </link>
+    <joint name="thruster_frl_joint" type="revolute">
+      <parent>base_link</parent>
+      <child>thruster_frl</child>
+      <axis>
+        <xyz>-0.707107 0.707107 0</xyz>
+        <limit><lower>-1e12</lower><upper>1e12</upper><effort>1e6</effort><velocity>-1</velocity></limit>
+      </axis>
+    </joint>
+    <!-- Thruster 3: rear_left_lateral (/thruster/thruster_rll). Thrust direction (-0.707107, 0.707107, 0) -->
+    <link name="thruster_rll">
+      <pose relative_to="base_link">-0.2 -0.2 0 0 0 0</pose>
+      <inertial>
+        <mass>0.05</mass>
+        <inertia><ixx>2e-5</ixx><ixy>0</ixy><ixz>0</ixz><iyy>2e-5</iyy><iyz>0</iyz><izz>2e-5</izz></inertia>
+      </inertial>
+      <visual name="motor">
+        <pose>0 0 0 0 1.570796 2.356194</pose>
+        <geometry><cylinder><radius>0.025</radius><length>0.09</length></cylinder></geometry>
+        <material><ambient>0.15 0.15 0.15 1</ambient><diffuse>0.2 0.2 0.2 1</diffuse></material>
+      </visual>
+      <visual name="nozzle">
+        <pose>0.0318 -0.0318 0 0 1.570796 2.356194</pose>
+        <geometry><cylinder><radius>0.04</radius><length>0.01</length></cylinder></geometry>
+        <material><ambient>0.1 0.3 0.8 1</ambient><diffuse>0.1 0.3 0.8 1</diffuse></material>
+      </visual>
+    </link>
+    <joint name="thruster_rll_joint" type="revolute">
+      <parent>base_link</parent>
+      <child>thruster_rll</child>
+      <axis>
+        <xyz>-0.707107 0.707107 0</xyz>
+        <limit><lower>-1e12</lower><upper>1e12</upper><effort>1e6</effort><velocity>-1</velocity></limit>
+      </axis>
+    </joint>
+    <!-- Thruster 4: rear_right_lateral (/thruster/thruster_rrl). Thrust direction (0.707107, 0.707107, 0) -->
+    <link name="thruster_rrl">
+      <pose relative_to="base_link">0.2 -0.2 0 0 0 0</pose>
+      <inertial>
+        <mass>0.05</mass>
+        <inertia><ixx>2e-5</ixx><ixy>0</ixy><ixz>0</ixz><iyy>2e-5</iyy><iyz>0</iyz><izz>2e-5</izz></inertia>
+      </inertial>
+      <visual name="motor">
+        <pose>0 0 0 0 1.570796 0.785398</pose>
+        <geometry><cylinder><radius>0.025</radius><length>0.09</length></cylinder></geometry>
+        <material><ambient>0.15 0.15 0.15 1</ambient><diffuse>0.2 0.2 0.2 1</diffuse></material>
+      </visual>
+      <visual name="nozzle">
+        <pose>-0.0318 -0.0318 0 0 1.570796 0.785398</pose>
+        <geometry><cylinder><radius>0.04</radius><length>0.01</length></cylinder></geometry>
+        <material><ambient>0.1 0.3 0.8 1</ambient><diffuse>0.1 0.3 0.8 1</diffuse></material>
+      </visual>
+    </link>
+    <joint name="thruster_rrl_joint" type="revolute">
+      <parent>base_link</parent>
+      <child>thruster_rrl</child>
+      <axis>
+        <xyz>0.707107 0.707107 0</xyz>
+        <limit><lower>-1e12</lower><upper>1e12</upper><effort>1e6</effort><velocity>-1</velocity></limit>
+      </axis>
+    </joint>
+    <!-- Thruster 5: front_left_vertical (/thruster/thruster_flv). Thrust direction (0, 0, 1) -->
+    <link name="thruster_flv">
+      <pose relative_to="base_link">-0.2 0.2 0 0 0 0</pose>
+      <inertial>
+        <mass>0.05</mass>
+        <inertia><ixx>2e-5</ixx><ixy>0</ixy><ixz>0</ixz><iyy>2e-5</iyy><iyz>0</iyz><izz>2e-5</izz></inertia>
+      </inertial>
+      <visual name="motor">
+        <pose>0 0 0.06 0 0 0</pose>
+        <geometry><cylinder><radius>0.025</radius><length>0.09</length></cylinder></geometry>
+        <material><ambient>0.15 0.15 0.15 1</ambient><diffuse>0.2 0.2 0.2 1</diffuse></material>
+      </visual>
+      <visual name="nozzle">
+        <pose>0 0 0.015 0 0 0</pose>
+        <geometry><cylinder><radius>0.04</radius><length>0.01</length></cylinder></geometry>
+        <material><ambient>0.1 0.3 0.8 1</ambient><diffuse>0.1 0.3 0.8 1</diffuse></material>
+      </visual>
+    </link>
+    <joint name="thruster_flv_joint" type="revolute">
+      <parent>base_link</parent>
+      <child>thruster_flv</child>
+      <axis>
+        <xyz>0 0 1</xyz>
+        <limit><lower>-1e12</lower><upper>1e12</upper><effort>1e6</effort><velocity>-1</velocity></limit>
+      </axis>
+    </joint>
+    <!-- Thruster 6: front_right_vertical (/thruster/thruster_frv). Thrust direction (0, 0, 1) -->
+    <link name="thruster_frv">
+      <pose relative_to="base_link">0.2 0.2 0 0 0 0</pose>
+      <inertial>
+        <mass>0.05</mass>
+        <inertia><ixx>2e-5</ixx><ixy>0</ixy><ixz>0</ixz><iyy>2e-5</iyy><iyz>0</iyz><izz>2e-5</izz></inertia>
+      </inertial>
+      <visual name="motor">
+        <pose>0 0 0.06 0 0 0</pose>
+        <geometry><cylinder><radius>0.025</radius><length>0.09</length></cylinder></geometry>
+        <material><ambient>0.15 0.15 0.15 1</ambient><diffuse>0.2 0.2 0.2 1</diffuse></material>
+      </visual>
+      <visual name="nozzle">
+        <pose>0 0 0.015 0 0 0</pose>
+        <geometry><cylinder><radius>0.04</radius><length>0.01</length></cylinder></geometry>
+        <material><ambient>0.1 0.3 0.8 1</ambient><diffuse>0.1 0.3 0.8 1</diffuse></material>
+      </visual>
+    </link>
+    <joint name="thruster_frv_joint" type="revolute">
+      <parent>base_link</parent>
+      <child>thruster_frv</child>
+      <axis>
+        <xyz>0 0 1</xyz>
+        <limit><lower>-1e12</lower><upper>1e12</upper><effort>1e6</effort><velocity>-1</velocity></limit>
+      </axis>
+    </joint>
+    <!-- Thruster 7: rear_left_vertical (/thruster/thruster_rlv). Thrust direction (0, 0, 1) -->
+    <link name="thruster_rlv">
+      <pose relative_to="base_link">-0.2 -0.2 0 0 0 0</pose>
+      <inertial>
+        <mass>0.05</mass>
+        <inertia><ixx>2e-5</ixx><ixy>0</ixy><ixz>0</ixz><iyy>2e-5</iyy><iyz>0</iyz><izz>2e-5</izz></inertia>
+      </inertial>
+      <visual name="motor">
+        <pose>0 0 0.06 0 0 0</pose>
+        <geometry><cylinder><radius>0.025</radius><length>0.09</length></cylinder></geometry>
+        <material><ambient>0.15 0.15 0.15 1</ambient><diffuse>0.2 0.2 0.2 1</diffuse></material>
+      </visual>
+      <visual name="nozzle">
+        <pose>0 0 0.015 0 0 0</pose>
+        <geometry><cylinder><radius>0.04</radius><length>0.01</length></cylinder></geometry>
+        <material><ambient>0.1 0.3 0.8 1</ambient><diffuse>0.1 0.3 0.8 1</diffuse></material>
+      </visual>
+    </link>
+    <joint name="thruster_rlv_joint" type="revolute">
+      <parent>base_link</parent>
+      <child>thruster_rlv</child>
+      <axis>
+        <xyz>0 0 1</xyz>
+        <limit><lower>-1e12</lower><upper>1e12</upper><effort>1e6</effort><velocity>-1</velocity></limit>
+      </axis>
+    </joint>
+    <!-- Thruster 8: rear_right_vertical (/thruster/thruster_rrv). Thrust direction (0, 0, 1) -->
+    <link name="thruster_rrv">
+      <pose relative_to="base_link">0.2 -0.2 0 0 0 0</pose>
+      <inertial>
+        <mass>0.05</mass>
+        <inertia><ixx>2e-5</ixx><ixy>0</ixy><ixz>0</ixz><iyy>2e-5</iyy><iyz>0</iyz><izz>2e-5</izz></inertia>
+      </inertial>
+      <visual name="motor">
+        <pose>0 0 0.06 0 0 0</pose>
+        <geometry><cylinder><radius>0.025</radius><length>0.09</length></cylinder></geometry>
+        <material><ambient>0.15 0.15 0.15 1</ambient><diffuse>0.2 0.2 0.2 1</diffuse></material>
+      </visual>
+      <visual name="nozzle">
+        <pose>0 0 0.015 0 0 0</pose>
+        <geometry><cylinder><radius>0.04</radius><length>0.01</length></cylinder></geometry>
+        <material><ambient>0.1 0.3 0.8 1</ambient><diffuse>0.1 0.3 0.8 1</diffuse></material>
+      </visual>
+    </link>
+    <joint name="thruster_rrv_joint" type="revolute">
+      <parent>base_link</parent>
+      <child>thruster_rrv</child>
+      <axis>
+        <xyz>0 0 1</xyz>
+        <limit><lower>-1e12</lower><upper>1e12</upper><effort>1e6</effort><velocity>-1</velocity></limit>
+      </axis>
+    </joint>
+
+    <!-- ================================================================== -->
+    <!--  ARM: placeholder 5-DOF arm + claw, built from primitives under the  -->
+    <!--  front of the ROV, pointing forward. Joint names follow the motor   -->
+    <!--  topics in arm_controller/config/arm_config.yaml:                   -->
+    <!--    /arm/motor_<name>  ->  joint arm_<name>_joint                    -->
+    <!--  The real arm motors are speed-controlled, so each joint is driven  -->
+    <!--  by a JointController in VELOCITY mode (rad/s; m/s for the claw).   -->
+    <!--  Every link's mass equals the water its collision displaces, so the -->
+    <!--  arm is neutrally buoyant and does not change the ROV's trim.       -->
+    <!--  Replace with the real arm (see arm_simulation/urdf) once its       -->
+    <!--  meshes and masses are available.                                   -->
+    <!-- ================================================================== -->
+    <link name="arm_turret">
+      <pose relative_to="base_link">0 0.20 -0.08 0 0 0</pose>
+      <inertial>
+        <mass>0.085</mass>
+        <inertia><ixx>2.6e-5</ixx><ixy>0</ixy><ixz>0</ixz><iyy>2.6e-5</iyy><iyz>0</iyz><izz>3.8e-5</izz></inertia>
+      </inertial>
+      <collision name="collision">
+        <geometry><cylinder><radius>0.03</radius><length>0.03</length></cylinder></geometry>
+      </collision>
+      <visual name="visual">
+        <geometry><cylinder><radius>0.03</radius><length>0.03</length></cylinder></geometry>
+        <material><ambient>0.5 0.5 0.55 1</ambient><diffuse>0.6 0.6 0.65 1</diffuse></material>
+      </visual>
+    </link>
+    <joint name="arm_base_yaw_joint" type="revolute">  <!-- /arm/motor_base_yaw: swings the arm left/right -->
+      <parent>base_link</parent>
+      <child>arm_turret</child>
+      <axis>
+        <xyz>0 0 1</xyz>
+        <limit><lower>-1.57</lower><upper>1.57</upper><effort>20</effort><velocity>2</velocity></limit>
+        <dynamics><damping>0.05</damping></dynamics>
+      </axis>
+    </joint>
+
+    <link name="arm_upper">
+      <pose relative_to="arm_turret">0 0 0 0 0 0</pose>
+      <inertial>
+        <pose>0 0.08 0 0 0 0</pose>
+        <mass>0.144</mass>
+        <inertia><ixx>3.1e-4</ixx><ixy>0</ixy><ixz>0</ixz><iyy>2.2e-5</iyy><iyz>0</iyz><izz>3.1e-4</izz></inertia>
+      </inertial>
+      <collision name="collision">
+        <pose>0 0.08 0 0 0 0</pose>
+        <geometry><box><size>0.03 0.16 0.03</size></box></geometry>
+      </collision>
+      <visual name="visual">
+        <pose>0 0.08 0 0 0 0</pose>
+        <geometry><box><size>0.03 0.16 0.03</size></box></geometry>
+        <material><ambient>0.85 0.85 0.9 1</ambient><diffuse>0.9 0.9 0.95 1</diffuse></material>
+      </visual>
+    </link>
+    <joint name="arm_base_pitch_joint" type="revolute">  <!-- /arm/motor_base_pitch: shoulder up (+) / down (-) -->
+      <parent>arm_turret</parent>
+      <child>arm_upper</child>
+      <axis>
+        <xyz>1 0 0</xyz>
+        <limit><lower>-1.2</lower><upper>0.8</upper><effort>20</effort><velocity>2</velocity></limit>
+        <dynamics><damping>0.05</damping></dynamics>
+      </axis>
+    </joint>
+
+    <link name="arm_forearm">
+      <pose relative_to="arm_upper">0 0.16 0 0 0 0</pose>
+      <inertial>
+        <pose>0 0.065 0 0 0 0</pose>
+        <mass>0.081</mass>
+        <inertia><ixx>1.2e-4</ixx><ixy>0</ixy><ixz>0</ixz><iyy>8.4e-6</iyy><iyz>0</iyz><izz>1.2e-4</izz></inertia>
+      </inertial>
+      <collision name="collision">
+        <pose>0 0.065 0 0 0 0</pose>
+        <geometry><box><size>0.025 0.13 0.025</size></box></geometry>
+      </collision>
+      <visual name="visual">
+        <pose>0 0.065 0 0 0 0</pose>
+        <geometry><box><size>0.025 0.13 0.025</size></box></geometry>
+        <material><ambient>0.85 0.85 0.9 1</ambient><diffuse>0.9 0.9 0.95 1</diffuse></material>
+      </visual>
+    </link>
+    <joint name="arm_elbow_pitch_joint" type="revolute">  <!-- /arm/motor_elbow_pitch -->
+      <parent>arm_upper</parent>
+      <child>arm_forearm</child>
+      <axis>
+        <xyz>1 0 0</xyz>
+        <limit><lower>-2.0</lower><upper>2.0</upper><effort>20</effort><velocity>2</velocity></limit>
+        <dynamics><damping>0.05</damping></dynamics>
+      </axis>
+    </joint>
+
+    <link name="arm_wrist">
+      <pose relative_to="arm_forearm">0 0.13 0 0 0 0</pose>
+      <inertial>
+        <pose>0 0.015 0 0 0 0</pose>
+        <mass>0.030</mass>
+        <inertia><ixx>4.7e-6</ixx><ixy>0</ixy><ixz>0</ixz><iyy>4.9e-6</iyy><iyz>0</iyz><izz>4.7e-6</izz></inertia>
+      </inertial>
+      <collision name="collision">
+        <pose>0 0.015 0 1.570796 0 0</pose>
+        <geometry><cylinder><radius>0.018</radius><length>0.03</length></cylinder></geometry>
+      </collision>
+      <visual name="visual">
+        <pose>0 0.015 0 1.570796 0 0</pose>
+        <geometry><cylinder><radius>0.018</radius><length>0.03</length></cylinder></geometry>
+        <material><ambient>0.5 0.5 0.55 1</ambient><diffuse>0.6 0.6 0.65 1</diffuse></material>
+      </visual>
+    </link>
+    <joint name="arm_wrist_yaw_joint" type="revolute">  <!-- /arm/motor_wrist_yaw: rotates the wrist about the forearm -->
+      <parent>arm_forearm</parent>
+      <child>arm_wrist</child>
+      <axis>
+        <xyz>0 1 0</xyz>
+        <limit><lower>-3.14</lower><upper>3.14</upper><effort>10</effort><velocity>3</velocity></limit>
+        <dynamics><damping>0.02</damping></dynamics>
+      </axis>
+    </joint>
+
+    <link name="arm_palm">
+      <pose relative_to="arm_wrist">0 0.03 0 0 0 0</pose>
+      <inertial>
+        <pose>0 0.015 0 0 0 0</pose>
+        <mass>0.030</mass>
+        <inertia><ixx>3.0e-6</ixx><ixy>0</ixy><ixz>0</ixz><iyy>9.0e-6</iyy><iyz>0</iyz><izz>9.0e-6</izz></inertia>
+      </inertial>
+      <collision name="palm">
+        <pose>0 0.01 0 0 0 0</pose>
+        <geometry><box><size>0.06 0.02 0.02</size></box></geometry>
+      </collision>
+      <visual name="palm_visual">
+        <pose>0 0.01 0 0 0 0</pose>
+        <geometry><box><size>0.06 0.02 0.02</size></box></geometry>
+        <material><ambient>0.5 0.5 0.55 1</ambient><diffuse>0.6 0.6 0.65 1</diffuse></material>
+      </visual>
+      <!-- Fixed jaw (left) -->
+      <collision name="fixed_jaw">
+        <pose>-0.025 0.045 0 0 0 0</pose>
+        <geometry><box><size>0.008 0.05 0.015</size></box></geometry>
+      </collision>
+      <visual name="fixed_jaw_visual">
+        <pose>-0.025 0.045 0 0 0 0</pose>
+        <geometry><box><size>0.008 0.05 0.015</size></box></geometry>
+        <material><ambient>0.9 0.4 0.05 1</ambient><diffuse>1.0 0.45 0.05 1</diffuse></material>
+      </visual>
+    </link>
+    <joint name="arm_wrist_pitch_joint" type="revolute">  <!-- /arm/motor_wrist_pitch: tilts the claw up (+) / down (-) -->
+      <parent>arm_wrist</parent>
+      <child>arm_palm</child>
+      <axis>
+        <xyz>1 0 0</xyz>
+        <limit><lower>-1.57</lower><upper>1.57</upper><effort>10</effort><velocity>2</velocity></limit>
+        <dynamics><damping>0.02</damping></dynamics>
+      </axis>
+    </joint>
+
+    <link name="arm_jaw">  <!-- moving jaw (right); slides away from the fixed jaw to open -->
+      <pose relative_to="arm_palm">0 0 0 0 0 0</pose>
+      <inertial>
+        <pose>-0.013 0.045 0 0 0 0</pose>
+        <mass>0.006</mass>
+        <inertia><ixx>1.4e-6</ixx><ixy>0</ixy><ixz>0</ixz><iyy>1.5e-7</iyy><iyz>0</iyz><izz>1.3e-6</izz></inertia>
+      </inertial>
+      <collision name="collision">
+        <pose>-0.013 0.045 0 0 0 0</pose>
+        <geometry><box><size>0.008 0.05 0.015</size></box></geometry>
+      </collision>
+      <visual name="visual">
+        <pose>-0.013 0.045 0 0 0 0</pose>
+        <geometry><box><size>0.008 0.05 0.015</size></box></geometry>
+        <material><ambient>0.9 0.4 0.05 1</ambient><diffuse>1.0 0.45 0.05 1</diffuse></material>
+      </visual>
+    </link>
+    <joint name="arm_claw_joint" type="prismatic">  <!-- /arm/motor_claw: + opens, - closes (0 = closed) -->
+      <parent>arm_palm</parent>
+      <child>arm_jaw</child>
+      <axis>
+        <xyz>1 0 0</xyz>
+        <limit><lower>0</lower><upper>0.045</upper><effort>20</effort><velocity>0.1</velocity></limit>
+        <dynamics><damping>0.5</damping></dynamics>
+      </axis>
+    </joint>
+
+    <!-- One velocity controller per arm joint. Each listens on
+           /model/rov/joint/<joint>/cmd_vel   (gz.msgs.Double, rad/s or m/s)
+         and holds the last command until a new one arrives. -->
+    <plugin filename="gz-sim-joint-controller-system" name="gz::sim::systems::JointController">
+      <joint_name>arm_base_yaw_joint</joint_name>
+      <topic>/model/rov/joint/arm_base_yaw_joint/cmd_vel</topic>
+    </plugin>
+    <plugin filename="gz-sim-joint-controller-system" name="gz::sim::systems::JointController">
+      <joint_name>arm_base_pitch_joint</joint_name>
+      <topic>/model/rov/joint/arm_base_pitch_joint/cmd_vel</topic>
+    </plugin>
+    <plugin filename="gz-sim-joint-controller-system" name="gz::sim::systems::JointController">
+      <joint_name>arm_elbow_pitch_joint</joint_name>
+      <topic>/model/rov/joint/arm_elbow_pitch_joint/cmd_vel</topic>
+    </plugin>
+    <plugin filename="gz-sim-joint-controller-system" name="gz::sim::systems::JointController">
+      <joint_name>arm_wrist_yaw_joint</joint_name>
+      <topic>/model/rov/joint/arm_wrist_yaw_joint/cmd_vel</topic>
+    </plugin>
+    <plugin filename="gz-sim-joint-controller-system" name="gz::sim::systems::JointController">
+      <joint_name>arm_wrist_pitch_joint</joint_name>
+      <topic>/model/rov/joint/arm_wrist_pitch_joint/cmd_vel</topic>
+    </plugin>
+    <plugin filename="gz-sim-joint-controller-system" name="gz::sim::systems::JointController">
+      <joint_name>arm_claw_joint</joint_name>
+      <topic>/model/rov/joint/arm_claw_joint/cmd_vel</topic>
+    </plugin>
+
+    <!-- Arm joint angles on /world/mate_pool/model/rov/joint_state (bridged to /sim/joint_states) -->
+    <plugin filename="gz-sim-joint-state-publisher-system" name="gz::sim::systems::JointStatePublisher">
+      <joint_name>arm_base_yaw_joint</joint_name>
+      <joint_name>arm_base_pitch_joint</joint_name>
+      <joint_name>arm_elbow_pitch_joint</joint_name>
+      <joint_name>arm_wrist_yaw_joint</joint_name>
+      <joint_name>arm_wrist_pitch_joint</joint_name>
+      <joint_name>arm_claw_joint</joint_name>
+    </plugin>
+
+    <!-- ================================================================== -->
+    <!--  THRUSTER PLUGINS. Each listens on                                  -->
+    <!--    /model/rov/joint/thruster_<name>_joint/cmd_thrust (gz.msgs.Double, N) -->
+    <!--  and HOLDS the last command until a new one arrives.                 -->
+    <!--  sim_motor_interface turns pwm_node's duty cycles into these forces. -->
+    <!--  thrust_coefficient only sets how fast the propeller joint spins     -->
+    <!--  (0.01 gives about 3000 rpm at full thrust, like a real T200).       -->
+    <!--  Its sign sets the spin direction: diagonal pairs spin opposite     -->
+    <!--  ways (like CW / CCW props) so the spin reaction torques cancel.    -->
+    <!--  Thrust limits: T200 at 12 V, 3.71 kgf forward / 2.92 kgf reverse.   -->
+    <!-- ================================================================== -->
+
+    <plugin filename="gz-sim-thruster-system" name="gz::sim::systems::Thruster">
+      <namespace>rov</namespace>
+      <joint_name>thruster_fll_joint</joint_name>
+      <fluid_density>997</fluid_density>
+      <propeller_diameter>0.076</propeller_diameter>
+      <thrust_coefficient>0.01</thrust_coefficient>
+      <velocity_control>true</velocity_control>
+      <max_thrust_cmd>36.4</max_thrust_cmd>
+      <min_thrust_cmd>-28.6</min_thrust_cmd>
+    </plugin>
+    <plugin filename="gz-sim-thruster-system" name="gz::sim::systems::Thruster">
+      <namespace>rov</namespace>
+      <joint_name>thruster_frl_joint</joint_name>
+      <fluid_density>997</fluid_density>
+      <propeller_diameter>0.076</propeller_diameter>
+      <thrust_coefficient>-0.01</thrust_coefficient>
+      <velocity_control>true</velocity_control>
+      <max_thrust_cmd>36.4</max_thrust_cmd>
+      <min_thrust_cmd>-28.6</min_thrust_cmd>
+    </plugin>
+    <plugin filename="gz-sim-thruster-system" name="gz::sim::systems::Thruster">
+      <namespace>rov</namespace>
+      <joint_name>thruster_rll_joint</joint_name>
+      <fluid_density>997</fluid_density>
+      <propeller_diameter>0.076</propeller_diameter>
+      <thrust_coefficient>-0.01</thrust_coefficient>
+      <velocity_control>true</velocity_control>
+      <max_thrust_cmd>36.4</max_thrust_cmd>
+      <min_thrust_cmd>-28.6</min_thrust_cmd>
+    </plugin>
+    <plugin filename="gz-sim-thruster-system" name="gz::sim::systems::Thruster">
+      <namespace>rov</namespace>
+      <joint_name>thruster_rrl_joint</joint_name>
+      <fluid_density>997</fluid_density>
+      <propeller_diameter>0.076</propeller_diameter>
+      <thrust_coefficient>0.01</thrust_coefficient>
+      <velocity_control>true</velocity_control>
+      <max_thrust_cmd>36.4</max_thrust_cmd>
+      <min_thrust_cmd>-28.6</min_thrust_cmd>
+    </plugin>
+    <plugin filename="gz-sim-thruster-system" name="gz::sim::systems::Thruster">
+      <namespace>rov</namespace>
+      <joint_name>thruster_flv_joint</joint_name>
+      <fluid_density>997</fluid_density>
+      <propeller_diameter>0.076</propeller_diameter>
+      <thrust_coefficient>0.01</thrust_coefficient>
+      <velocity_control>true</velocity_control>
+      <max_thrust_cmd>36.4</max_thrust_cmd>
+      <min_thrust_cmd>-28.6</min_thrust_cmd>
+    </plugin>
+    <plugin filename="gz-sim-thruster-system" name="gz::sim::systems::Thruster">
+      <namespace>rov</namespace>
+      <joint_name>thruster_frv_joint</joint_name>
+      <fluid_density>997</fluid_density>
+      <propeller_diameter>0.076</propeller_diameter>
+      <thrust_coefficient>-0.01</thrust_coefficient>
+      <velocity_control>true</velocity_control>
+      <max_thrust_cmd>36.4</max_thrust_cmd>
+      <min_thrust_cmd>-28.6</min_thrust_cmd>
+    </plugin>
+    <plugin filename="gz-sim-thruster-system" name="gz::sim::systems::Thruster">
+      <namespace>rov</namespace>
+      <joint_name>thruster_rlv_joint</joint_name>
+      <fluid_density>997</fluid_density>
+      <propeller_diameter>0.076</propeller_diameter>
+      <thrust_coefficient>-0.01</thrust_coefficient>
+      <velocity_control>true</velocity_control>
+      <max_thrust_cmd>36.4</max_thrust_cmd>
+      <min_thrust_cmd>-28.6</min_thrust_cmd>
+    </plugin>
+    <plugin filename="gz-sim-thruster-system" name="gz::sim::systems::Thruster">
+      <namespace>rov</namespace>
+      <joint_name>thruster_rrv_joint</joint_name>
+      <fluid_density>997</fluid_density>
+      <propeller_diameter>0.076</propeller_diameter>
+      <thrust_coefficient>0.01</thrust_coefficient>
+      <velocity_control>true</velocity_control>
+      <max_thrust_cmd>36.4</max_thrust_cmd>
+      <min_thrust_cmd>-28.6</min_thrust_cmd>
+    </plugin>
+
+    <!-- ================================================================== -->
+    <!--  HYDRODYNAMICS: water drag (damping), in base_link's frame.         -->
+    <!--  Added mass is NOT set here; it lives in base_link's                -->
+    <!--  <fluid_added_mass> above. Never set it in both places.             -->
+    <!--  Naming (SNAME): first letter = force/moment axis (x y z k m n),    -->
+    <!--  capitals = velocity (U V W P Q R). xUabsU: x force from u*|u|.     -->
+    <!--  Here x = sway (right), y = surge (forward), z = heave.             -->
+    <!--  Sign convention: damping coefficients are NEGATIVE.                -->
+    <!-- ================================================================== -->
+    <plugin filename="gz-sim-hydrodynamics-system" name="gz::sim::systems::Hydrodynamics">
+      <link_name>base_link</link_name>
+      <disable_added_mass>true</disable_added_mass>
+
+      <!-- Quadratic drag, about -0.5 * rho * Cd * A  (A = area facing that way, Cd ~ 1 for an open frame).
+           Generate your own with:  python3 tools/buoyancy_check.py models/mate_rov/model.sdf (frame option) -->
+      <xUabsU>-62.8</xUabsU>   <!-- sway:  A = 0.45 long x 0.28 tall -->
+      <yVabsV>-48.9</yVabsV>   <!-- surge: A = 0.35 wide x 0.28 tall -->
+      <zWabsW>-78.5</zWabsW>   <!-- heave: A = 0.45 x 0.35 m -->
+      <kPabsP>-1.5</kPabsP>    <!-- rotation about x / y / z: calibrate with a spin test -->
+      <mQabsQ>-1.5</mQabsQ>
+      <nRabsR>-1.5</nRabsR>
+
+      <!-- Linear drag: small; matters mostly at very low speed -->
+      <xU>-5.0</xU>
+      <yV>-4.0</yV>
+      <zW>-6.0</zW>
+      <kP>-0.3</kP>
+      <mQ>-0.3</mQ>
+      <nR>-0.3</nR>
+
+      <!-- FALLBACK, only if your Gazebo build ignores fluid_added_mass:
+           delete the fluid_added_mass block in base_link, set disable_added_mass
+           to false, and uncomment these. Note they are NEGATIVE here.
+      <xDotU>-13.0</xDotU> <yDotV>-6.0</yDotV> <zDotW>-16.0</zDotW>
+      <kDotP>-0.15</kDotP> <mDotQ>-0.12</mDotQ> <nDotR>-0.15</nDotR>
+      -->
+    </plugin>
+
+    <!-- ================================================================== -->
+    <!--  GROUND TRUTH: perfect pose + velocity on /model/rov/odometry.      -->
+    <!--  depth_sensor_sim uses it to fake the MS5837 depth sensor.          -->
+    <!-- ================================================================== -->
+    <plugin filename="gz-sim-odometry-publisher-system" name="gz::sim::systems::OdometryPublisher">
+      <dimensions>3</dimensions>
+      <odom_frame>world</odom_frame>
+      <robot_base_frame>base_link</robot_base_frame>
+      <odom_publish_frequency>50</odom_publish_frequency>
+    </plugin>
+
+  </model>
+</sdf>

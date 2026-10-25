@@ -1,0 +1,131 @@
+# ros_gz_bridge configuration: which topics cross between Gazebo and ROS 2.
+# Each entry: ROS name/type <-> Gazebo name/type, plus a direction.
+# Check Gazebo-side names with:  gz topic -l      ROS-side with:  ros2 topic list
+#
+# Everything on the ROS side lives under /sim/... : these are the simulator's
+# internal wires. The NUWave nodes never see them; they talk to the sim nodes
+# (sim_motor_interface, imu_sim, depth_sensor_sim, camera_sim) on the real topics.
+
+# Simulation clock -> ROS (every node run with use_sim_time:=true follows this)
+- ros_topic_name: "/clock"
+  gz_topic_name: "/clock"
+  ros_type_name: "rosgraph_msgs/msg/Clock"
+  gz_type_name: "gz.msgs.Clock"
+  direction: GZ_TO_ROS
+
+# Thruster commands, ROS -> Gazebo. Newtons. Gazebo holds the last value it received.
+# Published by sim_motor_interface, one per /thruster/<name> in individual_motor_config.yaml.
+- ros_topic_name: "/sim/thruster_fll_joint/cmd"
+  gz_topic_name: "/model/rov/joint/thruster_fll_joint/cmd_thrust"
+  ros_type_name: "std_msgs/msg/Float64"
+  gz_type_name: "gz.msgs.Double"
+  direction: ROS_TO_GZ
+- ros_topic_name: "/sim/thruster_frl_joint/cmd"
+  gz_topic_name: "/model/rov/joint/thruster_frl_joint/cmd_thrust"
+  ros_type_name: "std_msgs/msg/Float64"
+  gz_type_name: "gz.msgs.Double"
+  direction: ROS_TO_GZ
+- ros_topic_name: "/sim/thruster_rll_joint/cmd"
+  gz_topic_name: "/model/rov/joint/thruster_rll_joint/cmd_thrust"
+  ros_type_name: "std_msgs/msg/Float64"
+  gz_type_name: "gz.msgs.Double"
+  direction: ROS_TO_GZ
+- ros_topic_name: "/sim/thruster_rrl_joint/cmd"
+  gz_topic_name: "/model/rov/joint/thruster_rrl_joint/cmd_thrust"
+  ros_type_name: "std_msgs/msg/Float64"
+  gz_type_name: "gz.msgs.Double"
+  direction: ROS_TO_GZ
+- ros_topic_name: "/sim/thruster_flv_joint/cmd"
+  gz_topic_name: "/model/rov/joint/thruster_flv_joint/cmd_thrust"
+  ros_type_name: "std_msgs/msg/Float64"
+  gz_type_name: "gz.msgs.Double"
+  direction: ROS_TO_GZ
+- ros_topic_name: "/sim/thruster_frv_joint/cmd"
+  gz_topic_name: "/model/rov/joint/thruster_frv_joint/cmd_thrust"
+  ros_type_name: "std_msgs/msg/Float64"
+  gz_type_name: "gz.msgs.Double"
+  direction: ROS_TO_GZ
+- ros_topic_name: "/sim/thruster_rlv_joint/cmd"
+  gz_topic_name: "/model/rov/joint/thruster_rlv_joint/cmd_thrust"
+  ros_type_name: "std_msgs/msg/Float64"
+  gz_type_name: "gz.msgs.Double"
+  direction: ROS_TO_GZ
+- ros_topic_name: "/sim/thruster_rrv_joint/cmd"
+  gz_topic_name: "/model/rov/joint/thruster_rrv_joint/cmd_thrust"
+  ros_type_name: "std_msgs/msg/Float64"
+  gz_type_name: "gz.msgs.Double"
+  direction: ROS_TO_GZ
+
+# Arm joint speed commands, ROS -> Gazebo. rad/s (m/s for the claw).
+# Published by sim_motor_interface, one per /arm/motor_<name>.
+- ros_topic_name: "/sim/arm_base_yaw_joint/cmd"
+  gz_topic_name: "/model/rov/joint/arm_base_yaw_joint/cmd_vel"
+  ros_type_name: "std_msgs/msg/Float64"
+  gz_type_name: "gz.msgs.Double"
+  direction: ROS_TO_GZ
+- ros_topic_name: "/sim/arm_base_pitch_joint/cmd"
+  gz_topic_name: "/model/rov/joint/arm_base_pitch_joint/cmd_vel"
+  ros_type_name: "std_msgs/msg/Float64"
+  gz_type_name: "gz.msgs.Double"
+  direction: ROS_TO_GZ
+- ros_topic_name: "/sim/arm_elbow_pitch_joint/cmd"
+  gz_topic_name: "/model/rov/joint/arm_elbow_pitch_joint/cmd_vel"
+  ros_type_name: "std_msgs/msg/Float64"
+  gz_type_name: "gz.msgs.Double"
+  direction: ROS_TO_GZ
+- ros_topic_name: "/sim/arm_wrist_yaw_joint/cmd"
+  gz_topic_name: "/model/rov/joint/arm_wrist_yaw_joint/cmd_vel"
+  ros_type_name: "std_msgs/msg/Float64"
+  gz_type_name: "gz.msgs.Double"
+  direction: ROS_TO_GZ
+- ros_topic_name: "/sim/arm_wrist_pitch_joint/cmd"
+  gz_topic_name: "/model/rov/joint/arm_wrist_pitch_joint/cmd_vel"
+  ros_type_name: "std_msgs/msg/Float64"
+  gz_type_name: "gz.msgs.Double"
+  direction: ROS_TO_GZ
+- ros_topic_name: "/sim/arm_claw_joint/cmd"
+  gz_topic_name: "/model/rov/joint/arm_claw_joint/cmd_vel"
+  ros_type_name: "std_msgs/msg/Float64"
+  gz_type_name: "gz.msgs.Double"
+  direction: ROS_TO_GZ
+
+# Arm joint positions, Gazebo -> ROS (for debugging / plotting)
+- ros_topic_name: "/sim/joint_states"
+  gz_topic_name: "/world/mate_pool/model/rov/joint_state"
+  ros_type_name: "sensor_msgs/msg/JointState"
+  gz_type_name: "gz.msgs.Model"
+  direction: GZ_TO_ROS
+
+# IMU, Gazebo -> ROS (gravity included; imu_sim turns it into /imu)
+- ros_topic_name: "/sim/imu_raw"
+  gz_topic_name: "/rov/imu"
+  ros_type_name: "sensor_msgs/msg/Imu"
+  gz_type_name: "gz.msgs.IMU"
+  direction: GZ_TO_ROS
+
+# Cameras, Gazebo -> ROS (raw; camera_sim turns them into /camera_N/image/compressed)
+- ros_topic_name: "/sim/camera_0/image"
+  gz_topic_name: "/rov/camera_0/image"
+  ros_type_name: "sensor_msgs/msg/Image"
+  gz_type_name: "gz.msgs.Image"
+  direction: GZ_TO_ROS
+- ros_topic_name: "/sim/camera_1/image"
+  gz_topic_name: "/rov/camera_1/image"
+  ros_type_name: "sensor_msgs/msg/Image"
+  gz_type_name: "gz.msgs.Image"
+  direction: GZ_TO_ROS
+
+# Ground-truth pose and velocity, Gazebo -> ROS (world frame, z up; the surface is z = 0)
+- ros_topic_name: "/sim/odom_ground_truth"
+  gz_topic_name: "/model/rov/odometry"
+  ros_type_name: "nav_msgs/msg/Odometry"
+  gz_type_name: "gz.msgs.Odometry"
+  direction: GZ_TO_ROS
+
+# Water current for disturbance tests, ROS -> Gazebo (m/s, world frame)
+#   ros2 topic pub --once /ocean_current geometry_msgs/msg/Vector3 "{x: 0.2, y: 0.0, z: 0.0}"
+- ros_topic_name: "/ocean_current"
+  gz_topic_name: "/ocean_current"
+  ros_type_name: "geometry_msgs/msg/Vector3"
+  gz_type_name: "gz.msgs.Vector3d"
+  direction: ROS_TO_GZ

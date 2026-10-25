@@ -1,0 +1,230 @@
+<?xml version="1.0" ?>
+<!--
+  mate_pool: a simple competition-style pool for the MATE ROV starter sim.
+  Water surface at z = 0, pool floor at z = -4 m, fresh water (997 kg/m^3).
+  Frames: x right, y forward (down the pool), z up, matching the NUWave control frame.
+-->
+<sdf version="1.11">
+  <world name="mate_pool">
+
+    <!-- 1 ms physics step; try to run at real time. -->
+    <physics name="1ms" type="ignored">
+      <max_step_size>0.001</max_step_size>
+      <real_time_factor>1.0</real_time_factor>
+    </physics>
+    <gravity>0 0 -9.81</gravity>
+
+    <!-- ================================================================ -->
+    <!--  WORLD SYSTEMS (plugins).                                        -->
+    <!--  Listing ANY plugin here switches off Gazebo's default set, so   -->
+    <!--  every system we rely on is listed explicitly.                   -->
+    <!-- ================================================================ -->
+    <!-- Rigid-body physics (uses the DART engine by default) -->
+    <plugin filename="gz-sim-physics-system" name="gz::sim::systems::Physics"/>
+    <!-- Lets the GUI and command line move, spawn and delete things -->
+    <plugin filename="gz-sim-user-commands-system" name="gz::sim::systems::UserCommands"/>
+    <!-- Sends the scene to the GUI -->
+    <plugin filename="gz-sim-scene-broadcaster-system" name="gz::sim::systems::SceneBroadcaster"/>
+    <!-- Renders camera sensors. The render engine comes from the launch file's
+         render_engine argument (ogre on WSL, where ogre2 renders ~5x slower). -->
+    <plugin filename="gz-sim-sensors-system" name="gz::sim::systems::Sensors"/>
+    <!-- Produces IMU sensor data -->
+    <plugin filename="gz-sim-imu-system" name="gz::sim::systems::Imu"/>
+
+    <!-- BUOYANCY: water below z = 0, air above it. Pushes up on every
+         collision shape of every non-static model, at the shape's center,
+         with force = density * g * (submerged volume of the shape).
+         Graded (two-layer) mode matters: with one uniform density, a slightly
+         positive ROV would keep rising forever through the "air". -->
+    <plugin filename="gz-sim-buoyancy-system" name="gz::sim::systems::Buoyancy">
+      <graded_buoyancy>
+        <default_density>997</default_density>   <!-- fresh pool water; sea water is about 1025 -->
+        <density_change>
+          <above_depth>0</above_depth>            <!-- water surface at z = 0 -->
+          <density>1.2</density>                  <!-- air -->
+        </density_change>
+      </graded_buoyancy>
+    </plugin>
+
+    <!-- ================================================================ -->
+    <!--  LOOKS                                                           -->
+    <!-- ================================================================ -->
+    <scene>
+      <ambient>0.35 0.45 0.55 1</ambient>
+      <background>0.12 0.32 0.45 1</background>
+      <grid>false</grid>
+    </scene>
+
+    <light type="directional" name="sun">
+      <cast_shadows>true</cast_shadows>
+      <pose>0 0 10 0 0 0</pose>
+      <diffuse>0.85 0.85 0.85 1</diffuse>
+      <specular>0.2 0.2 0.2 1</specular>
+      <direction>-0.3 0.2 -1.0</direction>
+    </light>
+
+    <!-- ================================================================ -->
+    <!--  POOL: 8 m wide (x) x 12 m long (y), 4 m deep. Static, so        -->
+    <!--  buoyancy ignores it. The ROV starts facing +y, down the pool.   -->
+    <!-- ================================================================ -->
+    <model name="pool">
+      <static>true</static>
+      <link name="floor">
+        <pose>0 0 -4.1 0 0 0</pose>
+        <collision name="collision">
+          <geometry><box><size>8 12 0.2</size></box></geometry>
+        </collision>
+        <visual name="tiles">
+          <geometry><box><size>8 12 0.2</size></box></geometry>
+          <material><ambient>0.55 0.75 0.85 1</ambient><diffuse>0.6 0.8 0.9 1</diffuse></material>
+        </visual>
+        <!-- Lane lines: something for the camera to see while you drive -->
+        <visual name="lane_center">
+          <pose>0 0 0.101 0 0 0</pose>
+          <geometry><box><size>0.25 10 0.002</size></box></geometry>
+          <material><ambient>0.05 0.1 0.3 1</ambient><diffuse>0.05 0.1 0.3 1</diffuse></material>
+        </visual>
+        <visual name="lane_left">
+          <pose>-2.5 0 0.101 0 0 0</pose>
+          <geometry><box><size>0.25 10 0.002</size></box></geometry>
+          <material><ambient>0.05 0.1 0.3 1</ambient><diffuse>0.05 0.1 0.3 1</diffuse></material>
+        </visual>
+        <visual name="lane_right">
+          <pose>2.5 0 0.101 0 0 0</pose>
+          <geometry><box><size>0.25 10 0.002</size></box></geometry>
+          <material><ambient>0.05 0.1 0.3 1</ambient><diffuse>0.05 0.1 0.3 1</diffuse></material>
+        </visual>
+      </link>
+      <link name="wall_left">
+        <pose>-4.1 0 -1.75 0 0 0</pose>
+        <collision name="collision"><geometry><box><size>0.2 12.4 4.5</size></box></geometry></collision>
+        <visual name="visual">
+          <geometry><box><size>0.2 12.4 4.5</size></box></geometry>
+          <material><ambient>0.7 0.8 0.85 1</ambient><diffuse>0.75 0.85 0.9 1</diffuse></material>
+        </visual>
+      </link>
+      <link name="wall_right">
+        <pose>4.1 0 -1.75 0 0 0</pose>
+        <collision name="collision"><geometry><box><size>0.2 12.4 4.5</size></box></geometry></collision>
+        <visual name="visual">
+          <geometry><box><size>0.2 12.4 4.5</size></box></geometry>
+          <material><ambient>0.7 0.8 0.85 1</ambient><diffuse>0.75 0.85 0.9 1</diffuse></material>
+        </visual>
+      </link>
+      <link name="wall_front">
+        <pose>0 6.1 -1.75 0 0 0</pose>
+        <collision name="collision"><geometry><box><size>8 0.2 4.5</size></box></geometry></collision>
+        <visual name="visual">
+          <geometry><box><size>8 0.2 4.5</size></box></geometry>
+          <material><ambient>0.7 0.8 0.85 1</ambient><diffuse>0.75 0.85 0.9 1</diffuse></material>
+        </visual>
+      </link>
+      <link name="wall_back">
+        <pose>0 -6.1 -1.75 0 0 0</pose>
+        <collision name="collision"><geometry><box><size>8 0.2 4.5</size></box></geometry></collision>
+        <visual name="visual">
+          <geometry><box><size>8 0.2 4.5</size></box></geometry>
+          <material><ambient>0.7 0.8 0.85 1</ambient><diffuse>0.75 0.85 0.9 1</diffuse></material>
+        </visual>
+      </link>
+    </model>
+
+    <!-- Water surface: a see-through sheet at z = 0. Visual only (no collision). -->
+    <model name="water_surface">
+      <static>true</static>
+      <link name="surface">
+        <visual name="visual">
+          <pose>0 0 -0.005 0 0 0</pose>
+          <cast_shadows>false</cast_shadows>
+          <geometry><box><size>8 12 0.01</size></box></geometry>
+          <material><ambient>0.1 0.4 0.6 1</ambient><diffuse>0.1 0.45 0.65 1</diffuse></material>
+          <transparency>0.6</transparency>
+        </visual>
+      </link>
+    </model>
+
+    <!-- ================================================================ -->
+    <!--  PRACTICE PROPS. Replace with this season's MATE props.          -->
+    <!-- ================================================================ -->
+    <!-- A gate to drive through, straight ahead: two posts and a crossbar, 1.5 m wide -->
+    <model name="gate">
+      <static>true</static>
+      <pose>0 2.5 0 0 0 0</pose>
+      <link name="link">
+        <collision name="post_left">
+          <pose>-0.75 0 -2.75 0 0 0</pose>
+          <geometry><cylinder><radius>0.03</radius><length>2.5</length></cylinder></geometry>
+        </collision>
+        <visual name="post_left_visual">
+          <pose>-0.75 0 -2.75 0 0 0</pose>
+          <geometry><cylinder><radius>0.03</radius><length>2.5</length></cylinder></geometry>
+          <material><ambient>0.9 0.2 0.1 1</ambient><diffuse>0.95 0.25 0.1 1</diffuse></material>
+        </visual>
+        <collision name="post_right">
+          <pose>0.75 0 -2.75 0 0 0</pose>
+          <geometry><cylinder><radius>0.03</radius><length>2.5</length></cylinder></geometry>
+        </collision>
+        <visual name="post_right_visual">
+          <pose>0.75 0 -2.75 0 0 0</pose>
+          <geometry><cylinder><radius>0.03</radius><length>2.5</length></cylinder></geometry>
+          <material><ambient>0.1 0.7 0.2 1</ambient><diffuse>0.1 0.75 0.25 1</diffuse></material>
+        </visual>
+        <collision name="crossbar">
+          <pose>0 0 -1.5 0 1.570796 0</pose>
+          <geometry><cylinder><radius>0.03</radius><length>1.56</length></cylinder></geometry>
+        </collision>
+        <visual name="crossbar_visual">
+          <pose>0 0 -1.5 0 1.570796 0</pose>
+          <geometry><cylinder><radius>0.03</radius><length>1.56</length></cylinder></geometry>
+          <material><ambient>0.95 0.95 0.95 1</ambient><diffuse>0.95 0.95 0.95 1</diffuse></material>
+        </visual>
+      </link>
+    </model>
+
+    <!-- A crate on the floor (think "item to inspect") -->
+    <model name="crate">
+      <static>true</static>
+      <pose>2 4 -3.85 0 0 0.4</pose>
+      <link name="link">
+        <collision name="collision"><geometry><box><size>0.4 0.4 0.3</size></box></geometry></collision>
+        <visual name="visual">
+          <geometry><box><size>0.4 0.4 0.3</size></box></geometry>
+          <material><ambient>0.95 0.55 0.05 1</ambient><diffuse>1.0 0.6 0.05 1</diffuse></material>
+        </visual>
+      </link>
+    </model>
+
+    <!-- A short pipe lying on the floor for the claw to pick up. NOT static:
+         it sinks (0.4 kg vs ~0.19 kg of water displaced) and can be carried. -->
+    <model name="pipe">
+      <pose>0 1.2 -3.98 0 1.570796 0</pose>
+      <link name="link">
+        <inertial>
+          <mass>0.4</mass>
+          <inertia><ixx>8.0e-4</ixx><ixy>0</ixy><ixz>0</ixz><iyy>8.0e-4</iyy><iyz>0</iyz><izz>8.0e-5</izz></inertia>
+        </inertial>
+        <collision name="collision">
+          <geometry><cylinder><radius>0.02</radius><length>0.15</length></cylinder></geometry>
+          <surface><friction><ode><mu>1.5</mu><mu2>1.5</mu2></ode></friction></surface>
+        </collision>
+        <visual name="visual">
+          <geometry><cylinder><radius>0.02</radius><length>0.15</length></cylinder></geometry>
+          <material><ambient>0.9 0.9 0.9 1</ambient><diffuse>1 1 1 1</diffuse></material>
+        </visual>
+      </link>
+    </model>
+
+    <!-- ================================================================ -->
+    <!--  THE ROV. Found through GZ_SIM_RESOURCE_PATH (the launch file    -->
+    <!--  sets it). The name "rov" sets the Gazebo topic namespace.       -->
+    <!--  Keep the start yaw at 0: the IMU reports orientation relative   -->
+    <!--  to the world, and the real BNO08x starts at roughly zero yaw.   -->
+    <!-- ================================================================ -->
+    <include>
+      <uri>model://mate_rov</uri>
+      <name>rov</name>
+      <pose>0 0 -1.5 0 0 0</pose>
+    </include>
+
+  </world>
+</sdf>
