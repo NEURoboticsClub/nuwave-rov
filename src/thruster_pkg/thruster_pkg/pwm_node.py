@@ -10,9 +10,6 @@ from rclpy.node import Node
 from rclpy.qos import DurabilityPolicy, HistoryPolicy, QoSProfile, ReliabilityPolicy
 from std_msgs.msg import Bool, Float32
 
-from .pwm_scribe_arduino import PWMScribeArduino
-from .pwm_scribe_hat import PWMScribeHat
-
 
 class PWMNode(Node):
     """
@@ -73,10 +70,12 @@ class PWMNode(Node):
         else:
             try:
                 if pwm_hardware == 'hat':
+                    from .pwm_scribe_hat import PWMScribeHat
                     addr = self.get_parameter('i2c_address').value
                     bus = self.get_parameter('i2c_bus').value
                     self.pwm = PWMScribeHat(bus, addr)
                 elif pwm_hardware == 'arduino':
+                    from .pwm_scribe_arduino import PWMScribeArduino
                     # this may be wrong
                     port = self.get_parameter('firmata_port').get_parameter_value().string_value
                     # this is almost definitely wrong
