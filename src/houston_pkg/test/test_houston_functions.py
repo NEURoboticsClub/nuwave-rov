@@ -100,4 +100,7 @@ def test_check_if_stale_and_set_msg():
         #mock_twist_pub = MockTwistPub();
         
         # assert #publish_loop(None, mock clock, sample last_joy_thruster_time, sample joy_thruster_timeout, sample joy_thruster_stale : boolean, mock_logger, mock_twist_pub) is None
-        #publish_loop(last_joy_thruster_msg : sample msg, mock clock, sample last_joy_thruster_time, sample joy_thruster_timeout, sample joy_thruster_stale : boolean, mock_logger, mock_twist_pub)
+        
+        #(other tests based on ROS-run expectations)
+        # assert publish_loop(last_joy_thruster_msg : sample msg, mock clock, sample last_joy_thruster_time, sample joy_thruster_timeout, sample joy_thruster_stale : boolean, mock_logger, mock_twist_pub) is True
+        # assert publish_loop(last_joy_thruster_msg : sample msg, mock clock, sample last_joy_thruster_time, sample joy_thruster_timeout, sample joy_thruster_stale : boolean, mock_logger, mock_twist_pub) is False
