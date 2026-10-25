@@ -154,11 +154,11 @@ def generate_launch_description():
         Node(package='mate_rov_sim', executable='keyboard_teleop', output='screen', condition=keyboard),
         Node(package='houston_pkg', executable='houston', output='screen', condition=topside,
              parameters=[{'joy_thruster': '/teleop/joy_thruster', 'joy_arm': '/teleop/joy_arm'}]),
-        Node(package='controller', executable='thruster_controller_node', output='screen', condition=topside),
-        Node(package='arm_controller', executable='arm_controller_node', output='screen', condition=topside),
+        Node(package='controller_pkg', executable='thruster_controller_node', output='screen', condition=topside),
+        Node(package='arm_controller_pkg', executable='arm_controller_node', output='screen', condition=topside),
     ]
 
-    web_gui = Node(package='web_gui', executable='bridge_node', output='screen',
+    web_gui = Node(package='web_gui_pkg', executable='bridge_node', output='screen',
                    condition=IfCondition(LaunchConfiguration('web_gui')))
 
     return LaunchDescription([
