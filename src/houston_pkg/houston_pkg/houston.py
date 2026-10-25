@@ -156,7 +156,7 @@ class Houston(Node):
         self.last_joy_thruster_time = self.get_clock().now()
 
     def _publish_loop(self):
-       self.joy_thruster_stale = publish_loop(self.last_joy_thruster_msg, self.get_clock(), self.last_joy_thruster_time, self.joy_thruster_timeout, self.joy_thruster_stale, self.get_logger(), self.parse_joystick, self.twist_pub, self.publish_twist)
+       self.joy_thruster_stale = publish_loop(self.last_joy_thruster_msg, self.get_clock(), self.last_joy_thruster_time, self.joy_thruster_timeout, self.joy_thruster_stale, self.get_logger(), self.twist_pub)
        try_parse_joystick_publish(self.last_joy_thruster_msg, self.parse_joystick, self.publish_twist, self.get_logger())
 
     def parse_joystick(self, msg: Joy, cfg_type: str) -> dict:

@@ -59,22 +59,45 @@ def test_set_button_enabled():
     # assert mock_enabled.enabled is (expected enabled)
     # assert mock_enabled.inputString is (expected inputString)
 
+class MockLogger:
+    def __init__(self):
+        self.warning = None
+    def warn(self, warnmsg):
+        self.warning = warnmsg
+
+
 def test_check_if_stale_and_set_msg():
     pass
-    #class MockLogger:
-        #def __init__(self):
-            #self.warning = none
-        #def warn(s : String):
-            #self.warning = s
     #class MockStabilizeEnabler:
         #def __init__(self):
             #self.ran_stabilize_enabler = none
-        #def set_stabilize_enabled
+        #def set_stabilize_enabled(self)
             #self.ran_stabilize_enabler = true
-    #class MockMSG:
+    #class MockMSG():
+        #def __init__(self):
+            #establish required vals that function will update
     #mock_logger = MockLogger()
     #mock_stabilize_enabler = MockStabilizeEnabler()
+    #mock_msg = MockMsg()
     # First test condition where stale
     # check_if_stale_and_set_msg(mock clock : any, test-specific last_stabilizer_time : any, test-specific last_stabilizer_twist : any, mock stabilizer_timeout : any, mock_stabilize_enabler.set_stabilize_enabled, mock_logger, mock_msg)
     # assert mock_logger.warning is "Stabilizer messages stale; stabilization disabled"
     # assert mock_stabilize_enabler.ran_stabilize_enabler is true
+    
+    # then test condition where not stale
+    # check_if_stale_and_set_msg(mock clock : any, test-specific last_stabilizer_time : any, test-specific last_stabilizer_twist : any, mock stabilizer_timeout : any, mock_stabilize_enabler.set_stabilize_enabled, mock_logger, mock_msg)
+    # assert mock_msg has established values
+
+    def test_publish_loop():
+        pass
+        #mockLogger = MockLogger();
+        #class MockTwistPub():
+            #def __init__(self):
+                #self.published = None
+            #def publish(self, twist):
+                #self.published = twist
+
+        #mock_twist_pub = MockTwistPub();
+        
+        # assert #publish_loop(None, mock clock, sample last_joy_thruster_time, sample joy_thruster_timeout, sample joy_thruster_stale : boolean, mock_logger, mock_twist_pub) is None
+        #publish_loop(last_joy_thruster_msg : sample msg, mock clock, sample last_joy_thruster_time, sample joy_thruster_timeout, sample joy_thruster_stale : boolean, mock_logger, mock_twist_pub)
