@@ -31,8 +31,7 @@ setup(
     },
     entry_points={
         'console_scripts': [
-            'pwm_node = '+package_name+'.pwm_node:main',
-            'PCA9685 = '+package_name+'.PCA9685:main'
+            'pwm_node = ' + package_name + '.pwm_node:main',
         ],
     },
 )

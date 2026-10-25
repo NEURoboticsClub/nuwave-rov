@@ -14,10 +14,10 @@ setup(
             'config/joystick_config.yaml',
         ]),
         ('share/' + package_name + '/launch', [
-            'launch/joystick_launch.launch.py'
+            'launch/joystick.launch.py'
         ])
     ],
-    
+
     install_requires=['setuptools'],
     zip_safe=True,
     maintainer='nuwave',
@@ -31,8 +31,8 @@ setup(
     },
     entry_points={
         'console_scripts': [
-            'houston = houston_pkg.houston:main',
-            'joystick_identify=houston_pkg.joystick_identify:main',
+            'houston_node = houston_pkg.houston_node:main',
+            'joystick_identify_node = houston_pkg.joystick_identify_node:main',
         ],
     },
 )

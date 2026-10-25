@@ -1,7 +1,9 @@
+import os
+
+from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
 from launch_ros.actions import Node
-from ament_index_python.packages import get_package_share_directory
-import os
+
 
 def generate_launch_description():
     pkg = get_package_share_directory('thruster_pkg')
@@ -11,7 +13,7 @@ def generate_launch_description():
         Node(
             package='thruster_pkg',
             executable='pwm_node',
-            name='pwm_node',
+            name='pwm',
             parameters=[params],
             output='screen'
         )
