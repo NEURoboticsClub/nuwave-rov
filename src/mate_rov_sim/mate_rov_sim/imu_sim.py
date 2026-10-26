@@ -51,7 +51,7 @@ class ImuSim(Node):
 
     def on_imu(self, msg):
         out = Imu()
-        out.header.stamp = msg.header.stamp
+        out.header.stamp = self.get_clock().now().to_msg()  # wall time, like imu_pkg
         out.header.frame_id = self.frame_id
         out.orientation = msg.orientation
         out.angular_velocity = msg.angular_velocity

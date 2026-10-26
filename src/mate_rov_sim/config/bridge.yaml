@@ -6,12 +6,15 @@
 # internal wires. The NUWave nodes never see them; they talk to the sim nodes
 # (sim_motor_interface, imu_sim, depth_sensor_sim, camera_sim) on the real topics.
 
-# Simulation clock -> ROS (every node run with use_sim_time:=true follows this)
+# Simulation clock -> ROS, for tools run with use_sim_time:=true (rviz, ros2 bag, plots).
+# No sim.launch.py node uses it; lazy = only bridged while something subscribes,
+# since it arrives at every physics step.
 - ros_topic_name: "/clock"
   gz_topic_name: "/clock"
   ros_type_name: "rosgraph_msgs/msg/Clock"
   gz_type_name: "gz.msgs.Clock"
   direction: GZ_TO_ROS
+  lazy: true
 
 # Thruster commands, ROS -> Gazebo. Newtons. Gazebo holds the last value it received.
 # Published by sim_motor_interface, one per /thruster/<name> in individual_motor_config.yaml.

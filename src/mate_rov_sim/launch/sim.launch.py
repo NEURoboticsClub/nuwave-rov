@@ -55,7 +55,6 @@ def generate_launch_description():
     pkg = get_package_share_directory('mate_rov_sim')
     ros_gz_sim = get_package_share_directory('ros_gz_sim')
     params = os.path.join(pkg, 'config', 'rov_params.yaml')
-    sim_time = {'use_sim_time': True}
 
     args = [
         DeclareLaunchArgument(
@@ -114,17 +113,20 @@ def generate_launch_description():
     )
 
     # --- Simulator stand-ins for the hardware drivers ---
+    # They run on wall time like the real drivers and every NUWave node. use_sim_time would
+    # make each one process /clock at every physics step (500 Hz), which cost more CPU than
+    # all their real work combined.
     input_suffix = PythonExpression(
         ["'/response_pwm' if '", LaunchConfiguration('use_pwm_node'), "'.lower() == 'true' else ''"])
     sim_nodes = [
         Node(package='mate_rov_sim', executable='sim_motor_interface', output='screen',
-             parameters=[params, sim_time, {'input_suffix': input_suffix}]),
+             parameters=[params, {'input_suffix': input_suffix}]),
         Node(package='mate_rov_sim', executable='imu_sim', output='screen',
-             parameters=[params, sim_time]),
+             parameters=[params]),
         Node(package='mate_rov_sim', executable='depth_sensor_sim', output='screen',
-             parameters=[params, sim_time]),
+             parameters=[params]),
         Node(package='mate_rov_sim', executable='camera_sim', output='screen',
-             parameters=[params, sim_time]),
+             parameters=[params]),
     ]
 
     # --- Real NUWave bottomside nodes (no hardware access) ---

@@ -59,7 +59,7 @@ class CameraSim(Node):
             if not ok:
                 continue
             msg = CompressedImage()
-            msg.header.stamp = img.header.stamp
+            msg.header.stamp = self.get_clock().now().to_msg()  # wall time, like camera_pkg
             msg.header.frame_id = f'camera_{cam_id}'
             msg.format = 'jpeg'
             msg.data = encoded.tobytes()
