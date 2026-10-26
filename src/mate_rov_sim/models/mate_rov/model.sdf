@@ -580,8 +580,10 @@
       <topic>/model/rov/joint/arm_claw_joint/cmd_vel</topic>
     </plugin>
 
-    <!-- Arm joint angles on /world/mate_pool/model/rov/joint_state (bridged to /sim/joint_states) -->
+    <!-- Arm joint angles on /world/mate_pool/model/rov/joint_state (bridged to /sim/joint_states).
+         Without update_rate it publishes at every physics step (500 Hz) and the bridge converts each one. -->
     <plugin filename="gz-sim-joint-state-publisher-system" name="gz::sim::systems::JointStatePublisher">
+      <update_rate>50</update_rate>
       <joint_name>arm_base_yaw_joint</joint_name>
       <joint_name>arm_base_pitch_joint</joint_name>
       <joint_name>arm_elbow_pitch_joint</joint_name>

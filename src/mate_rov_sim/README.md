@@ -139,9 +139,9 @@ keys for the arm. Launch with `keyboard:=false` to skip the window (headless, SS
 | `keyboard` | `true` | keyboard teleop window (needs a display) |
 | `use_pwm_node` | `true` | real `pwm_node simulate:=true` between controllers and sim (slew limit, watchdog, precision ranges). `false` = sim reads the controllers' duty cycles directly |
 | `stabilization` | `true` | `stabilization_node` |
-| `web_gui` | `false` | `web_gui_pkg/web_bridge_node` → http://localhost:8080 |
 | `render_engine` | `ogre` on WSL, else `ogre2` | Gazebo renderer for the GUI and cameras. ogre2 looks better and also runs at real time on WSL once the GPU is used (see [Performance](#performance)), but uses about twice the CPU |
 | `gz_args` | `-r -v 3` | extra `gz sim` flags; add `-s` for headless |
+| `gz_cpus` | `auto` | CPUs to pin the Gazebo server to, e.g. `2,3`. `auto` = last two CPUs on WSL, unpinned elsewhere; `all` = never pin (see [Performance](#performance)) |
 | `joy_thruster_device` / `joy_arm_device` | real controller names | SDL device names; empty = use `joy_thruster_id` / `joy_arm_id` |
 
 ### Performance
@@ -162,6 +162,16 @@ integrated GPU uses the NVIDIA card instead. To check which GPU Gazebo actually 
 `MESA_D3D12_DEFAULT_ADAPTER_NAME=AMD` before launching (values you export win over the
 launch file's). If it still says `llvmpipe`, update the Windows GPU driver and run
 `wsl --update`. An integrated Intel/AMD GPU counts: it's far faster than `llvmpipe`.
+
+On WSL the launch file also **pins the Gazebo server to two CPUs** (`gz_cpus`). Gazebo
+splits each physics step across threads that wait for each other, and under WSL waking
+threads on other virtual CPUs is slow: free to use all 28 CPUs of a desktop, the server
+ran the physics at 4x real time; pinned to 2, at 10x, using about half the CPU. Only the
+server is pinned; the Gazebo window and ROS nodes use every CPU. Closing the Gazebo
+window stops the whole launch.
+
+To see what's slow on a given machine, run `src/mate_rov_sim/tools/perf_check.sh` (~4 min).
+It runs the sim several ways and prints the averaged real-time factor of each.
 
 Still below 1.0 (weak laptop), in order of payoff:
 

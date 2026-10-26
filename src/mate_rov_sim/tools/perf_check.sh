@@ -3,10 +3,12 @@
 #
 # Runs the sim several ways for ~20 s each and prints the real-time factor (RTF) of each,
 # averaged over the whole window (the live real_time_factor readout is too jumpy to judge):
+#   0    physics with no real-time limit: how many times faster than real time this CPU
+#        can run it, free to use every CPU and pinned to 2 (what sim.launch.py does on WSL)
 #   1-4  Gazebo alone (no ROS nodes): headless or with the GUI, cameras off or rendering
-#   5-6  the full sim.launch.py, with and without the Gazebo GUI
+#   5-7  the full sim.launch.py: headless, normal, and normal without CPU pinning
 # Comparing rows shows what costs the most: the GUI, the cameras, or the ROS nodes.
-# Gazebo and keyboard windows open and close by themselves while it runs (~3 min).
+# Gazebo and keyboard windows open and close by themselves while it runs (~4 min).
 #
 #   source /opt/ros/$ROS_DISTRO/setup.bash && source install/setup.bash
 #   src/mate_rov_sim/tools/perf_check.sh
@@ -73,12 +75,20 @@ echo "Memory: $(free -h | awk '/^Mem/ {print $2 " total, " $7 " available"}')"
 echo "Render: $RENDER, GALLIUM_DRIVER=${GALLIUM_DRIVER:-<unset>}"
 echo
 GZ=(gz sim -r -v 1 --render-engine $RENDER "$WORLD")
+UNLIMITED=$(mktemp --suffix=.sdf)   # same world, real_time_factor 0 (run flat out), no cameras
+sed 's#<real_time_factor>[^<]*</real_time_factor>#<real_time_factor>0</real_time_factor>#; /gz-sim-sensors-system/d' \
+    "$WORLD" > "$UNLIMITED"
+LAST2=$(taskset -cp $$ | sed 's/.*: //' | tr ',' '\n' | awk -F- '{for (c = $1; c <= ($2 == "" ? $1 : $2); c++) print c}' | tail -2 | paste -sd,)
+run_case "0a physics capacity, all CPUs"             0 gz sim -r -s -v 1 "$UNLIMITED"
+run_case "0b physics capacity, pinned to CPUs $LAST2" 0 taskset -c "$LAST2" gz sim -r -s -v 1 "$UNLIMITED"
+rm -f "$UNLIMITED"
 run_case "1 Gazebo headless, cameras off (physics)"  0 "${GZ[@]}" -s
 run_case "2 Gazebo headless, cameras rendering"      1 "${GZ[@]}" -s
 run_case "3 Gazebo GUI, cameras off"                 0 "${GZ[@]}"
 run_case "4 Gazebo GUI, cameras rendering"           1 "${GZ[@]}"
 run_case "5 full sim.launch.py, headless"            0 ros2 launch mate_rov_sim sim.launch.py "gz_args:=-r -s -v 1"
 run_case "6 full sim.launch.py (normal)"             0 ros2 launch mate_rov_sim sim.launch.py
+run_case "7 full sim.launch.py, gz_cpus:=all"        0 ros2 launch mate_rov_sim sim.launch.py gz_cpus:=all
 echo
 LOG=$(ls -t ~/.gz/rendering/ogre*.log 2>/dev/null | head -1)
 echo "GPU used: $(grep -h GL_RENDERER "$LOG" 2>/dev/null | tail -1 | sed 's/.*= //')"

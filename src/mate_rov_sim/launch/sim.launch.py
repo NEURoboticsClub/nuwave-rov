@@ -23,12 +23,13 @@ Starts:
        web_gui_pkg/web_bridge_node
 """
 import os
+import shlex
 
 from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
-from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription, SetEnvironmentVariable
+from launch.actions import (DeclareLaunchArgument, ExecuteProcess, LogInfo, OpaqueFunction,
+                            SetEnvironmentVariable, Shutdown)
 from launch.conditions import IfCondition
-from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import LaunchConfiguration, PythonExpression
 from launch_ros.actions import Node
 
@@ -51,9 +52,44 @@ def wsl_gpu_env():
     return [SetEnvironmentVariable(k, v) for k, v in defaults.items() if k not in os.environ]
 
 
+def gz_server_cpus(setting):
+    """
+    CPUs to pin the Gazebo server to (a taskset list), or '' to leave it unpinned.
+
+    Gazebo splits every physics step across threads that wait for each other. Under WSL,
+    waking threads on other virtual CPUs is slow: free to use every CPU, the server ran the
+    physics ~3x slower than when pinned to 2.
+    'auto' pins it to the last two CPUs on WSL. Only the server: the GUI and ROS nodes stay free.
+    """
+    if setting == 'auto':
+        cpus = sorted(os.sched_getaffinity(0))
+        return ','.join(str(c) for c in cpus[-2:]) if on_wsl() and len(cpus) >= 4 else ''
+    return '' if setting in ('', 'all') else setting
+
+
+def launch_gazebo(context):
+    """Start the Gazebo server and, unless gz_args has -s, the GUI as separate processes."""
+    gz_args = shlex.split(LaunchConfiguration('gz_args').perform(context))
+    engine = LaunchConfiguration('render_engine').perform(context)
+    cpus = gz_server_cpus(LaunchConfiguration('gz_cpus').perform(context))
+
+    server = ['gz', 'sim', '-s', *[a for a in gz_args if a != '-s'],
+              '--render-engine', engine, LaunchConfiguration('world').perform(context)]
+    actions = [ExecuteProcess(cmd=['taskset', '-c', cpus, *server] if cpus else server,
+                              name='gz_server', output='screen')]
+    if cpus:
+        actions.insert(0, LogInfo(msg=f'Gazebo server pinned to CPUs {cpus} (gz_cpus:=all to disable)'))
+    if '-s' not in gz_args:
+        verbosity = gz_args[gz_args.index('-v'):][:2] if '-v' in gz_args else []
+        actions.append(ExecuteProcess(
+            cmd=['gz', 'sim', '-g', *verbosity, '--render-engine', engine],
+            name='gz_gui', output='screen',
+            on_exit=Shutdown(reason='Gazebo window closed')))
+    return actions
+
+
 def generate_launch_description():
     pkg = get_package_share_directory('mate_rov_sim')
-    ros_gz_sim = get_package_share_directory('ros_gz_sim')
     params = os.path.join(pkg, 'config', 'rov_params.yaml')
 
     args = [
@@ -66,7 +102,11 @@ def generate_launch_description():
         DeclareLaunchArgument(
             'render_engine', default_value='ogre' if on_wsl() else 'ogre2',
             description='Gazebo render engine for the GUI and the cameras. ogre2 looks better; '
-                        'ogre is ~5x faster on WSL, where ogre2 drops the sim far below real time'),
+                        'ogre uses about half the CPU, so it is the default on WSL'),
+        DeclareLaunchArgument(
+            'gz_cpus', default_value='auto',
+            description='CPUs to pin the Gazebo server to, e.g. "2,3". auto = last two CPUs on WSL '
+                        '(physics runs ~3x faster there), unpinned elsewhere. all = never pin'),
         DeclareLaunchArgument(
             'topside', default_value='true',
             description='Start the joysticks, houston, thruster controller and arm controller'),
@@ -99,12 +139,7 @@ def generate_launch_description():
         p for p in [os.environ.get('GZ_SIM_RESOURCE_PATH', ''), os.path.join(pkg, 'models')] if p)
     model_path = SetEnvironmentVariable('GZ_SIM_RESOURCE_PATH', resource_path)
 
-    gazebo = IncludeLaunchDescription(
-        PythonLaunchDescriptionSource(os.path.join(ros_gz_sim, 'launch', 'gz_sim.launch.py')),
-        launch_arguments={'gz_args': [
-            LaunchConfiguration('gz_args'), ' --render-engine ', LaunchConfiguration('render_engine'),
-            ' ', LaunchConfiguration('world')]}.items(),
-    )
+    gazebo = OpaqueFunction(function=launch_gazebo)
 
     bridge = Node(
         package='ros_gz_bridge', executable='parameter_bridge', name='ros_gz_bridge',
