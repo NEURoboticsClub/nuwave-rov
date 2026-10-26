@@ -604,13 +604,23 @@ def build_app(node: WebBridgeNode):
     app['ros_node'] = node
     app.router.add_get('/ws', ws_handler)
 
-    static_dir = os.path.join(get_package_share_directory('web_gui_pkg'), 'static')
+    static_dir = os.path.normpath(
+        os.path.join(get_package_share_directory('web_gui_pkg'), 'static'))
 
     async def index(request):
         return web.FileResponse(os.path.join(static_dir, 'index.html'))
 
+    async def static_file(request):
+        # Not add_static: colcon build --symlink-install installs every file here as a
+        # symlink into build/, and add_static answers 404 for symlinks that leave the folder.
+        # Normalize without resolving symlinks, so '..' still can't escape static_dir.
+        path = os.path.normpath(os.path.join(static_dir, request.match_info['path']))
+        if not path.startswith(static_dir + os.sep) or not os.path.isfile(path):
+            raise web.HTTPNotFound()
+        return web.FileResponse(path)
+
     app.router.add_get('/', index)
-    app.router.add_static('/static', path=static_dir, name='static')
+    app.router.add_get('/static/{path:.+}', static_file)
     return app
 
 # run both ROS2 + web server
