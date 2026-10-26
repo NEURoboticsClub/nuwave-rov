@@ -18,7 +18,7 @@ PKG = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SRC = os.path.dirname(PKG)
 MODEL = os.path.join(PKG, 'models', 'mate_rov', 'model.sdf')
 BRIDGE = os.path.join(PKG, 'config', 'bridge.yaml')
-THRUSTER_CONFIG = os.path.join(SRC, 'controller', 'config', 'thruster_config.yaml')
+THRUSTER_CONFIG = os.path.join(SRC, 'thruster_controller_pkg', 'config', 'thruster_config.yaml')
 MOTOR_CONFIG = os.path.join(SRC, 'thruster_pkg', 'config', 'individual_motor_config.yaml')
 
 

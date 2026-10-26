@@ -3,7 +3,7 @@
   mate_rov: the NUWave ROV for Gazebo Sim (Harmonic or newer).
 
   Conventions
-    * Frames: the NUWave control frame, the same one controller/config/thruster_config.yaml,
+    * Frames: the NUWave control frame, the same one thruster_controller_pkg/config/thruster_config.yaml,
       houston and the IMU use:  x = RIGHT,  y = FORWARD,  z = UP.
       base_link origin = the vehicle's CENTER OF MASS.
     * Units: SI (m, kg, s, N).
@@ -16,7 +16,7 @@
   the frame above). Replace them with measurements of the real vehicle.
   Check mass and buoyancy with:  python3 tools/buoyancy_check.py models/mate_rov/model.sdf
 
-  Thruster positions / directions MUST match controller/config/thruster_config.yaml.
+  Thruster positions / directions MUST match thruster_controller_pkg/config/thruster_config.yaml.
   test/test_model_matches_config.py checks this.
 -->
 <sdf version="1.11">
@@ -149,7 +149,7 @@
 
     <!-- ================================================================== -->
     <!--  THRUSTERS: a tiny link + a revolute joint each, one per entry in   -->
-    <!--  controller/config/thruster_config.yaml (same order, same numbers). -->
+    <!--  thruster_controller_pkg/config/thruster_config.yaml (same order, same numbers). -->
     <!--  Link name = last part of the motor topic (thruster_fll, ...).      -->
     <!--  A POSITIVE thrust command (newtons) pushes the ROV along the       -->
     <!--  joint axis, which is the config's "direction".                     -->
@@ -374,7 +374,7 @@
     <!-- ================================================================== -->
     <!--  ARM: placeholder 5-DOF arm + claw, built from primitives under the  -->
     <!--  front of the ROV, pointing forward. Joint names follow the motor   -->
-    <!--  topics in arm_controller/config/arm_config.yaml:                   -->
+    <!--  topics in arm_controller_pkg/config/arm_config.yaml:                   -->
     <!--    /arm/motor_<name>  ->  joint arm_<name>_joint                    -->
     <!--  The real arm motors are speed-controlled, so each joint is driven  -->
     <!--  by a JointController in VELOCITY mode (rad/s; m/s for the claw).   -->

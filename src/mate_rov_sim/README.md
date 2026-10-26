@@ -49,10 +49,10 @@ drivers are swapped for simulator stand-ins.
 
 ```
 gamepads ─▶ joy_node ×2 ─────┐
-keyboard ─▶ keyboard_teleop ─┴▶ joy_mux ─▶ houston ─▶ velocity_commands ─▶ controller/thruster_controller_node ─┐
-                                                │      ─▶ arm_commands      ─▶ arm_controller/arm_controller_node ─┤
-                                                └─◀ /stabilizer/commands ◀─ stabilization_node ◀─ /imu ◀─┐          │
-                                                                                      │          ▼
+keyboard ─▶ keyboard_teleop ─┴▶ joy_mux ─▶ houston ─▶ velocity_commands ─▶ thruster_controller_pkg/thruster_controller_node ─┐
+                                                │      ─▶ arm_commands      ─▶ arm_controller_pkg/arm_controller_node          ─┤
+                                                └─◀ /stabilizer/commands ◀─ stabilization_node ◀─ /imu ◀─┐                       │
+                                                                                      │                       ▼
           /thruster/*, /arm/motor_*  (duty cycle -1..1)  ─▶  thruster_pkg/pwm_node  (simulate:=true)
                                                                        │ */response_pwm
    REAL NUWave nodes above, SIMULATOR below                            ▼
@@ -194,16 +194,16 @@ identical results. Don't go above 4 ms without retesting.
 ## What is simulated
 
 * **Vehicle frame = NUWave control frame:** x right, y forward, z up, origin at the
-  center of mass. The same frame `controller/config/thruster_config.yaml`, houston and
+  center of mass. The same frame `thruster_controller_pkg/config/thruster_config.yaml`, houston and
   the IMU use, so no conversions anywhere.
 * **8 thrusters** at exactly the positions and directions in
-  `controller/config/thruster_config.yaml`. Thrust comes from the pulse width pwm_node
+  `thruster_controller_pkg/config/thruster_config.yaml`. Thrust comes from the pulse width pwm_node
   would send: the T200 table in `config/rov_params.yaml` (`pwm_points`/`thrust_points`),
   shifted so each thruster stops at its own `neutral_us` from
   `thruster_pkg/config/individual_motor_config.yaml`. Precision mode changes the
   range exactly as on the robot.
 * **Arm:** a placeholder 5-DOF arm + claw made of simple shapes, one joint per motor
-  in `arm_controller/config/arm_config.yaml`. The real arm motors are speed-controlled,
+  in `arm_controller_pkg/config/arm_config.yaml`. The real arm motors are speed-controlled,
   so duty cycle → joint speed (`arm_max_speed`, `claw_max_speed`). It's neutrally
   buoyant so it doesn't change trim. There's a sinking pipe in front of the ROV to
   practice grabbing.

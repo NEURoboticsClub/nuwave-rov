@@ -11,7 +11,7 @@ import yaml
 
 from mate_rov_sim.keyboard_teleop import ARM_KEYS, THRUSTER_KEYS, JoyLayout
 
-houston = pytest.importorskip('houston_pkg.houston')
+houston = pytest.importorskip('houston_pkg.houston_node')
 
 JOY_CONFIG = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
                           'houston_pkg', 'config', 'joystick_config.yaml')

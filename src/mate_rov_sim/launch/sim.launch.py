@@ -17,8 +17,8 @@ Starts:
        thruster_pkg/pwm_node (simulate:=true)   stabilization_pkg/stabilization_node
   5. The real topside (topside:=true):
        joy_node x2 ----------+
-                             +-> joy_mux -> houston_pkg/houston -> controller/thruster_controller_node
-       keyboard_teleop ------+                                  -> arm_controller/arm_controller_node
+                             +-> joy_mux -> houston_pkg/houston_node -> thruster_controller_pkg/thruster_controller_node
+       keyboard_teleop ------+                                  -> arm_controller_pkg/arm_controller_node
        (keyboard:=true; a held key overrides the gamepad)
        web_gui_pkg/web_bridge_node
 """
