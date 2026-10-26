@@ -141,6 +141,7 @@ keys for the arm. Launch with `keyboard:=false` to skip the window (headless, SS
 | `stabilization` | `true` | `stabilization_node` |
 | `render_engine` | `ogre` on WSL, else `ogre2` | Gazebo renderer for the GUI and cameras. ogre2 looks better and also runs at real time on WSL once the GPU is used (see [Performance](#performance)), but uses about twice the CPU |
 | `gz_args` | `-r -v 3` | extra `gz sim` flags; add `-s` for headless |
+| `physics_step` | world's 2 ms | physics step in seconds; `0.004` for slow laptops (see [Performance](#performance)) |
 | `gz_cpus` | `auto` | CPUs to pin the Gazebo server to, e.g. `2,3`. `auto` = last two CPUs on WSL, unpinned elsewhere; `all` = never pin (see [Performance](#performance)) |
 | `joy_thruster_device` / `joy_arm_device` | real controller names | SDL device names; empty = use `joy_thruster_id` / `joy_arm_id` |
 
@@ -176,16 +177,19 @@ It runs the sim several ways and prints the averaged real-time factor of each.
 Still below 1.0 (weak laptop), in order of payoff:
 
 1. Plug in the charger and set Windows power mode to *Best performance*.
-2. Drop the Gazebo window: `gz_args:="-r -s"`. The 3D view is the most expensive part
-   when rendering on the CPU. The cameras, sensors and controls keep working.
-3. Turn off shadows: `<cast_shadows>false</cast_shadows>` on the `sun` light in
+2. `physics_step:=0.004`: halves the physics CPU cost. Driving, diving and the arm
+   matched 1 ms within ~1 cm and 0.5°; the IMU then alternates 8 / 12 ms between samples
+   (still 100 Hz on average), which stabilization's 50 Hz loop doesn't notice.
+3. Drop the Gazebo window: `gz_args:="-r -s"`. The 3D view is the most expensive part
+   when rendering on the CPU, and on a laptop the GPU shares the CPU's power budget.
+   The cameras, sensors and controls keep working.
+4. Turn off shadows: `<cast_shadows>false</cast_shadows>` on the `sun` light in
    `worlds/mate_pool.sdf`.
-4. Lower the camera rate: `<update_rate>` of `camera_0` / `camera_1` in
+5. Lower the camera rate: `<update_rate>` of `camera_0` / `camera_1` in
    `models/mate_rov/model.sdf` (30 → 15).
 
-The physics step is 2 ms (`worlds/mate_pool.sdf`). It was tested against 1 ms with
-identical results; don't go above 2 ms without retesting, since sensor periods (IMU at
-10 ms) must stay a multiple of the step.
+The default physics step is 2 ms (`worlds/mate_pool.sdf`), tested against 1 ms with
+identical results. Don't go above 4 ms without retesting.
 
 ## What is simulated
 

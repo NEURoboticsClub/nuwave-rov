@@ -23,6 +23,7 @@ Starts:
        web_gui_pkg/web_bridge_node
 """
 import os
+import re
 import shlex
 
 from ament_index_python.packages import get_package_share_directory
@@ -79,6 +80,18 @@ def launch_gazebo(context):
                               name='gz_server', output='screen')]
     if cpus:
         actions.insert(0, LogInfo(msg=f'Gazebo server pinned to CPUs {cpus} (gz_cpus:=all to disable)'))
+    step = LaunchConfiguration('physics_step').perform(context)
+    if step:
+        # Change the step once the server is up (the world file's own step is 2 ms)
+        world = re.search(r'<world\s+name="([^"]+)"', open(server[-1]).read()).group(1)
+        call = (f'gz service -s /world/{world}/set_physics --reqtype gz.msgs.Physics '
+                f'--reptype gz.msgs.Boolean --timeout 1000 '
+                f'--req "max_step_size: {float(step)}, real_time_factor: 1.0"')
+        actions.append(ExecuteProcess(
+            name='set_physics_step', output='screen', shell=True,
+            cmd=[f'for i in $(seq 30); do {call} | grep -q "data: true" && '
+                 f'echo "Physics step set to {float(step)} s" && exit 0; sleep 1; done; '
+                 f'echo "Could not set the physics step"; exit 1']))
     if '-s' not in gz_args:
         verbosity = gz_args[gz_args.index('-v'):][:2] if '-v' in gz_args else []
         actions.append(ExecuteProcess(
@@ -103,6 +116,10 @@ def generate_launch_description():
             'render_engine', default_value='ogre' if on_wsl() else 'ogre2',
             description='Gazebo render engine for the GUI and the cameras. ogre2 looks better; '
                         'ogre uses about half the CPU, so it is the default on WSL'),
+        DeclareLaunchArgument(
+            'physics_step', default_value='',
+            description='Physics step in seconds. Empty = the world file\'s 2 ms. 0.004 halves the '
+                        'physics CPU cost for slow laptops (IMU samples then jitter +-2 ms around 10 ms)'),
         DeclareLaunchArgument(
             'gz_cpus', default_value='auto',
             description='CPUs to pin the Gazebo server to, e.g. "2,3". auto = last two CPUs on WSL '

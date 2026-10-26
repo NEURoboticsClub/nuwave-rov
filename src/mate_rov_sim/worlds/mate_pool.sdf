@@ -10,8 +10,8 @@
     <!-- 2 ms physics step; try to run at real time. Every system and the /clock topic
          run once per step, so 2 ms costs about half the CPU of 1 ms. Tested against 1 ms
          (driving, diving onto the floor, arm moves): no difference beyond run-to-run noise.
-         Keep sensor periods a multiple of the step (IMU 100 Hz = 10 ms) or their rates
-         turn irregular, which rules out 4 ms. -->
+         4 ms (launch with physics_step:=0.004) halves it again for slow laptops, at the cost
+         of sensor timing jitter: the IMU's 10 ms period alternates 8 / 12 ms. -->
     <physics name="2ms" type="ignored">
       <max_step_size>0.002</max_step_size>
       <real_time_factor>1.0</real_time_factor>

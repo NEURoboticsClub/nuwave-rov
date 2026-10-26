@@ -6,9 +6,9 @@
 #   0    physics with no real-time limit: how many times faster than real time this CPU
 #        can run it, free to use every CPU and pinned to 2 (what sim.launch.py does on WSL)
 #   1-4  Gazebo alone (no ROS nodes): headless or with the GUI, cameras off or rendering
-#   5-7  the full sim.launch.py: headless, normal, and normal without CPU pinning
+#   5-8  the full sim.launch.py: headless, normal, without CPU pinning, with a 4 ms physics step
 # Comparing rows shows what costs the most: the GUI, the cameras, or the ROS nodes.
-# Gazebo and keyboard windows open and close by themselves while it runs (~4 min).
+# Gazebo and keyboard windows open and close by themselves while it runs (~5 min).
 #
 #   source /opt/ros/$ROS_DISTRO/setup.bash && source install/setup.bash
 #   src/mate_rov_sim/tools/perf_check.sh
@@ -89,6 +89,7 @@ run_case "4 Gazebo GUI, cameras rendering"           1 "${GZ[@]}"
 run_case "5 full sim.launch.py, headless"            0 ros2 launch mate_rov_sim sim.launch.py "gz_args:=-r -s -v 1"
 run_case "6 full sim.launch.py (normal)"             0 ros2 launch mate_rov_sim sim.launch.py
 run_case "7 full sim.launch.py, gz_cpus:=all"        0 ros2 launch mate_rov_sim sim.launch.py gz_cpus:=all
+run_case "8 full sim.launch.py, physics_step:=0.004" 0 ros2 launch mate_rov_sim sim.launch.py physics_step:=0.004
 echo
 LOG=$(ls -t ~/.gz/rendering/ogre*.log 2>/dev/null | head -1)
 echo "GPU used: $(grep -h GL_RENDERER "$LOG" 2>/dev/null | tail -1 | sed 's/.*= //')"
