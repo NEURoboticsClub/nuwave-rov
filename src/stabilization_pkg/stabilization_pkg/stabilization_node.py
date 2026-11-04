@@ -5,10 +5,11 @@ from geometry_msgs.msg import Quaternion, Twist
 from nuwave_utils_pkg.file_helpers import load_yaml
 import rclpy
 from rclpy.node import Node
+from rclpy.qos import DurabilityPolicy, HistoryPolicy, QoSProfile, ReliabilityPolicy
 from sensor_msgs.msg import Imu
 
 from stabilization_pkg import stabilization_functions
-from std_msgs.msg import Empty, Float32
+from std_msgs.msg import Bool, Empty, Float32
 
 
 class StabilizationNode(Node):
@@ -53,9 +54,11 @@ class StabilizationNode(Node):
 
         self.desired_orientation = Quaternion(x=0.0, y=0.0, z=0.0, w=1.0)
         self.last_imu_orientation = None
+        self.manual_vertical_active = False
         self.stabilization_state = {
             'desired_orientation': self.desired_orientation,
             'desired_depth': None,
+            'depth_capture_pending': False,
             'last_imu_orientation': None,
             'last_imu_msg': None,
             'imu_sample_time': None,
@@ -68,6 +71,15 @@ class StabilizationNode(Node):
         self.imu_sub = self.create_subscription(Imu, '/imu', self.imu_callback, 10)
         self.depth_sub = self.create_subscription(
             Float32, '/depth/depth', self.depth_callback, 10
+        )
+        qos_state = QoSProfile(
+            reliability=ReliabilityPolicy.RELIABLE,
+            history=HistoryPolicy.KEEP_LAST,
+            depth=1,
+            durability=DurabilityPolicy.TRANSIENT_LOCAL,
+        )
+        self.manual_vertical_sub = self.create_subscription(
+            Bool, '/controls/manual_vertical_active', self.manual_vertical_callback, qos_state
         )
 
         self.capture_sub = self.create_subscription(
@@ -122,11 +134,17 @@ class StabilizationNode(Node):
             self.get_logger(),
         )
 
+    def manual_vertical_callback(self, msg: Bool):
+        if msg.data:
+            self.stabilization_state['depth_capture_pending'] = False
+        elif self.manual_vertical_active:
+            self.stabilization_state['depth_capture_pending'] = True
+        self.manual_vertical_active = msg.data
+
     def _depth_to_twist_control(self) -> float:
-        return stabilization_functions._depth_to_twist_control(
-            self.stabilization_state['current_depth'],
-            self.stabilization_state['depth_rate'],
-            self.stabilization_state['desired_depth'],
+        return stabilization_functions.depth_control(
+            self.stabilization_state,
+            self.manual_vertical_active,
             self.depth_stabilization_params,
         )
 

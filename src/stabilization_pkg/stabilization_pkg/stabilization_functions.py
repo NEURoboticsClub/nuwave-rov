@@ -126,6 +126,27 @@ def _depth_to_twist_control(
     return float(np.clip(command, -max_influence, max_influence))
 
 
+def depth_control(
+    state: dict,
+    manual_vertical_active: bool,
+    depth_stabilization_params: dict,
+) -> float:
+    """Suspend depth hold during manual movement and capture depth on release."""
+    if manual_vertical_active:
+        return 0.0
+
+    if state.get('depth_capture_pending', False):
+        state['desired_depth'] = state['current_depth']
+        state['depth_capture_pending'] = False
+
+    return _depth_to_twist_control(
+        state['current_depth'],
+        state['depth_rate'],
+        state['desired_depth'],
+        depth_stabilization_params,
+    )
+
+
 def depth_callback(
     msg: Float32,
     state: dict,

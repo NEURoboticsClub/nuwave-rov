@@ -75,12 +75,15 @@ class Houston(Node):
             Bool, '/gui_buttons/stabilize_enabled', self.gui_stabilize_toggle_callback, 10)
 
         self.twist_pub = self.create_publisher(Twist, 'velocity_commands', 10)
+        self.manual_vertical_pub = self.create_publisher(
+            Bool, '/controls/manual_vertical_active', qos_state)
         self.arm_pub = self.create_publisher(Float32MultiArray, 'arm_commands', 10)
         self.capture_pub = self.create_publisher(Empty, '/stabilizer/capture', 10)
 
         # === Internal state ===
         self.last_joy_thruster_msg = None
         self.last_joy_arm_msg = None
+        self.last_manual_vertical_active = None
 
         self.last_stabilizer_twist = Twist()
         self.stabilize_enabled = False
@@ -306,6 +309,10 @@ class Houston(Node):
         msg.linear.y = float(axis_values.get('drive_forward', 0.0))
         msg.linear.z = (
             float(axis_values.get('up', 0.0)) - float(axis_values.get('down', 0.0))) * 0.5
+        manual_vertical_active = msg.linear.z != 0.0
+        if manual_vertical_active != self.last_manual_vertical_active:
+            self.manual_vertical_pub.publish(Bool(data=manual_vertical_active))
+            self.last_manual_vertical_active = manual_vertical_active
 
         def _scale_to_unit(x, y, z):
             m = max(abs(x), abs(y), abs(z), 1.0)
