@@ -5,8 +5,8 @@ set -e
 source /opt/ros/humble/setup.bash
 
 # Source overlay if it exists
-if [ -f "/workspace/install/setup.bash" ]; then
-  source /workspace/install/setup.bash
+if [ -f "/root/nuwave-rov/install/setup.bash" ]; then
+  source /root/nuwave-rov/install/setup.bash
 fi
 
 exec "$@"

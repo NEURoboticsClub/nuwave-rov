@@ -35,10 +35,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Initialize rosdep
 RUN rosdep init && rosdep update
 
-WORKDIR /workspace
+WORKDIR /root/nuwave-rov
 
 # Copy the workspace to the docker container
-COPY . /workspace
+COPY . /root/nuwave-rov
 
 # --- ADD THIS BLOCK ---
 # Provide the entrypoint script
@@ -50,9 +50,20 @@ RUN sed -i 's/\r$//' /ros_entrypoint.sh && chmod +x /ros_entrypoint.sh
 RUN apt-get update && \
     . /opt/ros/humble/setup.sh && \
     rosdep update && \
-    rosdep install --from-paths /workspace --ignore-src -y --skip-keys="ament_python cv2" && \
+    rosdep install --from-paths /root/nuwave-rov/src --ignore-src -y --skip-keys="ament_python cv2" && \
     apt-get install -y --no-install-recommends ros-humble-rosbridge-server python3-opencv && \
     rm -rf /var/lib/apt/lists/*
+
+# Install Python deps (pyfirmata, pygame, etc.) not covered by rosdep
+RUN pip3 install --no-cache-dir -r /root/nuwave-rov/requirements.txt
+
+# Build the workspace so install/ exists in the image
+RUN . /opt/ros/humble/setup.sh && \
+    colcon build
+
+# Source ROS + the workspace in every interactive shell (including `docker exec`)
+RUN echo 'source /opt/ros/humble/setup.bash' >> /root/.bashrc && \
+    echo '[ -f /root/nuwave-rov/install/setup.bash ] && source /root/nuwave-rov/install/setup.bash' >> /root/.bashrc
 
 ENTRYPOINT ["/ros_entrypoint.sh"]
 CMD ["bash"]
