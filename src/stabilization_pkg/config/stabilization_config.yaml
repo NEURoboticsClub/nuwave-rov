@@ -4,7 +4,9 @@ imu_stabilization:
   use_setpoints: false
   max_stabilization_influence: 0.5
 
-# TODO: implement depth stabilization
 depth_stabilization:
   p: 1
   d: 0.2
+  use_setpoints: true
+  max_stabilization_influence: 0.5
+  velocity_filter_alpha: 0.3
