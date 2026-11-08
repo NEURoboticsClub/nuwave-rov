@@ -1,0 +1,41 @@
+{
+  "start_utc": "2026-11-08T19:17:26.486600+00:00",
+  "host": "ubuntu",
+  "platform": "Linux-5.15.148-tegra-aarch64-with-glibc2.35",
+  "args": {
+    "bus": 7,
+    "address": 74,
+    "i2c_freq": 400000,
+    "rate": 100.0,
+    "duration": 0,
+    "outdir": "./imu_data",
+    "tag": "",
+    "fsync_interval": 1.0,
+    "skip": [],
+    "max_consecutive_errors": 20,
+    "reinit_on_error": false
+  },
+  "report_interval_us": 10000,
+  "enabled_features": [
+    "accel",
+    "gyro",
+    "mag",
+    "lin_accel",
+    "gravity",
+    "rot_vec",
+    "game_rot_vec",
+    "geomag_rot_vec",
+    "raw_accel",
+    "raw_gyro",
+    "raw_mag",
+    "steps",
+    "stability",
+    "activity",
+    "shake"
+  ],
+  "csv": "bno085_20261108_141723.csv",
+  "end_utc": "2026-11-08T19:17:40.407543+00:00",
+  "samples": 203,
+  "read_errors_total": 0,
+  "reinit_count": 0
+}
