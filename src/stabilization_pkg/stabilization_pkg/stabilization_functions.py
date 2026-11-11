@@ -109,6 +109,102 @@ def _imu_to_twist_control(
     return twist
 
 
+def _rotate_vector(quaternion, vector):
+    # Rotate a vector with q * [0, vector] * conjugate(q).
+    conjugate = quaternion * np.array([1.0, -1.0, -1.0, -1.0])
+    return _quat_mul(
+        _quat_mul(quaternion, np.concatenate(([0.0], vector))), conjugate
+    )[1:]
+
+
+def update_xy_estimate(msg: Imu, state: dict, timeout_s: float):
+    """Integrate body-frame position, assuming rest at startup or after a gap."""
+    # Read body-frame acceleration, orientation, and sample time.
+    orientation = msg.orientation
+    quaternion = np.array([
+        orientation.w, orientation.x, orientation.y, orientation.z,
+    ])
+    acceleration = np.array([
+        msg.linear_acceleration.x,
+        msg.linear_acceleration.y,
+        msg.linear_acceleration.z,
+    ])
+    sample_time = msg.header.stamp.sec + msg.header.stamp.nanosec * 1e-9
+    norm = np.linalg.norm(quaternion)
+    # Discard the estimate and setpoint if required IMU data is invalid.
+    if (
+        not np.all(np.isfinite(quaternion))
+        or not np.all(np.isfinite(acceleration))
+        or norm < 1e-6
+        or msg.orientation_covariance[0] == -1.0
+        or msg.linear_acceleration_covariance[0] == -1.0
+    ):
+        state['current_position'] = None
+        state['current_velocity'] = None
+        state['desired_position'] = None
+        state['xy_sample_time'] = None
+        return
+
+    # Normalize orientation and measure time since the previous sample.
+    quaternion /= norm
+    previous_time = state['xy_sample_time']
+    delta_time = None if previous_time is None else sample_time - previous_time
+    if delta_time is None or not 0.0 < delta_time <= timeout_s:
+        # Restart from rest after initialization or a timestamp discontinuity.
+        state['current_position'] = np.zeros(3)
+        state['current_velocity'] = np.zeros(3)
+        state['desired_position'] = None
+    else:
+        # Express stored vectors in the current body axes.
+        inverse = quaternion * np.array([1.0, -1.0, -1.0, -1.0])
+        rotation = _quat_mul(inverse, state['xy_orientation'])
+        velocity = _rotate_vector(rotation, state['current_velocity'])
+        # Integrate velocity and acceleration into position.
+        state['current_position'] = (
+            _rotate_vector(rotation, state['current_position'])
+            + velocity * delta_time
+            + 0.5 * acceleration * delta_time ** 2
+        )
+        # Integrate acceleration into velocity.
+        state['current_velocity'] = velocity + acceleration * delta_time
+        # Keep the captured target in the same body axes as the estimate.
+        if state['desired_position'] is not None:
+            state['desired_position'] = _rotate_vector(rotation, state['desired_position'])
+
+    # Retain this sample as the reference for the next update.
+    state['xy_orientation'] = quaternion
+    state['xy_sample_time'] = sample_time
+
+
+def _xy_to_twist_control(
+    current_position,
+    current_velocity,
+    desired_position,
+    xy_stabilization_params: dict,
+) -> Twist:
+    """Compute bounded horizontal PD corrections in the body frame."""
+    twist = Twist()
+    # Pull toward the XY setpoint and damp horizontal velocity.
+    proportional = float(xy_stabilization_params.get('p', 0.0))
+    derivative = float(xy_stabilization_params.get('d', 0.0))
+    command = (
+        proportional * (desired_position[:2] - current_position[:2])
+        - derivative * current_velocity[:2]
+    )
+    if not np.all(np.isfinite(command)):
+        return twist
+    # Limit combined XY output without changing its direction.
+    maximum = max(0.0, float(
+        xy_stabilization_params.get('max_stabilization_influence', 0.0)
+    ))
+    magnitude = np.linalg.norm(command)
+    if magnitude > maximum:
+        command *= maximum / magnitude
+    twist.linear.x = float(command[0])
+    twist.linear.y = float(command[1])
+    return twist
+
+
 def _depth_to_twist_control(
     current_depth: float,
     depth_rate: float,
@@ -198,6 +294,7 @@ def capture_callback(
     imu_stabilization_params: dict,
     depth_stabilization_params: dict,
     logger,
+    xy_stabilization_params: dict | None = None,
 ):
     if imu_stabilization_params.get('use_setpoints', False):
         if state['last_imu_orientation'] is None:
@@ -215,6 +312,14 @@ def capture_callback(
         else:
             state['desired_depth'] = state['current_depth']
             logger.info(f'Captured current depth as setpoint: {state["desired_depth"]:.3f} m')
+
+            # Capture an independent position target without resetting velocity.
+    if (xy_stabilization_params or {}).get('use_setpoints', False):
+        if state['current_position'] is None:
+            logger.warn('Capture requested but no XY estimate available; setpoint unchanged')
+        else:
+            state['desired_position'] = state['current_position'].copy()
+            logger.info('Captured current XY position as setpoint')
 
 
 def publish_stabilization_commands(msg: Twist, publisher):

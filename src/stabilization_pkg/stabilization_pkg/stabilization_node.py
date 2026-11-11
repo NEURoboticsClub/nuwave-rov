@@ -41,6 +41,7 @@ class StabilizationNode(Node):
 
         self.imu_stabilization_params = config.get('imu_stabilization', {}) or {}
         self.depth_stabilization_params = config.get('depth_stabilization', {}) or {}
+        self.xy_stabilization_params = config.get('xy_stabilization', {}) or {}
 
         self.publish_rate_hz = float(self.get_parameter('publish_rate_hz').value)
         if self.publish_rate_hz <= 0.0:
@@ -65,6 +66,12 @@ class StabilizationNode(Node):
             'current_depth': None,
             'depth_rate': 0.0,
             'depth_sample_time': None,
+            # Body-frame XY estimate, setpoint, and previous IMU reference.
+            'current_position': None,
+            'current_velocity': None,
+            'desired_position': None,
+            'xy_orientation': None,
+            'xy_sample_time': None,
         }
 
         # Subscribers / Publishers
@@ -81,7 +88,6 @@ class StabilizationNode(Node):
         self.manual_vertical_sub = self.create_subscription(
             Bool, '/controls/manual_vertical_active', self.manual_vertical_callback, qos_state
         )
-
         self.capture_sub = self.create_subscription(
             Empty, '/stabilizer/capture', self.capture_callback, 10)
 
@@ -122,6 +128,19 @@ class StabilizationNode(Node):
             now,
         )
         self.last_imu_orientation = self.stabilization_state['last_imu_orientation']
+        # Integrate once per IMU sample, not once per control timer tick.
+        stabilization_functions.update_xy_estimate(
+            msg, self.stabilization_state, self.imu_timeout_s
+        )
+
+    def _xy_to_twist_control(self) -> Twist:
+        state = self.stabilization_state
+        return stabilization_functions._xy_to_twist_control(
+            state['current_position'],
+            state['current_velocity'],
+            state['desired_position'],
+            self.xy_stabilization_params,
+        )
 
     def depth_callback(self, msg: Float32):
         now = self.get_clock().now().nanoseconds * 1e-9
@@ -160,9 +179,23 @@ class StabilizationNode(Node):
                 twist.angular.x = angular_command.angular.x
                 twist.angular.y = angular_command.angular.y
                 twist.angular.z = angular_command.angular.z
+                # Add XY corrections only when an estimate and target exist.
+                if (
+                    self.stabilization_state['current_position'] is not None
+                    and self.stabilization_state['desired_position'] is not None
+                ):
+                    xy_command = self._xy_to_twist_control()
+                    twist.linear.x = xy_command.linear.x
+                    twist.linear.y = xy_command.linear.y
             else:
+                # Require a new XY capture after an IMU outage.
+                self.stabilization_state['current_position'] = None
+                self.stabilization_state['current_velocity'] = None
+                self.stabilization_state['desired_position'] = None
+                self.stabilization_state['xy_sample_time'] = None
                 self.get_logger().warn(
-                    'IMU data is stale; orientation stabilization paused',
+                    'IMU data is stale; orientation and XY stabilization paused; '
+                    'XY recapture required',
                     throttle_duration_sec=5.0,
                 )
 
@@ -191,6 +224,7 @@ class StabilizationNode(Node):
             self.imu_stabilization_params,
             self.depth_stabilization_params,
             self.get_logger(),
+            xy_stabilization_params=self.xy_stabilization_params,
         )
         self.desired_orientation = self.stabilization_state['desired_orientation']
 
