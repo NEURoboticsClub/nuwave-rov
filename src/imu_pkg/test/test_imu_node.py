@@ -1,5 +1,5 @@
 """
-Unit tests for the IMUPublisher node.
+Unit tests for the IMUPublisher ROS node.
 
 ROS (rclpy, sensor_msgs) and the I2C driver are replaced with light fakes so the tests run without
 ROS or hardware. Only the logic in imu_node.py is exercised.
