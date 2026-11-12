@@ -1,5 +1,7 @@
 """Exercise the crab recognition node without a real YOLO model or live cameras."""
 
+import sys
+import types
 from unittest.mock import MagicMock, patch
 
 import cv2
@@ -54,11 +56,15 @@ def ros_context():
     rclpy.shutdown()
 
 
-@pytest.fixture
+@pytest.fixture(scope='module')
 def node_module():
-    """Import the node module lazily, as the other package tests do."""
-    import crab_recognition_pkg.crab_recognition_node as module
-    return module
+    """Import the node module with ultralytics stubbed out, so torch is never loaded."""
+    fake_ultralytics = types.ModuleType('ultralytics')
+    fake_ultralytics.YOLO = MagicMock()
+    with patch.dict(sys.modules, {'ultralytics': fake_ultralytics}):
+        sys.modules.pop('crab_recognition_pkg.crab_recognition_node', None)
+        import crab_recognition_pkg.crab_recognition_node as module
+        yield module
 
 
 @pytest.fixture
@@ -115,8 +121,10 @@ def test_model_is_loaded_from_model_path(make_node, node_module):
     """Pass the configured weights path to YOLO exactly once."""
     with patch.object(node_module, 'YOLO') as yolo_class:
         created = node_module.CrabRecognitionNode()
-    yolo_class.assert_called_once_with(node_module.DEFAULT_MODEL_PATH)
-    created.destroy_node()
+    try:
+        yolo_class.assert_called_once_with(node_module.DEFAULT_MODEL_PATH)
+    finally:
+        created.destroy_node()
 
 
 def test_starts_idle_with_no_frames(node):
@@ -242,9 +250,17 @@ def test_detection_without_frames_skips_model_and_writes_nothing(node, output_pa
     assert list(output_path.parent.glob('*.jpg')) == []
 
 
-def test_detection_creates_missing_output_directory(node, output_path):
-    """Create the output folder even when no frames are available."""
+def test_detection_without_frames_creates_no_output_directory(node, output_path):
+    """Leave the disk untouched when there is nothing to save."""
+    node.run_detection_once()
     assert not output_path.parent.exists()
+
+
+def test_detection_creates_missing_output_directory(node, output_path):
+    """Create the output folder on the first pass that has frames."""
+    assert not output_path.parent.exists()
+    node.latest_frames = {0: make_frame()}
+    set_detections(node, [])
     node.run_detection_once()
     assert output_path.parent.is_dir()
 
@@ -268,8 +284,10 @@ def test_detection_images_share_one_run_stamp(node, output_path):
     set_detections(node, [])
     node.run_detection_once()
 
-    stamps = {'_'.join(path.stem.split('_')[1:4])
-              for path in output_path.parent.glob('*.jpg')}
+    prefix = f'{output_path.stem}_'
+    stems = [path.stem for path in output_path.parent.glob('*.jpg')]
+    assert len(stems) == 2
+    stamps = {stem[len(prefix):stem.rindex('_camera')] for stem in stems}
     assert len(stamps) == 1
 
 
@@ -322,6 +340,22 @@ def test_detection_with_no_boxes_still_saves_image(node, output_path, node_modul
         node.run_detection_once()
     rectangle.assert_not_called()
     assert len(list(output_path.parent.glob('*_camera0.jpg'))) == 1
+
+
+@pytest.mark.parametrize('height', [60, 480])
+def test_detection_draws_count_label_inside_frame(node, node_module, height):
+    """Draw the per-camera count label where it is visible, even on short frames."""
+    node.latest_frames = {0: make_frame(width=640, height=height)}
+    set_detections(node, [FakeBox(0, 0.9), FakeBox(1, 0.9)])
+    with patch.object(node_module.cv2, 'putText', wraps=cv2.putText) as put_text:
+        node.run_detection_once()
+
+    labels = [call for call in put_text.call_args_list
+              if call.args[1] == 'European Green Crabs: 1']
+    assert len(labels) == 1
+    x, y = labels[0].args[2]
+    assert 0 <= x < 640
+    assert 0 < y < height
 
 
 def test_detection_logs_per_camera_and_total_counts(node):
