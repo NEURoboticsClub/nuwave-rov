@@ -7,7 +7,7 @@ from nuwave_utils_pkg.file_helpers import load_yaml
 import rclpy
 from rclpy.node import Node
 from rclpy.qos import DurabilityPolicy, HistoryPolicy, QoSProfile, ReliabilityPolicy
-from sensor_msgs.msg import Joy
+from sensor_msgs.msg import Imu, Joy
 from std_msgs.msg import Bool, Empty, Float32MultiArray
 
 
@@ -26,6 +26,8 @@ class Houston(Node):
         self.declare_parameter('joy_arm', '/joy_arm')
         # seconds before we consider stabilizer data stale and disable stabilization
         self.declare_parameter('stabilizer_timeout', 0.5)
+        # seconds before we consider IMU data stale and disable global movement
+        self.declare_parameter('imu_timeout', 0.5)
         # seconds before we consider thruster joystick data stale and zero the twist
         self.declare_parameter('joy_thruster_timeout', 0.5)
         self.declare_parameter('publish_rate_hz', 50.0)    # publish rate of houston twist commands
@@ -39,6 +41,9 @@ class Houston(Node):
 
         self.stabilizer_timeout = self.get_parameter('stabilizer_timeout').value
         self.last_stabilizer_time = None
+
+        self.imu_timeout = self.get_parameter('imu_timeout').value
+        self.last_imu_time = None
 
         self.joy_thruster_timeout = self.get_parameter('joy_thruster_timeout').value
         self.last_joy_thruster_time = None
@@ -55,6 +60,10 @@ class Houston(Node):
 
         self.stabilizer_sub = self.create_subscription(
             Twist, '/stabilizer/commands', self.stabilizer_callback, 10)
+
+        self.imu_sub = self.create_subscription(
+            Imu, '/imu', self.imu_callback, 10)
+        self.imu_orientation = None
 
         qos_state = QoSProfile(
             reliability=ReliabilityPolicy.RELIABLE,
@@ -171,6 +180,11 @@ class Houston(Node):
         self.last_stabilizer_twist = msg
         self.last_stabilizer_time = self.get_clock().now()
 
+    def imu_callback(self, msg: Imu):
+        """Store the latest IMU orientation."""
+        self.imu_orientation = msg.orientation
+        self.last_imu_time = self.get_clock().now()
+
     def joy_arm_callback(self, msg: Joy):
         """Handle arm joystick input."""
         try:
@@ -278,6 +292,18 @@ class Houston(Node):
 
         return {'axis': axis_values, 'button': button_values}
 
+    @staticmethod
+    def rotate_vector(q, v):
+        """Rotate vector v by quaternion q (w, x, y, z)."""
+        w, x, y, z = q
+        vx, vy, vz = v
+
+        return np.array([
+            (1 - 2 * y * y - 2 * z * z) * vx + 2 * (x * y - w * z) * vy + 2 * (x * z + w * y) * vz,
+            2 * (x * y + w * z) * vx + (1 - 2 * x * x - 2 * z * z) * vy + 2 * (y * z - w * x) * vz,
+            2 * (x * z - w * y) * vx + 2 * (y * z + w * x) * vy + (1 - 2 * x * x - 2 * y * y) * vz,
+        ])
+    
     def publish_twist(self, axis_values, button_values):
         """Publish the twist velocity command."""
         stab_btn = int(button_values.get('stabilize_toggle', 0))
@@ -302,10 +328,48 @@ class Houston(Node):
             - float(button_values.get('roll_left', 0.0)))
         msg.angular.z = float(axis_values.get('yaw', 0.0))
 
-        msg.linear.x = float(axis_values.get('strafe', 0.0))
-        msg.linear.y = float(axis_values.get('drive_forward', 0.0))
-        msg.linear.z = (
-            float(axis_values.get('up', 0.0)) - float(axis_values.get('down', 0.0))) * 0.5
+        strafe = float(axis_values.get('strafe', 0.0))
+        forward = float(axis_values.get('drive_forward', 0.0))
+        vertical = (
+            float(axis_values.get('up', 0.0))
+            - float(axis_values.get('down', 0.0))) * 0.5
+
+        if self.last_imu_time is None:
+            self.twist_pub.publish(Twist())
+            return
+        imu_age = (self.get_clock().now() - self.last_imu_time).nanoseconds * 1e-9
+        if imu_age > self.imu_timeout:
+            self.twist_pub.publish(Twist())
+            return
+
+        q = self.imu_orientation
+
+        # Converts the quaternion to an array (w, x, y, z)
+        q_array = np.array([q.w, q.x, q.y, q.z])
+        q_array = q_array / np.linalg.norm(q_array)
+
+        body_movement = np.array([strafe, forward, 0.0])
+
+        world_movement = self.rotate_vector(q_array, body_movement)
+
+        # Keeps horizontal movement parallel to the water surface
+        horizontal_magnitude = np.sqrt(strafe**2 + forward**2)
+        world_horizontal_magnitude = np.linalg.norm(world_movement[:2])
+
+        if world_horizontal_magnitude > 1e-6:
+            world_movement[:2] *= (horizontal_magnitude / world_horizontal_magnitude)
+
+        world_movement[2] = vertical
+
+        q_inverse = q_array.copy()
+        q_inverse[1:] *= -1
+
+        body_command = self.rotate_vector(q_inverse, world_movement)
+
+        # Publishing movement adjusted to IMU orientation
+        msg.linear.x = float(body_command[0])
+        msg.linear.y = float(body_command[1])
+        msg.linear.z = float(body_command[2])
 
         def _scale_to_unit(x, y, z):
             m = max(abs(x), abs(y), abs(z), 1.0)
