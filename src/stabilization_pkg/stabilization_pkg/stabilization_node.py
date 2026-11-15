@@ -56,6 +56,7 @@ class StabilizationNode(Node):
         self.desired_orientation = Quaternion(x=0.0, y=0.0, z=0.0, w=1.0)
         self.last_imu_orientation = None
         self.manual_vertical_active = False
+        self.stabilize_enabled = False
         self.stabilization_state = {
             'desired_orientation': self.desired_orientation,
             'desired_depth': None,
@@ -87,6 +88,9 @@ class StabilizationNode(Node):
         )
         self.manual_vertical_sub = self.create_subscription(
             Bool, '/controls/manual_vertical_active', self.manual_vertical_callback, qos_state
+        )
+        self.stabilize_enabled_sub = self.create_subscription(
+            Bool, '/controls/stabilize_enabled', self.stabilize_enabled_callback, qos_state
         )
         self.capture_sub = self.create_subscription(
             Empty, '/stabilizer/capture', self.capture_callback, 10)
@@ -128,10 +132,25 @@ class StabilizationNode(Node):
             now,
         )
         self.last_imu_orientation = self.stabilization_state['last_imu_orientation']
-        # Integrate once per IMU sample, not once per control timer tick.
-        stabilization_functions.update_xy_estimate(
-            msg, self.stabilization_state, self.imu_timeout_s
-        )
+        if self.stabilize_enabled:
+            # Integrate once per IMU sample, not once per control timer tick.
+            stabilization_functions.update_xy_estimate(
+                msg, self.stabilization_state, self.imu_timeout_s
+            )
+            state = self.stabilization_state
+            if (
+                state['current_position'] is not None
+                and state['desired_position'] is None
+                and self.xy_stabilization_params.get('use_setpoints', False)
+            ):
+                # The first valid sample after enabling establishes the hold target.
+                state['desired_position'] = state['current_position'].copy()
+
+    def stabilize_enabled_callback(self, msg: Bool):
+        enabled = bool(msg.data)
+        if enabled != self.stabilize_enabled:
+            stabilization_functions.reset_xy_estimate(self.stabilization_state)
+            self.stabilize_enabled = enabled
 
     def _xy_to_twist_control(self) -> Twist:
         state = self.stabilization_state
@@ -181,6 +200,8 @@ class StabilizationNode(Node):
                 twist.angular.z = angular_command.angular.z
                 # Add XY corrections only when an estimate and target exist.
                 if (
+                    self.stabilize_enabled
+                    and
                     self.stabilization_state['current_position'] is not None
                     and self.stabilization_state['desired_position'] is not None
                 ):
@@ -189,10 +210,7 @@ class StabilizationNode(Node):
                     twist.linear.y = xy_command.linear.y
             else:
                 # Require a new XY capture after an IMU outage.
-                self.stabilization_state['current_position'] = None
-                self.stabilization_state['current_velocity'] = None
-                self.stabilization_state['desired_position'] = None
-                self.stabilization_state['xy_sample_time'] = None
+                stabilization_functions.reset_xy_estimate(self.stabilization_state)
                 self.get_logger().warn(
                     'IMU data is stale; orientation and XY stabilization paused; '
                     'XY recapture required',

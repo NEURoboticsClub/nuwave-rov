@@ -117,6 +117,15 @@ def _rotate_vector(quaternion, vector):
     )[1:]
 
 
+def reset_xy_estimate(state: dict):
+    """Clear the XY estimate and setpoint so the next sample starts fresh."""
+    state['current_position'] = None
+    state['current_velocity'] = None
+    state['desired_position'] = None
+    state['xy_orientation'] = None
+    state['xy_sample_time'] = None
+
+
 def update_xy_estimate(msg: Imu, state: dict, timeout_s: float):
     """Integrate body-frame position, assuming rest at startup or after a gap."""
     # Read body-frame acceleration, orientation, and sample time.
@@ -131,7 +140,7 @@ def update_xy_estimate(msg: Imu, state: dict, timeout_s: float):
     ])
     sample_time = msg.header.stamp.sec + msg.header.stamp.nanosec * 1e-9
     norm = np.linalg.norm(quaternion)
-    # Discard the estimate and setpoint if required IMU data is invalid.
+    # Ignore invalid samples without changing the last valid estimate.
     if (
         not np.all(np.isfinite(quaternion))
         or not np.all(np.isfinite(acceleration))
@@ -139,10 +148,6 @@ def update_xy_estimate(msg: Imu, state: dict, timeout_s: float):
         or msg.orientation_covariance[0] == -1.0
         or msg.linear_acceleration_covariance[0] == -1.0
     ):
-        state['current_position'] = None
-        state['current_velocity'] = None
-        state['desired_position'] = None
-        state['xy_sample_time'] = None
         return
 
     # Normalize orientation and measure time since the previous sample.
@@ -314,12 +319,12 @@ def capture_callback(
             logger.info(f'Captured current depth as setpoint: {state["desired_depth"]:.3f} m')
 
             # Capture an independent position target without resetting velocity.
-    if (xy_stabilization_params or {}).get('use_setpoints', False):
-        if state['current_position'] is None:
-            logger.warn('Capture requested but no XY estimate available; setpoint unchanged')
-        else:
-            state['desired_position'] = state['current_position'].copy()
-            logger.info('Captured current XY position as setpoint')
+    if (
+        (xy_stabilization_params or {}).get('use_setpoints', False)
+        and state['current_position'] is not None
+    ):
+        state['desired_position'] = state['current_position'].copy()
+        logger.info('Captured current XY position as setpoint')
 
 
 def publish_stabilization_commands(msg: Twist, publisher):
