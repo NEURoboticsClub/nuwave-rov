@@ -344,7 +344,7 @@ class Houston(Node):
 
         q = self.imu_orientation
 
-        # Converts the quaternion to an array (w, x, y, z)
+        # Converts the quaternion to an array as (w, x, y, z)
         q_array = np.array([q.w, q.x, q.y, q.z])
         q_array = q_array / np.linalg.norm(q_array)
 
@@ -352,7 +352,7 @@ class Houston(Node):
 
         world_movement = self.rotate_vector(q_array, body_movement)
 
-        # Keeps horizontal movement parallel to the water surface
+        # Keeps horizontal movement parallel to the water's surface
         horizontal_magnitude = np.sqrt(strafe**2 + forward**2)
         world_horizontal_magnitude = np.linalg.norm(world_movement[:2])
 
@@ -366,7 +366,7 @@ class Houston(Node):
 
         body_command = self.rotate_vector(q_inverse, world_movement)
 
-        # Publishing movement adjusted to IMU orientation
+        # Publishes movement adjusted to IMU orientation
         msg.linear.x = float(body_command[0])
         msg.linear.y = float(body_command[1])
         msg.linear.z = float(body_command[2])
