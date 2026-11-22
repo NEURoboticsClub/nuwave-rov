@@ -96,17 +96,17 @@ class CrabRecognitionNode(Node):
             self.latest_frames[camera_id] = frame
 
     def run_detection_once(self):
+        if not self.latest_frames:
+            self.get_logger().warning(
+                'No live frames received yet on camera topics; skipping detection trigger.')
+            return
+
         output_path = Path(self.output_path)
         if output_path.parent and str(output_path.parent) not in ('', '.'):
             output_path.parent.mkdir(parents=True, exist_ok=True)
 
         run_stamp = datetime.now().strftime('%Y%m%d_%H%M%S_%f')
         output_suffix = output_path.suffix or '.jpg'
-
-        if not self.latest_frames:
-            self.get_logger().warning(
-                'No live frames received yet on camera topics; skipping detection trigger.')
-            return
 
         total_count = 0
         for camera_id in sorted(self.latest_frames.keys()):
@@ -147,7 +147,7 @@ class CrabRecognitionNode(Node):
             cv2.putText(
                 img,
                 f'European Green Crabs: {green_count}',
-                (10, 220),
+                (10, min(220, img.shape[0] - 10)),
                 cv2.FONT_HERSHEY_COMPLEX,
                 0.7,
                 (0, 0, 0),
