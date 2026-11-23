@@ -69,7 +69,7 @@ class PWMNode(Node):
 
         if self.simulate:
             self.pwm = None
-            self.get_logger().warn('Sim mode: no hardware writes')
+            self.get_logger().warning('Sim mode: no hardware writes')
         else:
             try:
                 if pwm_hardware == 'hat':
@@ -299,12 +299,12 @@ class PWMNode(Node):
         """Signal to SPIN BABY SPIN."""
         mot = self.motors_lookup.get(topic)
         if mot is None:
-            self.get_logger().warn(f'Received command for unknown motor topic: {topic}')
+            self.get_logger().warning(f'Received command for unknown motor topic: {topic}')
             return
 
         cmd = float(msg.data)
         if not np.isfinite(cmd):
-            self.get_logger().warn(f'Ignoring non-finite command on {topic}: {cmd}')
+            self.get_logger().warning(f'Ignoring non-finite command on {topic}: {cmd}')
             return
 
         mot['target_us'] = max(
@@ -327,7 +327,7 @@ class PWMNode(Node):
                     mot['got_first_cmd'] and (now - mot['last_msg_time']) > self.watchdog_timeout)
                 if timed_out:
                     if not mot.get('watchdog_tripped', False):
-                        self.get_logger().warn(
+                        self.get_logger().warning(
                             f"Watchdog timeout on {mot.get('topic')}: no command received, "
                             'ramping to neutral.'
                         )

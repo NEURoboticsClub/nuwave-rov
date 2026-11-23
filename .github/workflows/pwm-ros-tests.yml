@@ -1,0 +1,32 @@
+name: PWM ROS tests
+on:
+  pull_request:
+    paths: ['src/thruster_pkg/**', 'src/nuwave_utils_pkg/**', '.github/workflows/pwm-ros-tests.yml']
+  push:
+    branches: [main]
+    paths: ['src/thruster_pkg/**', 'src/nuwave_utils_pkg/**', '.github/workflows/pwm-ros-tests.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  pwm-ros:
+    runs-on: ubuntu-22.04
+    container: ros:humble-ros-base
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install build and test dependencies
+        run: |
+          apt-get update
+          apt-get install -y python3-colcon-common-extensions python3-pytest python3-numpy python3-yaml
+      - name: Build and test ROS transport
+        shell: bash
+        env:
+          ROS_LOCALHOST_ONLY: '1'
+        run: |
+          source /opt/ros/humble/setup.bash
+          colcon build --packages-select nuwave_utils_pkg thruster_pkg
+          source install/setup.bash
+          python3 -c 'import rclpy'
+          colcon test --packages-select thruster_pkg --event-handlers console_direct+ --pytest-args test/test_pwm_node_ros.py test/test_pwm_scribe_hat.py -v
+          colcon test-result --verbose
