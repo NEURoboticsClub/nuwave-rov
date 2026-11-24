@@ -4,7 +4,7 @@ import importlib
 from pathlib import Path
 import sys
 from types import ModuleType
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 import pytest
 
@@ -77,3 +77,25 @@ def test_setup_rejects_other_frequencies(hat):
     with pytest.raises(ValueError):
         hat.setup(100)
     assert hat.board.bus.registers[0x40, 0xFE] == 121
+
+
+def test_failed_pulse_write_reaches_node_error_handler(hat, monkeypatch):
+    """Let PWMNode report failed commands and failed neutral writes on shutdown."""
+    def fail_write(*args):
+        raise OSError('I2C disconnected')
+
+    monkeypatch.setattr(hat.board.bus, 'write_byte_data', fail_write)
+    with pytest.raises(OSError, match='I2C disconnected'):
+        hat.set_pwm(2, 1530)
+
+
+def test_successful_write_after_failure_still_uses_calibrated_neutral(hat, monkeypatch):
+    """A failed write must not prevent a later channel from being stopped."""
+    with monkeypatch.context() as temporary:
+        temporary.setattr(hat.board, 'setServoPulse', Mock(side_effect=OSError()))
+        with pytest.raises(OSError):
+            hat.set_pwm(2, 1530)
+    hat.set_pwm(3, 1530)
+    registers = hat.board.bus.registers
+    base = 0x06 + 4 * 3
+    assert registers[0x40, base + 2] | (registers[0x40, base + 3] << 8) == 313
